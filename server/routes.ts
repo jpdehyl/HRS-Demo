@@ -35,21 +35,29 @@ export async function registerRoutes(
 ): Promise<Server> {
   app.use(express.urlencoded({ extended: true }));
 
-  const sessionStore = process.env.NODE_ENV === "production"
-    ? new PgSession({
-        pool: pool,
-        tableName: "session",
-        createTableIfMissing: true,
-      })
-    : new MemoryStoreSession({
-        checkPeriod: 86400000,
-      });
+  let sessionStore;
+  if (process.env.NODE_ENV === "production") {
+    console.log("Using PostgreSQL session store");
+    sessionStore = new PgSession({
+      pool: pool,
+      tableName: "session",
+      createTableIfMissing: true,
+      errorLog: (error: Error) => {
+        console.error("PgSession error:", error);
+      },
+    });
+  } else {
+    console.log("Using MemoryStore session store");
+    sessionStore = new MemoryStoreSession({
+      checkPeriod: 86400000,
+    });
+  }
 
   app.use(
     session({
       store: sessionStore,
       secret: process.env.SESSION_SECRET || "lead-intel-secret-key-change-in-prod",
-      resave: false,
+      resave: true,
       saveUninitialized: false,
       cookie: {
         secure: process.env.NODE_ENV === "production",
@@ -111,14 +119,8 @@ export async function registerRoutes(
       req.session.userId = user.id;
       req.session.userRole = user.role;
 
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-          return res.status(500).json({ message: "Registration failed - session error" });
-        }
-        const { password: _, ...userWithoutPassword } = user;
-        res.status(201).json({ user: userWithoutPassword });
-      });
+      const { password: _, ...userWithoutPassword } = user;
+      res.status(201).json({ user: userWithoutPassword });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
@@ -150,15 +152,8 @@ export async function registerRoutes(
       console.log("Login successful - Session ID:", req.sessionID);
       console.log("Login successful - User ID set:", user.id);
 
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-          return res.status(500).json({ message: "Login failed - session error" });
-        }
-        console.log("Session saved successfully");
-        const { password: _, ...userWithoutPassword } = user;
-        res.json({ user: userWithoutPassword });
-      });
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ user: userWithoutPassword });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
