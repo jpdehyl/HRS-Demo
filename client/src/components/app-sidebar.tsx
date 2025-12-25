@@ -31,7 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import logoPath from "@assets/logo_2_1766696356754.jpg";
+import logoPath from "@assets/logoab_1766696790372.png";
 
 const mainNavItems = [
   {
