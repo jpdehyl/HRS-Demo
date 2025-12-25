@@ -57,7 +57,7 @@ export async function registerRoutes(
     session({
       store: sessionStore,
       secret: process.env.SESSION_SECRET || "lead-intel-secret-key-change-in-prod",
-      resave: true,
+      resave: false,
       saveUninitialized: false,
       cookie: {
         secure: process.env.NODE_ENV === "production",

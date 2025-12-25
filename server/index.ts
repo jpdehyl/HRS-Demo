@@ -4,6 +4,12 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
+
+// Trust proxy for secure cookies behind Replit's reverse proxy
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 const httpServer = createServer(app);
 
 declare module "http" {
