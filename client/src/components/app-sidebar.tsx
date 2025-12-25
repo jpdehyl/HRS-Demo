@@ -106,7 +106,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <Link href="/dashboard">
-          <img src={logoPath} alt="Hawk Ridge Systems" className="h-8" />
+          <img src={logoPath} alt="Hawk Ridge Systems" className="h-16" />
         </Link>
       </SidebarHeader>
       
