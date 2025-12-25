@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
-import logoPath from "@assets/logo.svg";
+import logoPath from "@assets/logo1_1766695321240.jpg";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),

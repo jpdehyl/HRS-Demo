@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
-import logoPath from "@assets/logo.svg";
+import logoPath from "@assets/logo1_1766695321240.jpg";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
