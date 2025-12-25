@@ -8,6 +8,7 @@ import { storage } from "./storage";
 import { insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import { registerTwilioVoiceRoutes } from "./twilio-voice";
+import { registerTranscriptionRoutes, setupTranscriptionWebSocket } from "./transcription";
 
 declare module "express-session" {
   interface SessionData {
@@ -214,6 +215,8 @@ export async function registerRoutes(
   });
 
   registerTwilioVoiceRoutes(app);
+  registerTranscriptionRoutes(app);
+  setupTranscriptionWebSocket(httpServer);
 
   return httpServer;
 }

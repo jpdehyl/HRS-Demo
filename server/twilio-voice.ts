@@ -96,6 +96,20 @@ export function registerTwilioVoiceRoutes(app: Express): void {
       return res.send(twiml.toString());
     }
 
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.headers['x-forwarded-host'] || req.get('host');
+    const baseUrl = `${protocol}://${host}`;
+
+    const start = twiml.start();
+    (start as any).transcription({
+      name: `transcription-${CallSid}`,
+      track: "both_tracks",
+      partialResults: true,
+      languageCode: "en-US",
+      transcriptionCallback: `${baseUrl}/twilio/transcription`,
+      statusCallback: `${baseUrl}/twilio/transcription/status`,
+    } as any);
+
     const dial = twiml.dial({
       callerId: TWILIO_PHONE_NUMBER,
       record: "record-from-answer-dual",
