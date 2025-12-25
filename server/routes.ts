@@ -196,7 +196,17 @@ export async function registerRoutes(
     console.log("Auth/me request - Protocol:", req.protocol, "Secure:", req.secure);
     
     if (!req.session.userId) {
-      return res.json({ user: null });
+      return res.json({ 
+        user: null,
+        _debug: {
+          sessionId: req.sessionID?.substring(0, 8) + "...",
+          hasCookie: !!req.headers.cookie,
+          protocol: req.protocol,
+          secure: req.secure,
+          trustProxy: req.app.get("trust proxy"),
+          xForwardedProto: req.headers["x-forwarded-proto"],
+        }
+      });
     }
 
     try {
