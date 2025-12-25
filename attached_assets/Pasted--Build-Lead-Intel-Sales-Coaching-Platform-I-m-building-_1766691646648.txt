@@ -1,0 +1,71 @@
+# Build Lead Intel - Sales Coaching Platform
+
+I'm building a lead intelligence and sales coaching system for Hawk Ridge Systems. I've downloaded all the source files from a previous project and need to rebuild it with a clean, phased approach.
+
+## Project Overview
+
+**Lead Intel** is an AI-powered sales platform with:
+- Browser-based softphone (Twilio Voice) for live calls
+- Real-time AI coaching tips during calls (using Twilio's `<Transcription>` element)
+- Lead research with Gemini AI and web grounding
+- Google Sheets lead import
+- Call recordings saved to Google Drive
+- Role-based access (Admin, Manager, SDR, Account Specialist)
+
+## CRITICAL: Build Order (Follow Exactly)
+
+The previous build broke because **auth/login middleware interfered with Twilio webhooks**. We MUST build in this order:
+
+### Phase 1: Infrastructure
+1. Set up Express server with PostgreSQL database
+2. Create minimal database schema (leads, sdrs, managers, liveCoachingSessions, liveTranscripts, liveCoachingTips)
+3. Configure secrets
+
+### Phase 2: Twilio Softphone (TEST BEFORE PROCEEDING)
+1. Add Twilio token endpoint at `/api/twilio/token`
+2. Add voice webhook at `/api/twilio/voice` with:
+   - Dial with recording (`record: "record-from-answer-dual"`)
+   - Real-time transcription using `<Transcription>` element (we pay for this feature)
+3. Add transcription callback at `/api/twilio/transcription-events`
+4. Add session creation at `/api/twilio/create-session`
+5. Build softphone React component
+6. **STOP AND TEST: Make a real call, verify transcription works**
+
+### Phase 3: Lead Intel
+1. Add lead CRUD endpoints
+2. Add Google Sheets import
+3. Add AI research with Gemini (web grounding enabled)
+4. Add fit scoring
+
+### Phase 4: Recording Pipeline
+1. Add recording download from Twilio
+2. Upload to Google Drive
+3. Transcribe with Gemini (for stored recordings)
+
+### Phase 5: UI
+1. Landing page with 3D particle effects
+2. Dashboard
+3. Live coaching view
+
+### Phase 6: Auth (LAST!)
+1. Add users table with roles
+2. Build login/signup
+3. Protect routes - **CRITICAL: EXCLUDE `/api/twilio/*` from auth middleware**
+4. **TEST: Verify Twilio webhooks still work with auth enabled**
+
+## Files I Have Downloaded
+
+I have these files ready to copy:
+- `shared/schema.ts` - Database models (Drizzle)
+- `server/twilio/twilioVoice.ts` - Working Twilio implementation with transcription
+- `client/src/components/softphone.tsx` - Browser softphone
+- `server/google/driveClient.ts` - Google Drive API
+- `server/google/sheetsClient.ts` - Google Sheets import
+- `server/ai/leadResearch.ts` - Gemini research
+- `server/ai/transcribe.ts` - Audio transcription
+- `client/src/pages/landing.tsx` - 3D landing page
+- `client/src/index.css` - Tailwind theme
+- `design_guidelines.md` - Design tokens
+- `attached_assets/logo.svg` - Hawk Ridge logo
+
+## Secrets Needed
