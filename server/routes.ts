@@ -1,4 +1,5 @@
 import type { Express, Request, Response, NextFunction } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import MemoryStore from "memorystore";
@@ -6,6 +7,7 @@ import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { insertUserSchema } from "@shared/schema";
 import { z } from "zod";
+import { registerTwilioVoiceRoutes } from "./twilio-voice";
 
 declare module "express-session" {
   interface SessionData {
@@ -27,6 +29,10 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  app.use(express.urlencoded({ extended: true }));
+
+  registerTwilioVoiceRoutes(app);
+
   app.use(
     session({
       store: new MemoryStoreSession({

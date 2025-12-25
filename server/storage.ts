@@ -7,8 +7,10 @@ import {
   type LiveCoachingTip, type InsertLiveCoachingTip,
   type LiveTranscript, type InsertLiveTranscript,
   type ResearchPacket, type InsertResearchPacket,
+  type CallSession, type InsertCallSession,
   users, managers, sdrs, leads, 
-  liveCoachingSessions, liveCoachingTips, liveTranscripts, researchPackets
+  liveCoachingSessions, liveCoachingTips, liveTranscripts, researchPackets,
+  callSessions
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -44,6 +46,13 @@ export interface IStorage {
   getResearchPacketByLead(leadId: string): Promise<ResearchPacket | undefined>;
   createResearchPacket(packet: InsertResearchPacket): Promise<ResearchPacket>;
   updateResearchPacket(id: string, packet: Partial<InsertResearchPacket>): Promise<ResearchPacket | undefined>;
+  
+  getCallSession(id: string): Promise<CallSession | undefined>;
+  getCallSessionByCallSid(callSid: string): Promise<CallSession | undefined>;
+  getCallSessionsByUser(userId: string): Promise<CallSession[]>;
+  createCallSession(session: InsertCallSession): Promise<CallSession>;
+  updateCallSession(id: string, updates: Partial<InsertCallSession>): Promise<CallSession | undefined>;
+  updateCallSessionByCallSid(callSid: string, updates: Partial<InsertCallSession>): Promise<CallSession | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -158,6 +167,35 @@ export class DatabaseStorage implements IStorage {
   async updateResearchPacket(id: string, updates: Partial<InsertResearchPacket>): Promise<ResearchPacket | undefined> {
     const [packet] = await db.update(researchPackets).set(updates).where(eq(researchPackets.id, id)).returning();
     return packet;
+  }
+
+  async getCallSession(id: string): Promise<CallSession | undefined> {
+    const [session] = await db.select().from(callSessions).where(eq(callSessions.id, id));
+    return session;
+  }
+
+  async getCallSessionByCallSid(callSid: string): Promise<CallSession | undefined> {
+    const [session] = await db.select().from(callSessions).where(eq(callSessions.callSid, callSid));
+    return session;
+  }
+
+  async getCallSessionsByUser(userId: string): Promise<CallSession[]> {
+    return db.select().from(callSessions).where(eq(callSessions.userId, userId));
+  }
+
+  async createCallSession(insertSession: InsertCallSession): Promise<CallSession> {
+    const [session] = await db.insert(callSessions).values(insertSession).returning();
+    return session;
+  }
+
+  async updateCallSession(id: string, updates: Partial<InsertCallSession>): Promise<CallSession | undefined> {
+    const [session] = await db.update(callSessions).set(updates).where(eq(callSessions.id, id)).returning();
+    return session;
+  }
+
+  async updateCallSessionByCallSid(callSid: string, updates: Partial<InsertCallSession>): Promise<CallSession | undefined> {
+    const [session] = await db.update(callSessions).set(updates).where(eq(callSessions.callSid, callSid)).returning();
+    return session;
   }
 }
 

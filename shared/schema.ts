@@ -194,6 +194,31 @@ export const sessions = pgTable("sessions", {
   expire: timestamp("expire").notNull(),
 });
 
+// Twilio Call Sessions - Track browser-based calls
+export const callSessions = pgTable("call_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  callSid: text("call_sid").unique(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  leadId: varchar("lead_id").references(() => leads.id),
+  direction: text("direction").notNull(), // 'inbound' or 'outbound'
+  fromNumber: text("from_number").notNull(),
+  toNumber: text("to_number").notNull(),
+  status: text("status").notNull().default("initiated"), // initiated, ringing, in-progress, completed, failed, busy, no-answer
+  duration: integer("duration"),
+  recordingUrl: text("recording_url"),
+  transcriptText: text("transcript_text"),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
+});
+
+export const insertCallSessionSchema = createInsertSchema(callSessions).omit({
+  id: true,
+  startedAt: true,
+  endedAt: true,
+});
+export type InsertCallSession = z.infer<typeof insertCallSessionSchema>;
+export type CallSession = typeof callSessions.$inferSelect;
+
 // Relations
 export const usersRelations = relations(users, ({ one }) => ({
   sdr: one(sdrs, {
