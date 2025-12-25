@@ -33,6 +33,8 @@ import {
 import { useAuth } from "@/lib/auth";
 import logoPath from "@assets/logoab_1766696790372.png";
 
+import _1 from "@assets/1.png";
+
 const mainNavItems = [
   {
     title: "Dashboard",
@@ -106,10 +108,9 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <Link href="/dashboard">
-          <img src={logoPath} alt="Hawk Ridge Systems" className="h-16" />
+          <img src={_1} alt="Hawk Ridge Systems" className="h-16" />
         </Link>
       </SidebarHeader>
-      
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
@@ -155,7 +156,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
       <SidebarFooter className="border-t border-sidebar-border p-4">
         {user && (
           <DropdownMenu>
