@@ -165,14 +165,14 @@ export async function registerRoutes(
 
   app.get("/api/auth/me", async (req: Request, res: Response) => {
     if (!req.session.userId) {
-      return res.status(401).json({ message: "Not authenticated" });
+      return res.json({ user: null });
     }
 
     try {
       const user = await storage.getUser(req.session.userId);
       if (!user) {
         req.session.destroy(() => {});
-        return res.status(401).json({ message: "User not found" });
+        return res.json({ user: null });
       }
 
       const { password: _, ...userWithoutPassword } = user;
