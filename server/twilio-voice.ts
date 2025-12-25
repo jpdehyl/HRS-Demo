@@ -47,7 +47,12 @@ function validateTwilioWebhook(req: Request, res: Response, next: Function): voi
 
 export function registerTwilioVoiceRoutes(app: Express): void {
   app.post("/api/voice/token", async (req: Request, res: Response) => {
+    console.log("Voice token request - Session ID:", req.sessionID);
+    console.log("Voice token request - User ID in session:", req.session?.userId);
+    console.log("Voice token request - Session data:", JSON.stringify(req.session));
+    
     if (!req.session.userId) {
+      console.log("Voice token denied - No userId in session");
       return res.status(401).json({ message: "Authentication required" });
     }
 
