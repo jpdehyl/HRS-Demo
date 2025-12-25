@@ -96,9 +96,9 @@ export function registerTwilioVoiceRoutes(app: Express): void {
       return res.send(twiml.toString());
     }
 
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    const host = req.headers['x-forwarded-host'] || req.get('host');
-    const baseUrl = `${protocol}://${host}`;
+    const baseUrl = process.env.NODE_ENV === "production" 
+      ? "https://hawridgesales.replit.app" 
+      : `${req.headers['x-forwarded-proto'] || req.protocol}://${req.headers['x-forwarded-host'] || req.get('host')}`;
 
     const start = twiml.start();
     (start as any).transcription({
@@ -106,8 +106,8 @@ export function registerTwilioVoiceRoutes(app: Express): void {
       track: "both_tracks",
       partialResults: true,
       languageCode: "en-US",
-      webhookUrl: `${baseUrl}/twilio/transcription`,
-      statusCallbackUrl: `${baseUrl}/twilio/transcription/status`,
+      transcriptionCallback: `${baseUrl}/twilio/transcription`,
+      statusCallback: `${baseUrl}/twilio/transcription/status`,
     } as any);
 
     const dial = twiml.dial({
