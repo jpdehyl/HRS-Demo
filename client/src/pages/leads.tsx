@@ -73,7 +73,14 @@ export default function LeadsPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sortField, setSortField] = useState<SortField>("score");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [hideGenericEmails, setHideGenericEmails] = useState(false);
   const { toast } = useToast();
+
+  const genericDomains = ["gmail.com", "hotmail.com", "live.com", "outlook.com", "yahoo.com", "aol.com", "icloud.com", "mail.com", "protonmail.com", "zoho.com"];
+  const isGenericEmail = (email: string) => {
+    const domain = email.split("@")[1]?.toLowerCase();
+    return genericDomains.includes(domain);
+  };
   const [, navigate] = useLocation();
 
   const { data: leads = [], isLoading } = useQuery<LeadWithResearch[]>({
@@ -119,11 +126,14 @@ export default function LeadsPage() {
   }, [leads, selectedLead?.id]);
 
   const filteredLeads = leads
-    .filter(lead => 
-      lead.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.contactEmail.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    .filter(lead => {
+      if (hideGenericEmails && isGenericEmail(lead.contactEmail)) {
+        return false;
+      }
+      return lead.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.contactEmail.toLowerCase().includes(searchQuery.toLowerCase());
+    })
     .sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
@@ -270,6 +280,16 @@ export default function LeadsPage() {
                   data-testid="button-toggle-sort-direction"
                 >
                   {sortDirection === "desc" ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
+                </Button>
+                <Button
+                  size="icon"
+                  variant={hideGenericEmails ? "default" : "ghost"}
+                  onClick={() => setHideGenericEmails(h => !h)}
+                  aria-label={hideGenericEmails ? "Show all emails" : "Hide generic emails"}
+                  title="Hide Gmail, Hotmail, Yahoo, etc."
+                  data-testid="button-toggle-generic-emails"
+                >
+                  <Mail className="h-4 w-4" />
                 </Button>
               </div>
               
