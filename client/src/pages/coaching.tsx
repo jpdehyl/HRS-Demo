@@ -1,11 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Softphone } from "@/components/softphone";
 import { useTranscription } from "@/hooks/use-transcription";
 import { useAuth } from "@/lib/auth";
-import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play } from "lucide-react";
+import type { CallSession } from "@shared/schema";
 
 export default function CoachingPage() {
   const { user } = useAuth();
@@ -13,7 +18,14 @@ export default function CoachingPage() {
   const [currentPhoneNumber, setCurrentPhoneNumber] = useState<string | null>(null);
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
   const [talkTime, setTalkTime] = useState("0:00");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [selectedCall, setSelectedCall] = useState<CallSession | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: callHistory = [], isLoading: historyLoading } = useQuery<CallSession[]>({
+    queryKey: ["/api/call-sessions"],
+    enabled: historyOpen,
+  });
 
   const {
     transcripts,
@@ -87,8 +99,64 @@ export default function CoachingPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-4">
           <Softphone onCallStart={handleCallStart} onCallEnd={handleCallEnd} isAuthenticated={!!user} />
+          
+          <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="w-full justify-between"
+                data-testid="button-toggle-history"
+              >
+                <span className="flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Call History
+                </span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${historyOpen ? "rotate-180" : ""}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <Card>
+                <CardContent className="pt-4">
+                  <ScrollArea className="h-[200px]">
+                    {historyLoading ? (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        Loading...
+                      </div>
+                    ) : callHistory.length === 0 ? (
+                      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                        No calls yet
+                      </div>
+                    ) : (
+                      <div className="space-y-2 pr-2">
+                        {callHistory.slice(0, 10).map((call) => (
+                          <div
+                            key={call.id}
+                            className="p-2 rounded-md bg-muted/50 hover-elevate cursor-pointer"
+                            onClick={() => setSelectedCall(call)}
+                            data-testid={`call-history-item-${call.id}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-medium truncate">
+                                {call.toNumber || call.fromNumber || "Unknown"}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {call.status}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {call.startedAt ? new Date(call.startedAt).toLocaleDateString() : ""}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
 
         <div className="lg:col-span-2 space-y-6">
@@ -280,6 +348,57 @@ export default function CoachingPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!selectedCall} onOpenChange={() => setSelectedCall(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Phone className="h-5 w-5" />
+              Call Details
+            </DialogTitle>
+            <DialogDescription>
+              {selectedCall?.toNumber || selectedCall?.fromNumber || "Unknown"} - {selectedCall?.startedAt ? new Date(selectedCall.startedAt).toLocaleString() : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <Badge variant={selectedCall?.status === "completed" ? "secondary" : "outline"}>
+                {selectedCall?.status}
+              </Badge>
+              {selectedCall?.recordingUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(selectedCall.recordingUrl!, "_blank")}
+                  data-testid="button-play-recording"
+                >
+                  <Play className="h-4 w-4 mr-1" />
+                  Play Recording
+                </Button>
+              )}
+            </div>
+            
+            {selectedCall?.transcriptText ? (
+              <div>
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Transcript
+                </h4>
+                <ScrollArea className="h-[300px] border rounded-md p-3">
+                  <div className="space-y-2 text-sm whitespace-pre-wrap">
+                    {selectedCall.transcriptText}
+                  </div>
+                </ScrollArea>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No transcript available</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

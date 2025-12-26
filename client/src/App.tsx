@@ -15,7 +15,6 @@ import LoginPage from "@/pages/login";
 import SignupPage from "@/pages/signup";
 import DashboardPage from "@/pages/dashboard";
 import CoachingPage from "@/pages/coaching";
-import CallHistoryPage from "@/pages/call-history";
 
 function LoadingScreen() {
   return (
@@ -162,14 +161,6 @@ function Router() {
         <ProtectedRoute>
           <DashboardLayout>
             <CoachingPage />
-          </DashboardLayout>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/call-history">
-        <ProtectedRoute>
-          <DashboardLayout>
-            <CallHistoryPage />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>
