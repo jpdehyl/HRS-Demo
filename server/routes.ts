@@ -12,6 +12,7 @@ import { z } from "zod";
 import { registerTwilioVoiceRoutes } from "./twilio-voice";
 import { registerTranscriptionRoutes, setupTranscriptionWebSocket } from "./transcription";
 import { registerLeadsRoutes } from "./leads-routes";
+import { registerCoachRoutes } from "./coach-routes";
 
 declare module "express-session" {
   interface SessionData {
@@ -229,6 +230,7 @@ export async function registerRoutes(
   });
 
   registerLeadsRoutes(app, requireAuth);
+  registerCoachRoutes(app, requireAuth);
   registerTwilioVoiceRoutes(app);
   registerTranscriptionRoutes(app);
   setupTranscriptionWebSocket(httpServer);

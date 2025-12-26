@@ -8,9 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Softphone } from "@/components/softphone";
 import { useTranscription } from "@/hooks/use-transcription";
 import { useAuth } from "@/lib/auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch } from "wouter";
-import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle } from "lucide-react";
+import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2 } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { CallSession, Lead, ResearchPacket } from "@shared/schema";
 
 export default function CoachingPage() {
@@ -81,6 +83,26 @@ export default function CoachingPage() {
     setCurrentCallSid(null);
     setCallStartTime(null);
   };
+
+  const { toast } = useToast();
+  const [analysisResult, setAnalysisResult] = useState<{ managerSummary: string[]; coachingMessage: string } | null>(null);
+
+  const analyzeMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const res = await apiRequest("POST", `/api/coach/analyze/${sessionId}`, {
+        sdrFirstName: user?.name?.split(" ")[0] || "there",
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setAnalysisResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/call-sessions"] });
+      toast({ title: "Analysis complete", description: "Your call has been analyzed by the AI coach" });
+    },
+    onError: () => {
+      toast({ title: "Analysis failed", description: "Could not analyze this call", variant: "destructive" });
+    },
+  });
 
   return (
     <div className="p-6 space-y-6">
@@ -428,7 +450,12 @@ export default function CoachingPage() {
         </div>
       </div>
 
-      <Dialog open={!!selectedCall} onOpenChange={() => setSelectedCall(null)}>
+      <Dialog open={!!selectedCall} onOpenChange={(open) => { 
+        if (!open) {
+          setSelectedCall(null);
+          setAnalysisResult(null);
+        }
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -440,7 +467,7 @@ export default function CoachingPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <Badge variant={selectedCall?.status === "completed" ? "secondary" : "outline"}>
                 {selectedCall?.status}
               </Badge>
@@ -455,7 +482,90 @@ export default function CoachingPage() {
                   Play Recording
                 </Button>
               )}
+              {selectedCall?.status === "completed" && selectedCall?.transcriptText && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => selectedCall.id && analyzeMutation.mutate(selectedCall.id)}
+                  disabled={analyzeMutation.isPending}
+                  data-testid="button-analyze-call"
+                >
+                  {analyzeMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 mr-1" />
+                  )}
+                  Analyze Call
+                </Button>
+              )}
             </div>
+
+            {analysisResult && (
+              <div className="space-y-3">
+                <div className="p-4 bg-primary/5 rounded-md border border-primary/20">
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-primary">
+                    <Sparkles className="h-4 w-4" />
+                    Manager Summary
+                  </h4>
+                  <ul className="space-y-1 text-sm list-disc list-inside">
+                    {analysisResult.managerSummary.map((item, i) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-900">
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-blue-900 dark:text-blue-100">
+                    <Lightbulb className="h-4 w-4" />
+                    Personalized Coaching
+                  </h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 whitespace-pre-wrap">
+                    {analysisResult.coachingMessage}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {(selectedCall?.managerSummary || selectedCall?.coachingNotes) && !analysisResult && (
+              <div className="space-y-3">
+                {selectedCall.managerSummary && (
+                  <div className="p-4 bg-primary/5 rounded-md border border-primary/20">
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-primary">
+                      <Sparkles className="h-4 w-4" />
+                      Manager Summary
+                    </h4>
+                    {(() => {
+                      try {
+                        const parsed = JSON.parse(selectedCall.managerSummary);
+                        if (Array.isArray(parsed)) {
+                          return (
+                            <ul className="space-y-1 text-sm list-disc list-inside">
+                              {parsed.map((item: string, i: number) => (
+                                <li key={i}>{item}</li>
+                              ))}
+                            </ul>
+                          );
+                        }
+                        return <p className="text-sm whitespace-pre-wrap">{selectedCall.managerSummary}</p>;
+                      } catch {
+                        return <p className="text-sm whitespace-pre-wrap">{selectedCall.managerSummary}</p>;
+                      }
+                    })()}
+                  </div>
+                )}
+                {selectedCall.coachingNotes && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-900">
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-blue-900 dark:text-blue-100">
+                      <Lightbulb className="h-4 w-4" />
+                      Coaching Notes
+                    </h4>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 whitespace-pre-wrap">
+                      {selectedCall.coachingNotes}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
             
             {selectedCall?.transcriptText ? (
               <div>
@@ -463,7 +573,7 @@ export default function CoachingPage() {
                   <FileText className="h-4 w-4" />
                   Transcript
                 </h4>
-                <ScrollArea className="h-[300px] border rounded-md p-3">
+                <ScrollArea className="h-[200px] border rounded-md p-3">
                   <div className="space-y-2 text-sm whitespace-pre-wrap">
                     {selectedCall.transcriptText}
                   </div>

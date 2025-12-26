@@ -3,6 +3,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
 import { GoogleGenAI } from "@google/genai";
 import { storage } from "./storage";
+import { getKnowledgebaseContent } from "./google/driveClient";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
@@ -72,12 +73,29 @@ export function broadcastToUser(userId: string, message: object): void {
   }
 }
 
+async function getKnowledgeBase(): Promise<string> {
+  try {
+    return await getKnowledgebaseContent();
+  } catch (error) {
+    console.error("Failed to fetch knowledge base:", error);
+    return "";
+  }
+}
+
 async function generateCoachingTip(transcript: string, sessionId: string): Promise<string | null> {
   try {
-    const prompt = `You are an expert sales coach analyzing a live sales call. Based on the following transcript, provide ONE brief, actionable coaching tip for the sales representative. Keep it under 50 words and make it immediately actionable.
+    const knowledgeBase = await getKnowledgeBase();
+    
+    const prompt = `You are an expert sales coach for Hawk Ridge Systems analyzing a live sales call. Based on the transcript and company guidelines, provide ONE brief, actionable coaching tip. Keep it under 50 words and make it immediately actionable.
 
-Transcript:
+${knowledgeBase ? `## Company Sales Guidelines:\n${knowledgeBase.slice(0, 2000)}\n\n` : ""}## Live Call Transcript:
 ${transcript}
+
+## Instructions:
+- Focus on what the SDR should do RIGHT NOW or in the next few seconds
+- Be specific and actionable (e.g., "Ask about their current CAD workflow" not "Ask more questions")
+- Reference Hawk Ridge products (SOLIDWORKS, CAMWorks, 3D printing, PDM) when relevant
+- Keep it encouraging but direct
 
 Provide only the coaching tip, no preamble.`;
 

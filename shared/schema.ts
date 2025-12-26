@@ -214,6 +214,8 @@ export const callSessions = pgTable("call_sessions", {
   duration: integer("duration"),
   recordingUrl: text("recording_url"),
   transcriptText: text("transcript_text"),
+  coachingNotes: text("coaching_notes"),
+  managerSummary: text("manager_summary"),
   startedAt: timestamp("started_at").defaultNow().notNull(),
   endedAt: timestamp("ended_at"),
 });
