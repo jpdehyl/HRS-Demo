@@ -30,6 +30,7 @@ import {
   Snowflake,
   RefreshCw,
   ChevronRight,
+  ChevronLeft,
   Briefcase,
   MapPin,
   Users,
@@ -37,8 +38,20 @@ import {
   Award,
   HelpCircle,
   Sparkles,
-  Database
+  Database,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  BarChart3,
+  ListFilter
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SiLinkedin, SiX } from "react-icons/si";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -50,16 +63,31 @@ interface LeadWithResearch extends Lead {
   researchStatus: string | null;
 }
 
+type SortField = "score" | "name" | "company";
+type SortDirection = "asc" | "desc";
+
 export default function LeadsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLead, setSelectedLead] = useState<LeadWithResearch | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("score");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
   const { data: leads = [], isLoading } = useQuery<LeadWithResearch[]>({
     queryKey: ["/api/leads"],
   });
+
+  const researchedLeads = leads.filter(l => l.hasResearch);
+  const avgScore = researchedLeads.length > 0 
+    ? Math.round(researchedLeads.reduce((sum, l) => sum + (l.fitScore || 0), 0) / researchedLeads.length)
+    : 0;
+  const hotLeads = leads
+    .filter(l => l.hasResearch && l.fitScore && l.fitScore >= 70)
+    .sort((a, b) => (b.fitScore || 0) - (a.fitScore || 0))
+    .slice(0, 5);
 
   const { data: leadDetail, isLoading: detailLoading } = useQuery<{ lead: Lead; researchPacket: ResearchPacket | null }>({
     queryKey: ["/api/leads", selectedLead?.id],
@@ -90,11 +118,27 @@ export default function LeadsPage() {
     }
   }, [leads, selectedLead?.id]);
 
-  const filteredLeads = leads.filter(lead => 
-    lead.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lead.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lead.contactEmail.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredLeads = leads
+    .filter(lead => 
+      lead.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lead.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lead.contactEmail.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case "score":
+          comparison = (a.fitScore || 0) - (b.fitScore || 0);
+          break;
+        case "name":
+          comparison = a.contactName.localeCompare(b.contactName);
+          break;
+        case "company":
+          comparison = a.companyName.localeCompare(b.companyName);
+          break;
+      }
+      return sortDirection === "desc" ? -comparison : comparison;
+    });
 
   const handleCallLead = (lead: LeadWithResearch) => {
     navigate(`/coaching?phone=${encodeURIComponent(lead.contactPhone || "")}&leadId=${lead.id}`);
@@ -121,42 +165,138 @@ export default function LeadsPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-80 border-r flex flex-col bg-muted/30">
-          <div className="p-3 border-b">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search leads..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 bg-background"
-                data-testid="input-search-leads"
-              />
+        <div className={`border-r flex flex-col bg-muted/30 transition-all duration-200 ${sidebarCollapsed ? "w-12" : "w-80"}`}>
+          {sidebarCollapsed ? (
+            <div className="flex flex-col items-center py-3">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setSidebarCollapsed(false)}
+                aria-label="Expand sidebar"
+                data-testid="button-expand-sidebar"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <div className="mt-4 text-xs font-mono text-muted-foreground writing-mode-vertical transform rotate-180" style={{ writingMode: "vertical-rl" }}>
+                {leads.length} leads
+              </div>
             </div>
-          </div>
-          
-          <ScrollArea className="flex-1">
-            <div className="p-2 space-y-1">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : (
+            <>
+              <div className="p-3 border-b">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Stats</span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setSidebarCollapsed(true)}
+                    aria-label="Collapse sidebar"
+                    data-testid="button-collapse-sidebar"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
                 </div>
-              ) : filteredLeads.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  No leads found
+                
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div className="bg-background rounded-md p-2 border">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                      <Database className="h-3 w-3" />
+                      Researched
+                    </div>
+                    <div className="text-lg font-bold">{researchedLeads.length}<span className="text-xs text-muted-foreground font-normal">/{leads.length}</span></div>
+                  </div>
+                  <div className="bg-background rounded-md p-2 border">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                      <BarChart3 className="h-3 w-3" />
+                      Avg Score
+                    </div>
+                    <div className={`text-lg font-bold font-mono ${avgScore >= 70 ? "text-green-600 dark:text-green-400" : avgScore >= 40 ? "text-yellow-600 dark:text-yellow-400" : "text-muted-foreground"}`}>
+                      {researchedLeads.length > 0 ? avgScore : "-"}
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                filteredLeads.map((lead) => (
-                  <LeadListItem
-                    key={lead.id}
-                    lead={lead}
-                    isSelected={selectedLead?.id === lead.id}
-                    onClick={() => setSelectedLead(lead)}
+
+                {hotLeads.length > 0 && (
+                  <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 rounded-md p-2 border border-red-500/20 mb-3">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 mb-2">
+                      <Flame className="h-3 w-3" />
+                      Hot Leads - Call Next
+                    </div>
+                    <div className="space-y-1">
+                      {hotLeads.map(lead => (
+                        <button
+                          key={lead.id}
+                          onClick={() => setSelectedLead(lead)}
+                          className={`w-full text-left px-2 py-1 rounded text-xs hover-elevate flex items-center justify-between gap-2 ${selectedLead?.id === lead.id ? "bg-red-500/20" : ""}`}
+                          data-testid={`button-hot-lead-${lead.id}`}
+                        >
+                          <span className="truncate">{lead.contactName}</span>
+                          <span className="font-mono font-bold text-green-600 dark:text-green-400">{lead.fitScore}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search leads..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-9 bg-background"
+                    data-testid="input-search-leads"
                   />
-                ))
-              )}
-            </div>
-          </ScrollArea>
+                </div>
+              </div>
+
+              <div className="p-2 border-b flex items-center gap-2">
+                <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
+                  <SelectTrigger className="h-8 text-xs flex-1" data-testid="select-sort-field">
+                    <ListFilter className="h-3 w-3 mr-1" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="score">Score</SelectItem>
+                    <SelectItem value="name">Name</SelectItem>
+                    <SelectItem value="company">Company</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setSortDirection(d => d === "asc" ? "desc" : "asc")}
+                  aria-label={sortDirection === "desc" ? "Sort ascending" : "Sort descending"}
+                  data-testid="button-toggle-sort-direction"
+                >
+                  {sortDirection === "desc" ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
+                </Button>
+              </div>
+              
+              <ScrollArea className="flex-1">
+                <div className="p-2 space-y-1">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : filteredLeads.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      No leads found
+                    </div>
+                  ) : (
+                    filteredLeads.map((lead) => (
+                      <LeadListItem
+                        key={lead.id}
+                        lead={lead}
+                        isSelected={selectedLead?.id === lead.id}
+                        onClick={() => setSelectedLead(lead)}
+                      />
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          )}
         </div>
 
         <div className="flex-1 overflow-auto bg-background">
