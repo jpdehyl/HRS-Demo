@@ -1,12 +1,15 @@
 import type { Express, Request, Response } from "express";
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { storage } from "./storage";
 
-const genAI = new GoogleGenerativeAI(process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }, {
-  baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+const ai = new GoogleGenAI({
+  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+  httpOptions: {
+    apiVersion: "",
+    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+  },
 });
 
 const activeConnections = new Map<string, Set<WebSocket>>();
@@ -78,9 +81,16 @@ ${transcript}
 
 Provide only the coaching tip, no preamble.`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const tip = response.text()?.trim();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    const candidate = response.candidates?.[0];
+    const textPart = candidate?.content?.parts?.find(
+      (part: { text?: string }) => part.text
+    );
+    const tip = textPart?.text?.trim();
     
     if (tip && sessionId) {
       await storage.createLiveCoachingTip({

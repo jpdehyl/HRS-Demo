@@ -7,7 +7,8 @@ import {
   BarChart3, 
   Settings, 
   LogOut,
-  ChevronDown
+  ChevronDown,
+  History
 } from "lucide-react";
 import {
   Sidebar,
@@ -52,6 +53,12 @@ const mainNavItems = [
     title: "Live Coaching",
     url: "/coaching",
     icon: Phone,
+    allowedRoles: ["admin", "manager", "sdr", "account_specialist"],
+  },
+  {
+    title: "Call History",
+    url: "/call-history",
+    icon: History,
     allowedRoles: ["admin", "manager", "sdr", "account_specialist"],
   },
   {
