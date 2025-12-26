@@ -13,7 +13,7 @@ import {
   callSessions
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull, desc } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -50,6 +50,7 @@ export interface IStorage {
   getCallSession(id: string): Promise<CallSession | undefined>;
   getCallSessionByCallSid(callSid: string): Promise<CallSession | undefined>;
   getCallSessionsByUser(userId: string): Promise<CallSession[]>;
+  getRecentInitiatedCallSession(toNumber: string): Promise<CallSession | undefined>;
   createCallSession(session: InsertCallSession): Promise<CallSession>;
   updateCallSession(id: string, updates: Partial<InsertCallSession>): Promise<CallSession | undefined>;
   updateCallSessionByCallSid(callSid: string, updates: Partial<InsertCallSession>): Promise<CallSession | undefined>;
@@ -181,6 +182,21 @@ export class DatabaseStorage implements IStorage {
 
   async getCallSessionsByUser(userId: string): Promise<CallSession[]> {
     return db.select().from(callSessions).where(eq(callSessions.userId, userId));
+  }
+
+  async getRecentInitiatedCallSession(toNumber: string): Promise<CallSession | undefined> {
+    const [session] = await db.select()
+      .from(callSessions)
+      .where(
+        and(
+          eq(callSessions.toNumber, toNumber),
+          eq(callSessions.status, "initiated"),
+          isNull(callSessions.callSid)
+        )
+      )
+      .orderBy(desc(callSessions.startedAt))
+      .limit(1);
+    return session;
   }
 
   async createCallSession(insertSession: InsertCallSession): Promise<CallSession> {

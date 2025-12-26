@@ -97,6 +97,20 @@ export function registerTwilioVoiceRoutes(app: Express): void {
       return res.send(twiml.toString());
     }
 
+    // Link the CallSid to the most recent initiated call session for this phone number
+    try {
+      const recentSession = await storage.getRecentInitiatedCallSession(To);
+      if (recentSession) {
+        await storage.updateCallSession(recentSession.id, { 
+          callSid: CallSid,
+          status: "ringing"
+        });
+        console.log("Linked CallSid", CallSid, "to session", recentSession.id);
+      }
+    } catch (error) {
+      console.error("Error linking CallSid to session:", error);
+    }
+
     const baseUrl = process.env.NODE_ENV === "production" 
       ? "https://hawridgesales.replit.app" 
       : `${req.headers['x-forwarded-proto'] || req.protocol}://${req.headers['x-forwarded-host'] || req.get('host')}`;
