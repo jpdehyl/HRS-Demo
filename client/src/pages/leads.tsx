@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,15 +63,26 @@ export default function LeadsPage() {
       const res = await apiRequest("POST", `/api/leads/${leadId}/research`);
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/leads", selectedLead?.id] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads", selectedLead?.id] });
       toast({ title: "Research complete", description: "Lead dossier has been generated" });
     },
     onError: () => {
       toast({ title: "Research failed", description: "Could not generate research for this lead", variant: "destructive" });
     },
   });
+
+  useEffect(() => {
+    if (selectedLead && leads.length > 0) {
+      const updatedLead = leads.find(l => l.id === selectedLead.id);
+      if (updatedLead && (updatedLead.hasResearch !== selectedLead.hasResearch || 
+          updatedLead.contactLinkedIn !== selectedLead.contactLinkedIn ||
+          updatedLead.contactPhone !== selectedLead.contactPhone)) {
+        setSelectedLead(updatedLead);
+      }
+    }
+  }, [leads, selectedLead]);
 
   const filteredLeads = leads.filter(lead => 
     lead.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -252,6 +263,21 @@ export default function LeadsPage() {
                       <span className="text-muted-foreground">Phone:</span>
                       <p className="font-medium">{selectedLead.contactPhone || "Not provided"}</p>
                     </div>
+                    {selectedLead.contactLinkedIn && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">LinkedIn:</span>
+                        <a 
+                          href={selectedLead.contactLinkedIn.startsWith("http") ? selectedLead.contactLinkedIn : `https://${selectedLead.contactLinkedIn}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-primary hover:underline ml-2 flex items-center gap-1 inline-flex"
+                        >
+                          <Link2 className="h-3 w-3" />
+                          View Profile
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    )}
                     {selectedLead.companyWebsite && (
                       <div className="col-span-2">
                         <span className="text-muted-foreground">Website:</span>
@@ -259,16 +285,28 @@ export default function LeadsPage() {
                           href={selectedLead.companyWebsite.startsWith("http") ? selectedLead.companyWebsite : `https://${selectedLead.companyWebsite}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium text-primary hover:underline ml-2"
+                          className="font-medium text-primary hover:underline ml-2 inline-flex items-center gap-1"
                         >
                           {selectedLead.companyWebsite}
+                          <ExternalLink className="h-3 w-3" />
                         </a>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {!selectedLead.hasResearch ? (
+                {detailLoading && !leadDetail ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : leadDetail?.researchPacket ? (
+                  <IntelligenceDossier 
+                    packet={leadDetail.researchPacket} 
+                    lead={selectedLead}
+                    onRefresh={() => researchMutation.mutate(selectedLead.id)}
+                    isRefreshing={researchMutation.isPending}
+                  />
+                ) : (
                   <div className="text-center py-8 border rounded-md border-dashed">
                     <FileSearch className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
                     <p className="font-medium mb-1">No Intelligence Dossier</p>
@@ -292,21 +330,6 @@ export default function LeadsPage() {
                         </>
                       )}
                     </Button>
-                  </div>
-                ) : detailLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : leadDetail?.researchPacket ? (
-                  <IntelligenceDossier 
-                    packet={leadDetail.researchPacket} 
-                    lead={selectedLead}
-                    onRefresh={() => researchMutation.mutate(selectedLead.id)}
-                    isRefreshing={researchMutation.isPending}
-                  />
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>Loading research data...</p>
                   </div>
                 )}
               </CardContent>

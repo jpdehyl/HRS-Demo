@@ -49,6 +49,10 @@ export interface LeadDossier {
   discoveryQuestions: string;
   objectionHandles: string;
   sources: string;
+  linkedInUrl?: string;
+  phoneNumber?: string;
+  jobTitle?: string;
+  companyWebsite?: string;
 }
 
 export async function generateLeadDossier(lead: Lead): Promise<LeadDossier> {
@@ -89,7 +93,15 @@ Return a JSON object with these exact keys (each value should be a detailed stri
   
   "discoveryQuestions": "5-7 strategic questions to uncover needs, budget, timeline, and decision process. Start broad, then get specific.",
   
-  "objectionHandles": "Top 3 likely objections (price, timing, competition, change resistance) with specific response strategies."
+  "objectionHandles": "Top 3 likely objections (price, timing, competition, change resistance) with specific response strategies.",
+  
+  "linkedInUrl": "The contact's LinkedIn profile URL if found (e.g., https://linkedin.com/in/username). Return null if not found.",
+  
+  "phoneNumber": "The contact's phone number if found. Return null if not found.",
+  
+  "jobTitle": "The contact's current job title if discovered. Return null if not found.",
+  
+  "companyWebsite": "The company's website URL if found. Return null if not found."
 }
 
 Be thorough but concise. Focus on actionable intelligence that helps close the sale.`;
@@ -151,7 +163,17 @@ export function dossierToResearchPacket(leadId: string, dossier: LeadDossier): I
   };
 }
 
-export async function researchLead(lead: Lead): Promise<InsertResearchPacket> {
+export interface ResearchResult {
+  packet: InsertResearchPacket;
+  discoveredInfo: {
+    linkedInUrl?: string;
+    phoneNumber?: string;
+    jobTitle?: string;
+    companyWebsite?: string;
+  };
+}
+
+export async function researchLead(lead: Lead): Promise<ResearchResult> {
   console.log(`[LeadResearch] Starting research for ${lead.contactName} at ${lead.companyName}`);
   
   const dossier = await generateLeadDossier(lead);
@@ -159,5 +181,13 @@ export async function researchLead(lead: Lead): Promise<InsertResearchPacket> {
   
   console.log(`[LeadResearch] Completed research for ${lead.contactName}`);
   
-  return packet;
+  return {
+    packet,
+    discoveredInfo: {
+      linkedInUrl: dossier.linkedInUrl && dossier.linkedInUrl !== "null" ? dossier.linkedInUrl : undefined,
+      phoneNumber: dossier.phoneNumber && dossier.phoneNumber !== "null" ? dossier.phoneNumber : undefined,
+      jobTitle: dossier.jobTitle && dossier.jobTitle !== "null" ? dossier.jobTitle : undefined,
+      companyWebsite: dossier.companyWebsite && dossier.companyWebsite !== "null" ? dossier.companyWebsite : undefined,
+    }
+  };
 }

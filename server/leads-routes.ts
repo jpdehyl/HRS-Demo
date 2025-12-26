@@ -184,13 +184,33 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
         });
       }
       
-      const researchData = await researchLead(lead);
+      const researchResult = await researchLead(lead);
       
       let researchPacket;
       if (existingPacket) {
-        researchPacket = await storage.updateResearchPacket(existingPacket.id, researchData);
+        researchPacket = await storage.updateResearchPacket(existingPacket.id, researchResult.packet);
       } else {
-        researchPacket = await storage.createResearchPacket(researchData);
+        researchPacket = await storage.createResearchPacket(researchResult.packet);
+      }
+      
+      const { discoveredInfo } = researchResult;
+      const updateData: Record<string, string> = {};
+      if (discoveredInfo.linkedInUrl && !lead.contactLinkedIn) {
+        updateData.contactLinkedIn = discoveredInfo.linkedInUrl;
+      }
+      if (discoveredInfo.phoneNumber && !lead.contactPhone) {
+        updateData.contactPhone = discoveredInfo.phoneNumber;
+      }
+      if (discoveredInfo.jobTitle && !lead.contactTitle) {
+        updateData.contactTitle = discoveredInfo.jobTitle;
+      }
+      if (discoveredInfo.companyWebsite && !lead.companyWebsite) {
+        updateData.companyWebsite = discoveredInfo.companyWebsite;
+      }
+      
+      if (Object.keys(updateData).length > 0) {
+        await storage.updateLead(lead.id, updateData);
+        console.log(`[LeadResearch] Updated lead ${lead.id} with discovered info:`, Object.keys(updateData));
       }
       
       res.json({ 
