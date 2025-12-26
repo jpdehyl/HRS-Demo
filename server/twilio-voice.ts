@@ -14,9 +14,36 @@ const TWILIO_TWIML_APP_SID = process.env.TWILIO_TWIML_APP_SID!;
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER!;
 
 function validateTwilioWebhook(req: Request, res: Response, next: Function): void {
-  // Temporarily skip validation for debugging
-  console.log("Twilio webhook received:", req.originalUrl, req.body);
-  return next();
+  // Skip validation in development mode
+  if (process.env.NODE_ENV === "development") {
+    return next();
+  }
+
+  const twilioSignature = req.headers['x-twilio-signature'] as string;
+  if (!twilioSignature) {
+    console.error("Missing Twilio signature");
+    res.status(403).send("Forbidden");
+    return;
+  }
+
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.headers['x-forwarded-host'] || req.get('host');
+  const url = `${protocol}://${host}${req.originalUrl}`;
+  
+  const isValid = twilio.validateRequest(
+    TWILIO_AUTH_TOKEN,
+    twilioSignature,
+    url,
+    req.body
+  );
+
+  if (!isValid) {
+    console.error("Invalid Twilio signature for URL:", url);
+    res.status(403).send("Forbidden");
+    return;
+  }
+
+  next();
 }
 
 export function registerTwilioVoiceRoutes(app: Express): void {
@@ -59,12 +86,7 @@ export function registerTwilioVoiceRoutes(app: Express): void {
   });
 
   app.post("/twilio/voice/outbound", validateTwilioWebhook, async (req: Request, res: Response) => {
-    console.log("=== OUTBOUND WEBHOOK ===");
-    console.log("Body:", JSON.stringify(req.body, null, 2));
-    console.log("To:", req.body.To);
-    console.log("From:", req.body.From);
-    console.log("CallSid:", req.body.CallSid);
-    console.log("TWILIO_PHONE_NUMBER:", TWILIO_PHONE_NUMBER);
+    console.log("Outbound webhook received:", req.body.CallSid, "To:", req.body.To);
     
     const twiml = new VoiceResponse();
     const { To, From, CallSid } = req.body;
