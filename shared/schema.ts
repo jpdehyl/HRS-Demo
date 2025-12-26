@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, date, json } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, date, json, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -186,6 +186,12 @@ export const researchPackets = pgTable("research_packets", {
   linkedInIntel: text("linkedin_intel"),
   sources: text("sources"),
   verificationStatus: text("verification_status").default("unverified"),
+  painPointsJson: jsonb("pain_points_json"),
+  productMatchesJson: jsonb("product_matches_json"),
+  linkedInProfileJson: jsonb("linkedin_profile_json"),
+  xIntelJson: jsonb("x_intel_json"),
+  careerHistoryJson: jsonb("career_history_json"),
+  dossierJson: jsonb("dossier_json"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

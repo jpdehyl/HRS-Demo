@@ -568,6 +568,54 @@ function LeadDetailPanel({
   );
 }
 
+interface PainPointData {
+  pain: string;
+  severity: string;
+  hawkRidgeSolution?: string;
+}
+
+interface ProductMatchData {
+  productId?: string;
+  productName: string;
+  category?: string;
+  matchScore: number;
+  rationale: string;
+  valueProposition?: string;
+}
+
+interface XIntelData {
+  xHandle?: string | null;
+  profileUrl?: string | null;
+  bio?: string | null;
+  followerCount?: string | null;
+  conversationStarters?: string[];
+  industryTrends?: string[];
+  hashtags?: string[];
+  engagementStyle?: string;
+  professionalTone?: string;
+  topicsOfInterest?: string[];
+  recentPosts?: Array<{ content: string; date?: string }>;
+}
+
+interface LinkedInProfileData {
+  profileUrl?: string | null;
+  headline?: string | null;
+  summary?: string | null;
+  location?: string | null;
+  connections?: string | null;
+  currentPosition?: { title: string; company: string; duration: string } | null;
+  careerHistory?: Array<{ title: string; company: string; duration: string }>;
+  skills?: string[];
+  professionalInterests?: string[];
+}
+
+interface CareerHistoryData {
+  title: string;
+  company: string;
+  duration: string;
+  relevance?: string;
+}
+
 function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWithResearch }) {
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -576,6 +624,112 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
       hour: "2-digit",
       minute: "2-digit"
     });
+  };
+
+  const parsePainPointsFromText = (painSignals: string | null): PainPointData[] => {
+    if (!painSignals) return [];
+    const lines = painSignals.split('\n').filter(l => l.trim());
+    return lines.map(line => {
+      const severityMatch = line.match(/\[(HIGH|MEDIUM|LOW)\]/i);
+      const arrowMatch = line.split('→');
+      return {
+        pain: arrowMatch[0]?.replace(/\[.*?\]/, '').trim() || line,
+        severity: severityMatch?.[1]?.toLowerCase() || 'medium',
+        hawkRidgeSolution: arrowMatch[1]?.trim() || ''
+      };
+    }).filter(p => p.pain);
+  };
+
+  const parseProductMatchesFromText = (fitAnalysis: string | null): ProductMatchData[] => {
+    if (!fitAnalysis) return [];
+    const matches: ProductMatchData[] = [];
+    const lines = fitAnalysis.split('\n');
+    lines.forEach(line => {
+      const match = line.match(/^-\s+(.+?)\s+\((\d+)%\):\s*(.*)$/);
+      if (match) {
+        matches.push({ productName: match[1], matchScore: parseInt(match[2]), rationale: match[3] });
+      }
+    });
+    return matches;
+  };
+
+  const parseXProfileFromText = (xIntel: string | null): { handle?: string; bio?: string; style?: string; topics?: string[]; conversationStarters?: string[] } => {
+    if (!xIntel) return {};
+    const handleMatch = xIntel.match(/Handle:\s*@?(\S+)/);
+    const bioMatch = xIntel.match(/Bio:\s*(.+)/);
+    const styleMatch = xIntel.match(/Style:\s*(.+)/);
+    const topicsMatch = xIntel.match(/Topics:\s*(.+)/);
+    
+    const conversationStarters: string[] = [];
+    const lines = xIntel.split('\n');
+    let inStarters = false;
+    for (const line of lines) {
+      if (line.includes('Conversation Starters:')) {
+        inStarters = true;
+        continue;
+      }
+      if (inStarters) {
+        const match = line.match(/^\s*\d+\.\s*(.+)$/);
+        if (match) conversationStarters.push(match[1]);
+        else if (line.trim() && !line.startsWith(' ')) inStarters = false;
+      }
+    }
+    
+    return {
+      handle: handleMatch?.[1],
+      bio: bioMatch?.[1],
+      style: styleMatch?.[1],
+      topics: topicsMatch?.[1]?.split(',').map(t => t.trim()),
+      conversationStarters
+    };
+  };
+
+  const parseLinkedInFromText = (linkedInIntel: string | null): { headline?: string; location?: string; summary?: string; currentRole?: string } => {
+    if (!linkedInIntel) return {};
+    const headlineMatch = linkedInIntel.match(/Headline:\s*(.+)/);
+    const locationMatch = linkedInIntel.match(/Location:\s*(.+)/);
+    const summaryMatch = linkedInIntel.match(/About:\s*(.+)/);
+    const currentMatch = linkedInIntel.match(/Current:\s*(.+)/);
+    return {
+      headline: headlineMatch?.[1],
+      location: locationMatch?.[1],
+      summary: summaryMatch?.[1],
+      currentRole: currentMatch?.[1]
+    };
+  };
+
+  const painPointsJson = packet.painPointsJson as PainPointData[] | null;
+  const productMatchesJson = packet.productMatchesJson as ProductMatchData[] | null;
+  const xIntelJson = packet.xIntelJson as XIntelData | null;
+  const linkedInProfileJson = packet.linkedInProfileJson as LinkedInProfileData | null;
+  const careerHistoryJson = packet.careerHistoryJson as CareerHistoryData[] | null;
+
+  const painPoints = (painPointsJson && Array.isArray(painPointsJson) && painPointsJson.length > 0)
+    ? painPointsJson
+    : parsePainPointsFromText(packet.painSignals);
+
+  const productMatches = (productMatchesJson && Array.isArray(productMatchesJson) && productMatchesJson.length > 0)
+    ? productMatchesJson
+    : parseProductMatchesFromText(packet.fitAnalysis);
+
+  const xProfile = xIntelJson || parseXProfileFromText(packet.xIntel);
+  const conversationStarters = xIntelJson?.conversationStarters || parseXProfileFromText(packet.xIntel).conversationStarters || [];
+  const linkedInProfile = linkedInProfileJson || parseLinkedInFromText(packet.linkedInIntel);
+  const careerHistory = careerHistoryJson || [];
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'high': return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800';
+      case 'low': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-green-600 dark:text-green-400';
+    if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-red-600 dark:text-red-400';
   };
 
   return (
@@ -619,13 +773,54 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
             variant="compact"
           />
           
-          <IntelCard 
-            icon={AlertTriangle}
-            title="Pain Signals"
-            content={packet.painSignals}
-            variant="highlight"
-            highlightColor="red"
-          />
+          {painPoints.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+                <h4 className="font-medium text-sm">Pain Signals</h4>
+              </div>
+              <div className="space-y-2">
+                {painPoints.map((pp, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 rounded-md bg-muted/30">
+                    <Badge variant="outline" className={`shrink-0 text-xs ${getSeverityColor(pp.severity)}`}>
+                      {pp.severity.toUpperCase()}
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{pp.pain}</p>
+                      {pp.hawkRidgeSolution && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <ChevronRight className="h-3 w-3" />
+                          {pp.hawkRidgeSolution}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {productMatches.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-green-500" />
+                <h4 className="font-medium text-sm">Product Matches</h4>
+              </div>
+              <div className="grid gap-2">
+                {productMatches.map((pm, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-md bg-muted/30">
+                    <div className={`font-mono font-bold text-lg ${getScoreColor(pm.matchScore)}`}>
+                      {pm.matchScore}%
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{pm.productName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{pm.rationale}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           <IntelCard 
             icon={Globe}
@@ -641,22 +836,80 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
             content={packet.contactIntel}
           />
           
-          {packet.linkedInIntel && (
-            <IntelCard 
-              icon={SiLinkedin}
-              title="LinkedIn Intel"
-              content={packet.linkedInIntel}
-              variant="compact"
-            />
+          {(linkedInProfile.headline || linkedInProfile.currentPosition || 'currentRole' in linkedInProfile) && (
+            <div className="p-4 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900">
+              <div className="flex items-center gap-2 mb-3">
+                <SiLinkedin className="h-4 w-4 text-blue-600" />
+                <h4 className="font-medium text-sm">LinkedIn Profile</h4>
+              </div>
+              {linkedInProfile.headline && (
+                <p className="text-sm font-medium mb-1">{linkedInProfile.headline}</p>
+              )}
+              {linkedInProfile.currentPosition && typeof linkedInProfile.currentPosition === 'object' && (
+                <p className="text-sm text-muted-foreground mb-2">
+                  {linkedInProfile.currentPosition.title} at {linkedInProfile.currentPosition.company} ({linkedInProfile.currentPosition.duration})
+                </p>
+              )}
+              {'currentRole' in linkedInProfile && linkedInProfile.currentRole && (
+                <p className="text-sm text-muted-foreground mb-2">{linkedInProfile.currentRole}</p>
+              )}
+              {linkedInProfile.location && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {linkedInProfile.location}
+                </p>
+              )}
+              {linkedInProfile.summary && (
+                <p className="text-sm text-foreground/80 mt-3">{linkedInProfile.summary}</p>
+              )}
+            </div>
           )}
           
-          {packet.xIntel && (
-            <IntelCard 
-              icon={SiX}
-              title="X.com Intel"
-              content={packet.xIntel}
-              variant="compact"
-            />
+          {(('xHandle' in xProfile && xProfile.xHandle) || ('handle' in xProfile && xProfile.handle) || conversationStarters.length > 0) && (
+            <div className="p-4 rounded-lg bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2 mb-3">
+                <SiX className="h-4 w-4" />
+                <h4 className="font-medium text-sm">X.com Intel</h4>
+              </div>
+              {(('xHandle' in xProfile && xProfile.xHandle) || ('handle' in xProfile && xProfile.handle)) && (
+                <p className="text-sm mb-2">
+                  <a 
+                    href={`https://x.com/${('xHandle' in xProfile ? xProfile.xHandle : xProfile.handle)?.replace('@', '')}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    @{('xHandle' in xProfile ? xProfile.xHandle : xProfile.handle)?.replace('@', '')}
+                  </a>
+                  {(('engagementStyle' in xProfile && xProfile.engagementStyle) || ('style' in xProfile && xProfile.style)) && (
+                    <span className="text-muted-foreground ml-2">({'engagementStyle' in xProfile ? xProfile.engagementStyle : xProfile.style})</span>
+                  )}
+                </p>
+              )}
+              {xProfile.bio && (
+                <p className="text-sm text-foreground/80 mb-3">{xProfile.bio}</p>
+              )}
+              {(('topicsOfInterest' in xProfile && xProfile.topicsOfInterest && xProfile.topicsOfInterest.length > 0) || ('topics' in xProfile && xProfile.topics && xProfile.topics.length > 0)) && (
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {('topicsOfInterest' in xProfile ? xProfile.topicsOfInterest : xProfile.topics)?.map((topic, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs">{topic}</Badge>
+                  ))}
+                </div>
+              )}
+              {conversationStarters.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Conversation Starters:</p>
+                  <ul className="space-y-1.5">
+                    {conversationStarters.map((starter, i) => (
+                      <li key={i} className="text-sm flex items-start gap-2">
+                        <MessageSquare className="h-3 w-3 mt-1 shrink-0 text-muted-foreground" />
+                        <span className="italic text-foreground/90">{starter}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
           
           <IntelCard 

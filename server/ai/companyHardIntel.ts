@@ -9,7 +9,7 @@ const ai = new GoogleGenAI({
   },
 });
 
-interface CompanyHardIntel {
+export interface CompanyHardIntel {
   headquarters?: string;
   founded?: string;
   employeeCount?: string;

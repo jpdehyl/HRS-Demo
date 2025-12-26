@@ -1,8 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Lead, InsertResearchPacket } from "@shared/schema";
-import { researchLeadOnX, formatXIntel } from "./xResearch";
-import { researchContactLinkedIn, formatLinkedInIntel } from "./linkedInResearch";
-import { gatherCompanyHardIntel, formatCompanyHardIntel } from "./companyHardIntel";
+import { researchLeadOnX, formatXIntel, type XIntelResult } from "./xResearch";
+import { researchContactLinkedIn, formatLinkedInIntel, type LinkedInProfile } from "./linkedInResearch";
+import { gatherCompanyHardIntel, formatCompanyHardIntel, type CompanyHardIntel } from "./companyHardIntel";
+import { HAWK_RIDGE_PRODUCTS, getProductCatalogPrompt, matchProductsToLead } from "./productCatalog";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
@@ -15,13 +16,7 @@ const ai = new GoogleGenAI({
 const HAWK_RIDGE_CONTEXT = `
 Hawk Ridge Systems is a leading provider of 3D design, manufacturing, and product data management solutions.
 
-PRIMARY OFFERINGS:
-1. SOLIDWORKS - 3D CAD design software for mechanical engineering
-2. CAMWorks - Computer-aided manufacturing for CNC machining
-3. 3D Printing / Additive Manufacturing - Stratasys, Desktop Metal, Markforged
-4. Data Management - SOLIDWORKS PDM, 3DEXPERIENCE
-5. Simulation - SOLIDWORKS Simulation, Flow Analysis
-6. Technical Support & Training
+${getProductCatalogPrompt()}
 
 TARGET INDUSTRIES:
 - Aerospace & Defense
@@ -30,6 +25,7 @@ TARGET INDUSTRIES:
 - Consumer Products
 - Automotive
 - Electronics
+- Manufacturing
 
 IDEAL FIT SIGNALS:
 - Uses legacy CAD (AutoCAD 2D, Pro/E, Inventor) - ready to upgrade
@@ -40,31 +36,62 @@ IDEAL FIT SIGNALS:
 - Design bottlenecks - simulation and optimization
 `;
 
+export interface ProductMatch {
+  productId: string;
+  productName: string;
+  category: string;
+  matchScore: number;
+  rationale: string;
+  valueProposition: string;
+}
+
+export interface PainPoint {
+  pain: string;
+  severity: "high" | "medium" | "low";
+  hawkRidgeSolution: string;
+}
+
+export interface CareerHistoryItem {
+  title: string;
+  company: string;
+  duration: string;
+  relevance: string;
+}
+
 export interface LeadDossier {
-  personalBackground: string;
-  commonGround: string;
-  companyContext: string;
-  painSignals: string;
-  techStackIntel: string;
-  buyingTriggers: string;
-  hawkRidgeFit: string;
-  fitScore: number;
-  fitScoreBreakdown: string;
-  priority: "hot" | "warm" | "cool" | "cold";
-  talkTrack: string;
+  companySummary: string;
+  companyNews: string[];
+  painPoints: PainPoint[];
+  productMatches: ProductMatch[];
+  techStackIntel: string[];
+  buyingTriggers: string[];
+  
+  contactBackground: string;
+  careerHistory: CareerHistoryItem[];
+  professionalInterests: string[];
+  decisionMakingStyle: string;
+  
+  commonGround: string[];
   openingLine: string;
+  talkTrack: string[];
   discoveryQuestions: string[];
   objectionHandles: Array<{ objection: string; response: string }>;
   theAsk: string;
+  
+  fitScore: number;
+  fitScoreBreakdown: string;
+  priority: "hot" | "warm" | "cool" | "cold";
+  
   sources: string;
   linkedInUrl?: string;
   phoneNumber?: string;
   jobTitle?: string;
   companyWebsite?: string;
+  companyAddress?: string;
 }
 
 export async function generateLeadDossier(lead: Lead): Promise<LeadDossier> {
-  const prompt = `You are an expert B2B sales intelligence analyst preparing a comprehensive dossier for a sales call.
+  const prompt = `You are an expert B2B sales intelligence analyst preparing a COMPREHENSIVE dossier for a sales call to sell Hawk Ridge Systems solutions.
 
 ${HAWK_RIDGE_CONTEXT}
 
@@ -78,48 +105,99 @@ LEAD INFORMATION:
 - LinkedIn: ${lead.contactLinkedIn || "Not provided"}
 - Email Domain: ${lead.contactEmail.split("@")[1]}
 
-Research this lead and company thoroughly. Generate a comprehensive sales intelligence dossier.
+RESEARCH THIS LEAD AND COMPANY THOROUGHLY. Search the web for recent news, company information, and professional background.
 
-Return a JSON object with these exact keys:
+Return a JSON object with these EXACT keys:
 
 {
-  "personalBackground": "Career history, education, professional achievements. What drives this person? Decision-making style?",
+  "companySummary": "2-3 paragraph detailed overview of what this company does, their products/services, market position, and recent developments",
   
-  "commonGround": "3-4 specific conversation starters. Shared interests, connections, or experiences. Be creative but professional.",
+  "companyNews": [
+    "Recent news item 1 with date if known",
+    "Recent news item 2",
+    "Product launches, funding, expansions, etc."
+  ],
   
-  "companyContext": "What does this company do? Recent news, funding, growth. What stage are they at? What pressures is leadership under?",
+  "painPoints": [
+    {"pain": "Specific challenge they face", "severity": "high", "hawkRidgeSolution": "SOLIDWORKS Premium with Simulation"},
+    {"pain": "Another pain point", "severity": "medium", "hawkRidgeSolution": "CAMWorks"},
+    {"pain": "Third pain point", "severity": "low", "hawkRidgeSolution": "SOLIDWORKS PDM"}
+  ],
   
-  "painSignals": "Specific challenges they likely face that Hawk Ridge can solve. Design bottlenecks, manufacturing inefficiencies, legacy software, collaboration issues.",
+  "productMatches": [
+    {"productId": "solidworks-premium", "productName": "SOLIDWORKS Premium", "category": "3D CAD + Simulation", "matchScore": 90, "rationale": "Why this product fits their needs", "valueProposition": "How it will help them specifically"},
+    {"productId": "camworks", "productName": "CAMWorks", "category": "CAM / Manufacturing", "matchScore": 85, "rationale": "Why CAMWorks", "valueProposition": "Specific value"}
+  ],
   
-  "techStackIntel": "Current tools they likely use (CAD, PLM, manufacturing tech). Job postings, LinkedIn skills, website clues.",
+  "techStackIntel": [
+    "Current CAD tool they likely use",
+    "Manufacturing systems",
+    "Data management approach",
+    "Other relevant technology"
+  ],
   
-  "buyingTriggers": "Why would they buy NOW? New product launches, expansion, funding, new executives, competitive pressure, fiscal year timing.",
+  "buyingTriggers": [
+    "Why they would buy NOW - be specific",
+    "Recent event that creates urgency",
+    "Business pressure or deadline"
+  ],
   
-  "hawkRidgeFit": "Which 1-3 specific Hawk Ridge solutions match their needs? Clear reasoning and ROI points.",
+  "contactBackground": "2-3 paragraphs about this person's professional background, career path, expertise, and what drives them",
   
-  "fitScore": 0-100 integer score based on: industry fit (25pts), company size (20pts), pain signals (25pts), tech readiness (15pts), buying triggers (15pts),
+  "careerHistory": [
+    {"title": "Current Title", "company": "Current Company", "duration": "2 years", "relevance": "Why this experience matters for our conversation"},
+    {"title": "Previous Title", "company": "Previous Company", "duration": "3 years", "relevance": "Relevant experience"}
+  ],
   
-  "fitScoreBreakdown": "Brief explanation of how each factor contributed to the score.",
+  "professionalInterests": ["Design efficiency", "Manufacturing automation", "Team productivity", "specific interests based on their role"],
   
-  "priority": "hot (80-100), warm (60-79), cool (40-59), or cold (0-39) based on fitScore",
+  "decisionMakingStyle": "How this person likely makes decisions - data-driven, relationship-based, consensus-builder, etc. based on their role and background",
   
-  "openingLine": "A personalized 1-2 sentence opener that references something specific about them or their company. Conversational, not salesy.",
+  "commonGround": [
+    "Specific conversation starter based on their background",
+    "Shared interest or connection point",
+    "Reference to their work or company achievement"
+  ],
   
-  "talkTrack": "3 key value propositions tailored to this lead, each 1-2 sentences.",
+  "openingLine": "A personalized 2-3 sentence opener that references something SPECIFIC about them or their company. Make it conversational and show you've done your research.",
   
-  "discoveryQuestions": ["5-7 strategic questions to uncover needs, budget, timeline, decision process. Start broad, get specific."],
+  "talkTrack": [
+    "Key value proposition 1 tailored to their situation",
+    "Key value proposition 2",
+    "Key value proposition 3"
+  ],
   
-  "objectionHandles": [{"objection": "Likely objection", "response": "Specific response strategy"}] - include 3-4 objection/response pairs for price, timing, competition, change resistance,
+  "discoveryQuestions": [
+    "Strategic question 1 to uncover needs",
+    "Question 2 about current challenges",
+    "Question 3 about decision process",
+    "Question 4 about timeline",
+    "Question 5 about budget/priorities"
+  ],
   
-  "theAsk": "The specific next step to propose (demo, assessment, trial) based on their likely readiness.",
+  "objectionHandles": [
+    {"objection": "We're happy with our current tools", "response": "Specific response referencing their situation"},
+    {"objection": "Budget is tight", "response": "ROI-focused response"},
+    {"objection": "Too busy to switch", "response": "Migration support response"},
+    {"objection": "Need to involve others", "response": "Champion enablement response"}
+  ],
   
-  "linkedInUrl": "The contact's LinkedIn profile URL if found. Return null if not found.",
-  "phoneNumber": "The contact's phone number if found. Return null if not found.",
-  "jobTitle": "The contact's current job title if discovered. Return null if not found.",
-  "companyWebsite": "The company's website URL if found. Return null if not found."
+  "theAsk": "The specific next step to propose based on their likely readiness and situation",
+  
+  "fitScore": 0-100 based on: industry fit (25), company size (20), pain signals (25), tech readiness (15), buying triggers (15),
+  
+  "fitScoreBreakdown": "Detailed breakdown of how each factor contributed to the score",
+  
+  "priority": "hot (80-100), warm (60-79), cool (40-59), or cold (0-39)",
+  
+  "linkedInUrl": "LinkedIn profile URL if found",
+  "phoneNumber": "Phone number if found",
+  "jobTitle": "Accurate job title",
+  "companyWebsite": "Company website URL",
+  "companyAddress": "Company headquarters address if found"
 }
 
-Be thorough but concise. Focus on actionable intelligence.`;
+BE THOROUGH. Search the web. Find real information. Make specific product recommendations based on their situation.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -127,7 +205,7 @@ Be thorough but concise. Focus on actionable intelligence.`;
       contents: prompt,
       config: {
         temperature: 0.7,
-        maxOutputTokens: 4000,
+        maxOutputTokens: 6000,
       },
     });
 
@@ -150,26 +228,35 @@ Be thorough but concise. Focus on actionable intelligence.`;
     const raw = JSON.parse(jsonMatch[0]);
     
     const dossier: LeadDossier = {
-      personalBackground: raw.personalBackground || "",
-      commonGround: raw.commonGround || "",
-      companyContext: raw.companyContext || "",
-      painSignals: raw.painSignals || "",
-      techStackIntel: raw.techStackIntel || "",
-      buyingTriggers: raw.buyingTriggers || "",
-      hawkRidgeFit: raw.hawkRidgeFit || "",
-      fitScore: typeof raw.fitScore === "number" ? raw.fitScore : 50,
-      fitScoreBreakdown: raw.fitScoreBreakdown || "",
-      priority: ["hot", "warm", "cool", "cold"].includes(raw.priority) ? raw.priority : "cool",
-      talkTrack: raw.talkTrack || "",
+      companySummary: raw.companySummary || "",
+      companyNews: Array.isArray(raw.companyNews) ? raw.companyNews : [],
+      painPoints: Array.isArray(raw.painPoints) ? raw.painPoints : [],
+      productMatches: Array.isArray(raw.productMatches) ? raw.productMatches : [],
+      techStackIntel: Array.isArray(raw.techStackIntel) ? raw.techStackIntel : [],
+      buyingTriggers: Array.isArray(raw.buyingTriggers) ? raw.buyingTriggers : [],
+      
+      contactBackground: raw.contactBackground || "",
+      careerHistory: Array.isArray(raw.careerHistory) ? raw.careerHistory : [],
+      professionalInterests: Array.isArray(raw.professionalInterests) ? raw.professionalInterests : [],
+      decisionMakingStyle: raw.decisionMakingStyle || "",
+      
+      commonGround: Array.isArray(raw.commonGround) ? raw.commonGround : [],
       openingLine: raw.openingLine || "",
+      talkTrack: Array.isArray(raw.talkTrack) ? raw.talkTrack : [],
       discoveryQuestions: Array.isArray(raw.discoveryQuestions) ? raw.discoveryQuestions : [],
       objectionHandles: Array.isArray(raw.objectionHandles) ? raw.objectionHandles : [],
       theAsk: raw.theAsk || "",
+      
+      fitScore: typeof raw.fitScore === "number" ? raw.fitScore : 50,
+      fitScoreBreakdown: raw.fitScoreBreakdown || "",
+      priority: ["hot", "warm", "cool", "cold"].includes(raw.priority) ? raw.priority : "cool",
+      
       sources: "Gemini AI with web grounding",
       linkedInUrl: raw.linkedInUrl,
       phoneNumber: raw.phoneNumber,
       jobTitle: raw.jobTitle,
-      companyWebsite: raw.companyWebsite
+      companyWebsite: raw.companyWebsite,
+      companyAddress: raw.companyAddress
     };
     
     return dossier;
@@ -177,18 +264,21 @@ Be thorough but concise. Focus on actionable intelligence.`;
     console.error("[LeadResearch] Error generating dossier:", error);
     
     return {
-      personalBackground: "Research pending - unable to generate at this time",
-      commonGround: "Research pending",
-      companyContext: `${lead.companyName} - ${lead.companyIndustry || "Industry unknown"}`,
-      painSignals: "Manual research recommended",
-      techStackIntel: "Check company website and job postings",
-      buyingTriggers: "Needs discovery call to identify",
-      hawkRidgeFit: "Recommend SOLIDWORKS suite based on industry",
-      fitScore: 50,
-      fitScoreBreakdown: "Default score - research unavailable",
-      priority: "cool",
+      companySummary: `${lead.companyName} - ${lead.companyIndustry || "Industry unknown"}. Research pending.`,
+      companyNews: [],
+      painPoints: [{ pain: "Manual research recommended", severity: "medium", hawkRidgeSolution: "Discovery call needed" }],
+      productMatches: [],
+      techStackIntel: ["Check company website and job postings"],
+      buyingTriggers: ["Needs discovery call to identify"],
+      
+      contactBackground: "Research pending - unable to generate at this time",
+      careerHistory: [],
+      professionalInterests: [],
+      decisionMakingStyle: "Unknown - needs discovery",
+      
+      commonGround: ["Research pending"],
       openingLine: `Hi ${lead.contactName.split(" ")[0]}, I'm reaching out because we help companies like ${lead.companyName} streamline their design and manufacturing processes.`,
-      talkTrack: "Focus on design efficiency, manufacturing integration, and data management.",
+      talkTrack: ["Focus on design efficiency, manufacturing integration, and data management."],
       discoveryQuestions: [
         "What CAD tools are you currently using?",
         "What's your biggest challenge in product development?",
@@ -202,6 +292,11 @@ Be thorough but concise. Focus on actionable intelligence.`;
         { objection: "Too busy to switch", response: "We provide full migration support and training. Most teams are fully productive within 2 weeks." }
       ],
       theAsk: "I'd love to show you a quick demo tailored to your workflow. Do you have 20 minutes this week?",
+      
+      fitScore: 50,
+      fitScoreBreakdown: "Default score - research unavailable",
+      priority: "cool",
+      
       sources: "Fallback template - AI research unavailable",
     };
   }
@@ -215,6 +310,12 @@ export interface ResearchResult {
     jobTitle?: string;
     companyWebsite?: string;
   };
+  structuredData: {
+    dossier: LeadDossier;
+    xIntel: XIntelResult;
+    linkedInProfile: LinkedInProfile;
+    companyHardIntel: CompanyHardIntel;
+  };
 }
 
 export async function researchLead(lead: Lead): Promise<ResearchResult> {
@@ -226,46 +327,114 @@ export async function researchLead(lead: Lead): Promise<ResearchResult> {
     researchContactLinkedIn(lead),
     gatherCompanyHardIntel(lead)
   ]);
-  
-  console.log(`[LeadResearch] All parallel research completed for ${lead.contactName}`);
-  
-  const discoveryQuestionsStr = dossier.discoveryQuestions
-    .map((q, i) => `${i + 1}. ${q}`)
-    .join("\n");
-  
-  const objectionHandlesStr = dossier.objectionHandles
-    .map((o, i) => `${i + 1}. "${o.objection}"\n   Response: ${o.response}`)
-    .join("\n\n");
-  
+
+  console.log(`[LeadResearch] All research completed. Fit score: ${dossier.fitScore}, Priority: ${dossier.priority}`);
+
+  const companyIntel = [
+    dossier.companySummary,
+    "",
+    "## Recent News",
+    ...dossier.companyNews.map(n => `- ${n}`),
+    "",
+    "## Tech Stack",
+    ...dossier.techStackIntel.map(t => `- ${t}`),
+    "",
+    "## Buying Triggers",
+    ...dossier.buyingTriggers.map(b => `- ${b}`)
+  ].join("\n");
+
+  const contactIntel = [
+    dossier.contactBackground,
+    "",
+    "## Career History",
+    ...dossier.careerHistory.map(c => `- ${c.title} at ${c.company} (${c.duration}): ${c.relevance}`),
+    "",
+    "## Professional Interests",
+    dossier.professionalInterests.join(", "),
+    "",
+    "## Decision Making Style",
+    dossier.decisionMakingStyle,
+    "",
+    "## Common Ground",
+    ...dossier.commonGround.map(c => `- ${c}`)
+  ].join("\n");
+
+  const painSignals = dossier.painPoints.map(p => 
+    `[${p.severity.toUpperCase()}] ${p.pain} → ${p.hawkRidgeSolution}`
+  ).join("\n");
+
+  const fitAnalysis = [
+    `Fit Score: ${dossier.fitScore}/100`,
+    `Priority: ${dossier.priority.toUpperCase()}`,
+    "",
+    "## Score Breakdown",
+    dossier.fitScoreBreakdown,
+    "",
+    "## Product Matches",
+    ...dossier.productMatches.map(p => 
+      `- ${p.productName} (${p.matchScore}%): ${p.rationale}`
+    )
+  ].join("\n");
+
+  const talkTrack = [
+    "## Opening Line",
+    dossier.openingLine,
+    "",
+    "## Key Value Propositions",
+    ...dossier.talkTrack.map((t, i) => `${i + 1}. ${t}`),
+    "",
+    "## The Ask",
+    dossier.theAsk
+  ].join("\n");
+
+  const discoveryQuestions = dossier.discoveryQuestions.join("\n");
+
+  const objectionHandles = dossier.objectionHandles.map(o => 
+    `**${o.objection}**\n${o.response}`
+  ).join("\n\n");
+
   const packet: InsertResearchPacket = {
     leadId: lead.id,
-    companyIntel: dossier.companyContext,
-    contactIntel: `${dossier.personalBackground}\n\nCommon Ground:\n${dossier.commonGround}`,
-    painSignals: dossier.painSignals,
-    competitorPresence: dossier.techStackIntel,
-    fitAnalysis: `${dossier.hawkRidgeFit}\n\nBuying Triggers:\n${dossier.buyingTriggers}`,
+    companyIntel,
+    contactIntel,
+    painSignals,
+    competitorPresence: dossier.techStackIntel.join(", "),
+    fitAnalysis,
     fitScore: dossier.fitScore,
     priority: dossier.priority,
-    talkTrack: `Opening Line:\n${dossier.openingLine}\n\nKey Value Props:\n${dossier.talkTrack}\n\nThe Ask:\n${dossier.theAsk}`,
-    discoveryQuestions: discoveryQuestionsStr,
-    objectionHandles: objectionHandlesStr,
+    talkTrack,
+    discoveryQuestions,
+    objectionHandles,
     companyHardIntel: formatCompanyHardIntel(companyHardIntel),
     xIntel: formatXIntel(xIntel),
     linkedInIntel: formatLinkedInIntel(linkedInProfile),
-    sources: `${dossier.sources} | X.com via xAI | LinkedIn via SerpAPI | Company intel via Gemini`,
+    sources: [
+      dossier.sources,
+      xIntel.error ? `X.com: ${xIntel.error}` : `X.com: ${xIntel.xHandle || "researched"}`,
+      linkedInProfile.error ? `LinkedIn: ${linkedInProfile.error}` : `LinkedIn: ${linkedInProfile.profileUrl || "researched"}`
+    ].join(" | "),
     verificationStatus: "ai_generated",
+    painPointsJson: dossier.painPoints,
+    productMatchesJson: dossier.productMatches,
+    linkedInProfileJson: linkedInProfile,
+    xIntelJson: xIntel,
+    careerHistoryJson: dossier.careerHistory,
+    dossierJson: dossier
   };
-  
-  const discoveredLinkedIn = linkedInProfile.profileUrl || 
-    (dossier.linkedInUrl && dossier.linkedInUrl !== "null" ? dossier.linkedInUrl : undefined);
-  
+
   return {
     packet,
     discoveredInfo: {
-      linkedInUrl: discoveredLinkedIn,
-      phoneNumber: dossier.phoneNumber && dossier.phoneNumber !== "null" ? dossier.phoneNumber : undefined,
-      jobTitle: dossier.jobTitle && dossier.jobTitle !== "null" ? dossier.jobTitle : undefined,
-      companyWebsite: dossier.companyWebsite && dossier.companyWebsite !== "null" ? dossier.companyWebsite : undefined,
+      linkedInUrl: linkedInProfile.profileUrl || dossier.linkedInUrl,
+      phoneNumber: dossier.phoneNumber,
+      jobTitle: linkedInProfile.currentPosition?.title || dossier.jobTitle,
+      companyWebsite: dossier.companyWebsite
+    },
+    structuredData: {
+      dossier,
+      xIntel,
+      linkedInProfile,
+      companyHardIntel
     }
   };
 }
