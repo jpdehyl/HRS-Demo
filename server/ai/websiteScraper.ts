@@ -218,7 +218,7 @@ IMPORTANT:
       model: "gemini-2.0-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
-        tools: [{ googleSearch: {} }],
+        temperature: 0.5,
       }
     });
     
@@ -334,7 +334,7 @@ IMPORTANT:
       model: "gemini-2.0-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
-        tools: [{ googleSearch: {} }],
+        temperature: 0.5,
       }
     });
     
