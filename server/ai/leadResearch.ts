@@ -1,9 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Lead, InsertResearchPacket } from "@shared/schema";
 import { researchLeadOnX, formatXIntel, type XIntelResult } from "./xResearch";
-import { researchContactLinkedIn, formatLinkedInIntel, type LinkedInProfile } from "./linkedInResearch";
 import { gatherCompanyHardIntel, formatCompanyHardIntel, type CompanyHardIntel } from "./companyHardIntel";
 import { HAWK_RIDGE_PRODUCTS, getProductCatalogPrompt, matchProductsToLead } from "./productCatalog";
+import { 
+  gatherCompanyIntel, 
+  researchContactLinkedIn as scrapeContactLinkedIn,
+  formatScrapedContentForPrompt,
+  extractPhoneFromScrapedContent,
+  type ScrapedIntel,
+  type ContactLinkedInData
+} from "./websiteScraper";
+import { getKnowledgebaseContent, getLeadScoringParameters } from "../google/driveClient";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
@@ -90,12 +98,137 @@ export interface LeadDossier {
   companyAddress?: string;
 }
 
-export async function generateLeadDossier(lead: Lead): Promise<LeadDossier> {
+export interface LinkedInProfile {
+  profileUrl?: string;
+  headline?: string;
+  currentPosition?: {
+    title?: string;
+    company?: string;
+  };
+  error?: string;
+}
+
+function formatContactLinkedInAsProfile(data: ContactLinkedInData | null): LinkedInProfile {
+  if (!data) {
+    return { error: "LinkedIn profile not found" };
+  }
+  return {
+    profileUrl: data.linkedInUrl || undefined,
+    headline: data.headline || undefined,
+    currentPosition: {
+      title: data.currentTitle || undefined,
+      company: data.currentCompany || undefined,
+    },
+  };
+}
+
+export function formatLinkedInIntel(profile: LinkedInProfile): string {
+  if (profile.error) {
+    return `LinkedIn: ${profile.error}`;
+  }
+  const parts: string[] = [];
+  if (profile.profileUrl) parts.push(`Profile: ${profile.profileUrl}`);
+  if (profile.headline) parts.push(`Headline: ${profile.headline}`);
+  if (profile.currentPosition?.title) parts.push(`Title: ${profile.currentPosition.title}`);
+  if (profile.currentPosition?.company) parts.push(`Company: ${profile.currentPosition.company}`);
+  return parts.length > 0 ? parts.join("\n") : "No LinkedIn data available";
+}
+
+interface PreScrapedData {
+  scrapedIntel: ScrapedIntel;
+  contactLinkedIn: ContactLinkedInData | null;
+  companyHardIntel: CompanyHardIntel;
+  xIntel: XIntelResult;
+  knowledgeBase: string;
+  scoringParams: string;
+}
+
+async function gatherAllIntelInParallel(lead: Lead): Promise<PreScrapedData> {
+  console.log(`[LeadResearch] Starting PARALLEL pre-fetch for ${lead.contactName} at ${lead.companyName}`);
+  
+  const [
+    scrapedIntel,
+    contactLinkedIn,
+    companyHardIntel,
+    xIntel,
+    knowledgeBase,
+    scoringParams
+  ] = await Promise.all([
+    gatherCompanyIntel(lead.companyName, lead.companyWebsite || null),
+    scrapeContactLinkedIn(lead.contactName, lead.companyName, lead.contactEmail),
+    gatherCompanyHardIntel(lead),
+    researchLeadOnX(lead),
+    getKnowledgebaseContent().catch(() => ""),
+    getLeadScoringParameters().catch(() => "")
+  ]);
+  
+  console.log(`[LeadResearch] Pre-fetch complete. Website: ${!!scrapedIntel.website}, LinkedIn contact: ${!!contactLinkedIn}, LinkedIn company: ${!!scrapedIntel.linkedInCompany}`);
+  
+  return {
+    scrapedIntel,
+    contactLinkedIn,
+    companyHardIntel,
+    xIntel,
+    knowledgeBase,
+    scoringParams
+  };
+}
+
+export async function generateLeadDossier(lead: Lead, preScraped?: PreScrapedData): Promise<LeadDossier> {
+  let scraped = preScraped;
+  if (!scraped) {
+    scraped = await gatherAllIntelInParallel(lead);
+  }
+  
+  const scrapedContent = formatScrapedContentForPrompt(scraped.scrapedIntel);
+  const phoneFromScrape = extractPhoneFromScrapedContent(scraped.scrapedIntel);
+  
+  let contactLinkedInSection = "";
+  if (scraped.contactLinkedIn) {
+    contactLinkedInSection = `
+## CONTACT LINKEDIN DATA:
+- LinkedIn URL: ${scraped.contactLinkedIn.linkedInUrl || "Not found"}
+- Headline: ${scraped.contactLinkedIn.headline || "Unknown"}
+- Current Title: ${scraped.contactLinkedIn.currentTitle || "Unknown"}
+- Current Company: ${scraped.contactLinkedIn.currentCompany || "Unknown"}
+- Location: ${scraped.contactLinkedIn.location || "Unknown"}
+- Summary: ${scraped.contactLinkedIn.summary || "Not available"}
+- Experience: ${scraped.contactLinkedIn.experience?.map(e => `${e.title} at ${e.company} (${e.duration})`).join("; ") || "Not available"}
+- Education: ${scraped.contactLinkedIn.education?.join(", ") || "Not available"}
+- Skills: ${scraped.contactLinkedIn.skills?.slice(0, 10).join(", ") || "Not available"}`;
+  }
+  
+  let companyHardIntelSection = "";
+  if (scraped.companyHardIntel && !scraped.companyHardIntel.error) {
+    const chi = scraped.companyHardIntel;
+    companyHardIntelSection = `
+## COMPANY HARD INTEL (verified data):
+- Employee Count: ${chi.employeeCount || "Unknown"}
+- Revenue: ${chi.revenue || "Unknown"}
+- Headquarters: ${chi.headquarters || "Unknown"}
+- Founded: ${chi.founded || "Unknown"}
+- Stock Info: ${chi.stockInfo || "Private"}
+- Funding: ${chi.fundingInfo || "Not available"}
+- Tech Stack: ${chi.techStack?.join(", ") || "Unknown"}
+- Certifications: ${chi.certifications?.join(", ") || "None found"}
+- Competitors: ${chi.competitors?.join(", ") || "Unknown"}
+- Key Executives: ${chi.keyExecutives?.map(e => `${e.name} (${e.title})`).join(", ") || "Unknown"}
+- Recent News: ${chi.recentNews?.slice(0, 3).join("; ") || "None found"}`;
+  }
+  
+  const knowledgeBaseSection = scraped.knowledgeBase ? `
+## HAWK RIDGE KNOWLEDGE BASE (Use this for accurate product info):
+${scraped.knowledgeBase.substring(0, 12000)}` : "";
+
+  const scoringSection = scraped.scoringParams ? `
+## LEAD SCORING PARAMETERS (Use these criteria):
+${scraped.scoringParams.substring(0, 4000)}` : "";
+
   const prompt = `You are an expert B2B sales intelligence analyst preparing a COMPREHENSIVE dossier for a sales call to sell Hawk Ridge Systems solutions.
 
 ${HAWK_RIDGE_CONTEXT}
 
-LEAD INFORMATION:
+## LEAD INFORMATION:
 - Contact Name: ${lead.contactName}
 - Job Title: ${lead.contactTitle || "Unknown"}
 - Company: ${lead.companyName}
@@ -105,12 +238,26 @@ LEAD INFORMATION:
 - LinkedIn: ${lead.contactLinkedIn || "Not provided"}
 - Email Domain: ${lead.contactEmail.split("@")[1]}
 
-RESEARCH THIS LEAD AND COMPANY THOROUGHLY. Search the web for recent news, company information, and professional background.
+=== PRE-SCRAPED INTELLIGENCE (USE THIS DATA) ===
+
+${scrapedContent}
+${contactLinkedInSection}
+${companyHardIntelSection}
+${knowledgeBaseSection}
+${scoringSection}
+
+=== END PRE-SCRAPED INTELLIGENCE ===
+
+CRITICAL: Base your company summary and contact background on the ACTUAL SCRAPED CONTENT above. 
+Do NOT say "Unable to find information" or "Research pending" if website, LinkedIn, or hard intel data is provided above - USE THAT DATA.
+If the scraped content contains information about the company, products, services, or contact - incorporate it into your analysis.
+
+You may use web search to find additional recent news and to supplement the pre-scraped data, but the pre-scraped data should be your PRIMARY source.
 
 Return a JSON object with these EXACT keys:
 
 {
-  "companySummary": "2-3 paragraph detailed overview of what this company does, their products/services, market position, and recent developments",
+  "companySummary": "2-3 paragraph detailed overview based on the SCRAPED CONTENT above - what this company does, their products/services, market position, and recent developments",
   
   "companyNews": [
     "Recent news item 1 with date if known",
@@ -119,7 +266,7 @@ Return a JSON object with these EXACT keys:
   ],
   
   "painPoints": [
-    {"pain": "Specific challenge they face", "severity": "high", "hawkRidgeSolution": "SOLIDWORKS Premium with Simulation"},
+    {"pain": "Specific challenge they face based on their industry/size", "severity": "high", "hawkRidgeSolution": "SOLIDWORKS Premium with Simulation"},
     {"pain": "Another pain point", "severity": "medium", "hawkRidgeSolution": "CAMWorks"},
     {"pain": "Third pain point", "severity": "low", "hawkRidgeSolution": "SOLIDWORKS PDM"}
   ],
@@ -142,7 +289,7 @@ Return a JSON object with these EXACT keys:
     "Business pressure or deadline"
   ],
   
-  "contactBackground": "2-3 paragraphs about this person's professional background, career path, expertise, and what drives them",
+  "contactBackground": "2-3 paragraphs about this person based on the CONTACT LINKEDIN DATA above - their career path, expertise, and what drives them",
   
   "careerHistory": [
     {"title": "Current Title", "company": "Current Company", "duration": "2 years", "relevance": "Why this experience matters for our conversation"},
@@ -151,7 +298,7 @@ Return a JSON object with these EXACT keys:
   
   "professionalInterests": ["Design efficiency", "Manufacturing automation", "Team productivity", "specific interests based on their role"],
   
-  "decisionMakingStyle": "How this person likely makes decisions - data-driven, relationship-based, consensus-builder, etc. based on their role and background",
+  "decisionMakingStyle": "How this person likely makes decisions based on their role and background",
   
   "commonGround": [
     "Specific conversation starter based on their background",
@@ -159,7 +306,7 @@ Return a JSON object with these EXACT keys:
     "Reference to their work or company achievement"
   ],
   
-  "openingLine": "A personalized 2-3 sentence opener that references something SPECIFIC about them or their company. Make it conversational and show you've done your research.",
+  "openingLine": "A personalized 2-3 sentence opener that references something SPECIFIC about them or their company from the scraped data. Make it conversational.",
   
   "talkTrack": [
     "Key value proposition 1 tailored to their situation",
@@ -190,33 +337,40 @@ Return a JSON object with these EXACT keys:
   
   "priority": "hot (80-100), warm (60-79), cool (40-59), or cold (0-39)",
   
-  "linkedInUrl": "LinkedIn profile URL if found",
+  "linkedInUrl": "LinkedIn profile URL from scraped data or found via search",
   "phoneNumber": "Phone number if found",
-  "jobTitle": "Accurate job title",
+  "jobTitle": "Accurate job title from LinkedIn data",
   "companyWebsite": "Company website URL",
   "companyAddress": "Company headquarters address if found"
 }
 
-BE THOROUGH. Search the web. Find real information. Make specific product recommendations based on their situation.`;
+BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with web search for recent news.`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: prompt,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
         temperature: 0.7,
         maxOutputTokens: 6000,
+        tools: [{ googleSearch: {} }],
       },
     });
 
     let text = "";
-    if (response.text) {
+    if (response.candidates && response.candidates.length > 0) {
+      const candidate = response.candidates[0];
+      if (candidate.content && candidate.content.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.text) {
+            text += part.text;
+          }
+        }
+      }
+    }
+    
+    if (!text && response.text) {
       text = response.text;
-    } else if (response.candidates?.[0]?.content?.parts) {
-      const textPart = response.candidates[0].content.parts.find(
-        (part: { text?: string }) => part.text
-      );
-      text = textPart?.text || "";
     }
     
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -251,13 +405,15 @@ BE THOROUGH. Search the web. Find real information. Make specific product recomm
       fitScoreBreakdown: raw.fitScoreBreakdown || "",
       priority: ["hot", "warm", "cool", "cold"].includes(raw.priority) ? raw.priority : "cool",
       
-      sources: "Gemini AI with web grounding",
-      linkedInUrl: raw.linkedInUrl,
-      phoneNumber: raw.phoneNumber,
-      jobTitle: raw.jobTitle,
-      companyWebsite: raw.companyWebsite,
+      sources: scraped.scrapedIntel.sources.join(" | ") + " | Gemini AI with web grounding",
+      linkedInUrl: scraped.contactLinkedIn?.linkedInUrl || raw.linkedInUrl,
+      phoneNumber: phoneFromScrape || raw.phoneNumber,
+      jobTitle: scraped.contactLinkedIn?.currentTitle || raw.jobTitle,
+      companyWebsite: lead.companyWebsite || raw.companyWebsite,
       companyAddress: raw.companyAddress
     };
+    
+    console.log(`[LeadResearch] Dossier generated successfully. Fit: ${dossier.fitScore}, Priority: ${dossier.priority}`);
     
     return dossier;
   } catch (error) {
@@ -321,12 +477,11 @@ export interface ResearchResult {
 export async function researchLead(lead: Lead): Promise<ResearchResult> {
   console.log(`[LeadResearch] Starting parallel research for ${lead.contactName} at ${lead.companyName}`);
   
-  const [dossier, xIntel, linkedInProfile, companyHardIntel] = await Promise.all([
-    generateLeadDossier(lead),
-    researchLeadOnX(lead),
-    researchContactLinkedIn(lead),
-    gatherCompanyHardIntel(lead)
-  ]);
+  const preScraped = await gatherAllIntelInParallel(lead);
+  
+  const dossier = await generateLeadDossier(lead, preScraped);
+  
+  const linkedInProfile = formatContactLinkedInAsProfile(preScraped.contactLinkedIn);
 
   console.log(`[LeadResearch] All research completed. Fit score: ${dossier.fitScore}, Priority: ${dossier.priority}`);
 
@@ -405,19 +560,15 @@ export async function researchLead(lead: Lead): Promise<ResearchResult> {
     talkTrack,
     discoveryQuestions,
     objectionHandles,
-    companyHardIntel: formatCompanyHardIntel(companyHardIntel),
-    xIntel: formatXIntel(xIntel),
+    companyHardIntel: formatCompanyHardIntel(preScraped.companyHardIntel),
+    xIntel: formatXIntel(preScraped.xIntel),
     linkedInIntel: formatLinkedInIntel(linkedInProfile),
-    sources: [
-      dossier.sources,
-      xIntel.error ? `X.com: ${xIntel.error}` : `X.com: ${xIntel.xHandle || "researched"}`,
-      linkedInProfile.error ? `LinkedIn: ${linkedInProfile.error}` : `LinkedIn: ${linkedInProfile.profileUrl || "researched"}`
-    ].join(" | "),
+    sources: dossier.sources,
     verificationStatus: "ai_generated",
     painPointsJson: dossier.painPoints,
     productMatchesJson: dossier.productMatches,
     linkedInProfileJson: linkedInProfile,
-    xIntelJson: xIntel,
+    xIntelJson: preScraped.xIntel,
     careerHistoryJson: dossier.careerHistory,
     dossierJson: dossier
   };
@@ -432,9 +583,9 @@ export async function researchLead(lead: Lead): Promise<ResearchResult> {
     },
     structuredData: {
       dossier,
-      xIntel,
+      xIntel: preScraped.xIntel,
       linkedInProfile,
-      companyHardIntel
+      companyHardIntel: preScraped.companyHardIntel
     }
   };
 }
