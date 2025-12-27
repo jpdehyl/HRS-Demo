@@ -223,6 +223,7 @@ export const callSessions = pgTable("call_sessions", {
   status: text("status").notNull().default("initiated"), // initiated, ringing, in-progress, completed, failed, busy, no-answer
   duration: integer("duration"),
   recordingUrl: text("recording_url"),
+  driveFileId: text("drive_file_id"),
   transcriptText: text("transcript_text"),
   coachingNotes: text("coaching_notes"),
   managerSummary: text("manager_summary"),

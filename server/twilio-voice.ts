@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
 import twilio from "twilio";
 import { storage } from "./storage";
+import { uploadFileToDrive } from "./google/driveClient";
+import { GOOGLE_CONFIG } from "./google/config";
 
 const { AccessToken } = twilio.jwt;
 const { VoiceGrant } = AccessToken;
@@ -195,13 +197,94 @@ export function registerTwilioVoiceRoutes(app: Express): void {
   app.post("/twilio/voice/recording", validateTwilioWebhook, async (req: Request, res: Response) => {
     console.log("Recording event:", req.body);
     
-    const { CallSid, RecordingUrl, RecordingStatus } = req.body;
+    const { CallSid, RecordingUrl, RecordingStatus, RecordingSid } = req.body;
 
     if (RecordingStatus === "completed" && RecordingUrl) {
       try {
         await storage.updateCallSessionByCallSid(CallSid, {
           recordingUrl: RecordingUrl,
         });
+
+        const callSession = await storage.getCallSessionByCallSid(CallSid);
+        if (callSession) {
+          const user = callSession.userId ? await storage.getUser(callSession.userId) : null;
+          const sdr = user?.sdrId ? await storage.getSdr(user.sdrId) : null;
+          const sdrName = sdr?.name || user?.name || "Unknown";
+          
+          const callDate = callSession.startedAt ? new Date(callSession.startedAt) : new Date();
+          const year = callDate.getFullYear().toString().slice(-2);
+          const month = String(callDate.getMonth() + 1).padStart(2, "0");
+          const day = String(callDate.getDate()).padStart(2, "0");
+          const hour = String(callDate.getHours()).padStart(2, "0");
+          const minute = String(callDate.getMinutes()).padStart(2, "0");
+          const dateTimeStr = `${year}${month}${day}${hour}${minute}`;
+          
+          const sdrPrefix = sdrName.split(" ")[0]?.toUpperCase().slice(0, 6) || "SDR";
+          const filename = `${sdrPrefix}${dateTimeStr}Call.wav`;
+
+          console.log(`[Recording] Downloading recording from Twilio: ${RecordingUrl}`);
+          
+          (async () => {
+            try {
+              const audioUrl = `${RecordingUrl}.wav`;
+              const response = await fetch(audioUrl, {
+                headers: {
+                  "Authorization": `Basic ${Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64")}`
+                }
+              });
+
+              if (response.ok) {
+                const audioBuffer = Buffer.from(await response.arrayBuffer());
+                console.log(`[Recording] Downloaded ${audioBuffer.length} bytes, uploading to Google Drive as ${filename}`);
+                
+                const driveFile = await uploadFileToDrive(
+                  filename,
+                  audioBuffer,
+                  "audio/wav",
+                  GOOGLE_CONFIG.PROCESSED_FOLDER_ID
+                );
+                
+                console.log(`[Recording] Uploaded to Google Drive: ${driveFile.id}`);
+                
+                await storage.updateCallSessionByCallSid(CallSid, {
+                  driveFileId: driveFile.id,
+                });
+              } else if (response.status === 404) {
+                console.log("[Recording] WAV not found, trying MP3 format...");
+                const mp3Response = await fetch(`${RecordingUrl}.mp3`, {
+                  headers: {
+                    "Authorization": `Basic ${Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64")}`
+                  }
+                });
+                
+                if (mp3Response.ok) {
+                  const mp3Buffer = Buffer.from(await mp3Response.arrayBuffer());
+                  const mp3Filename = filename.replace(".wav", ".mp3");
+                  console.log(`[Recording] Downloaded MP3 ${mp3Buffer.length} bytes, uploading as ${mp3Filename}`);
+                  
+                  const driveFile = await uploadFileToDrive(
+                    mp3Filename,
+                    mp3Buffer,
+                    "audio/mpeg",
+                    GOOGLE_CONFIG.PROCESSED_FOLDER_ID
+                  );
+                  
+                  console.log(`[Recording] Uploaded MP3 to Google Drive: ${driveFile.id}`);
+                  
+                  await storage.updateCallSessionByCallSid(CallSid, {
+                    driveFileId: driveFile.id,
+                  });
+                } else {
+                  console.error(`[Recording] MP3 also failed: ${mp3Response.status}`);
+                }
+              } else {
+                console.error(`[Recording] Failed to download: ${response.status} ${response.statusText}`);
+              }
+            } catch (downloadError) {
+              console.error("[Recording] Error downloading/uploading recording:", downloadError);
+            }
+          })();
+        }
       } catch (error) {
         console.error("Error saving recording URL:", error);
       }
