@@ -1,33 +1,10 @@
-import { useState, useRef, useEffect, useMemo, useCallback, Component, ErrorInfo, ReactNode } from "react";
+import { useState, useRef, useEffect, useMemo, Component, ErrorInfo, ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { useLocation } from "wouter";
-import { ChevronRight, Hand } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import logoPath from "@assets/logo_1766696202008.png";
-
-declare global {
-  interface Window {
-    Hands: new (config: { locateFile: (file: string) => string }) => MediaPipeHands;
-    Camera: new (videoElement: HTMLVideoElement, config: { onFrame: () => Promise<void>; width: number; height: number }) => MediaPipeCamera;
-  }
-}
-
-interface MediaPipeHands {
-  setOptions: (options: { maxNumHands: number; modelComplexity: number; minDetectionConfidence: number; minTrackingConfidence: number }) => void;
-  onResults: (callback: (results: HandResults) => void) => void;
-  send: (config: { image: HTMLVideoElement }) => Promise<void>;
-}
-
-interface MediaPipeCamera {
-  start: () => Promise<void>;
-  stop: () => void;
-}
-
-interface HandResults {
-  multiHandLandmarks?: Array<Array<{ x: number; y: number; z: number }>>;
-  multiHandedness?: Array<{ label: string }>;
-}
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -90,63 +67,8 @@ function AnimatedBackground() {
   );
 }
 
-function FallbackUI({ onLogin }: { onLogin: () => void }) {
-  const [showLogin, setShowLogin] = useState(false);
-  
-  useEffect(() => {
-    const timer = setTimeout(() => setShowLogin(true), 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return (
-    <div className="relative w-full h-screen overflow-hidden bg-gradient-to-br from-[#0a1628] via-[#132743] to-[#0d2137]">
-      <AnimatedBackground />
-      
-      <div className="absolute top-0 left-0 right-0 p-6 flex items-center z-10">
-        <img src={logoPath} alt="Hawk Ridge Systems" className="h-10" />
-      </div>
-
-      <div 
-        className={`absolute inset-0 flex flex-col items-center justify-center z-10 transition-all duration-1000 ${
-          showLogin ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-        }`}
-      >
-        <div className="text-center mb-12">
-          <h1 
-            className="text-5xl md:text-7xl font-bold text-white mb-4 tracking-tight"
-            style={{ fontFamily: "Montserrat, sans-serif" }}
-          >
-            Lead Intel
-          </h1>
-          <p 
-            className="text-xl md:text-2xl text-white/60 max-w-xl mx-auto px-4"
-            style={{ fontFamily: "Hind, sans-serif" }}
-          >
-            AI-Powered Pre-Call Intelligence
-          </p>
-        </div>
-
-        <button
-          onClick={onLogin}
-          className="group relative px-10 py-4 bg-transparent border-2 border-[#2C88C9] rounded-full text-white font-medium text-lg transition-all duration-500 hover:bg-[#2C88C9]/20 hover:border-[#F26419] hover:shadow-[0_0_40px_rgba(44,136,201,0.4)]"
-          data-testid="button-login"
-          style={{ fontFamily: "Montserrat, sans-serif" }}
-        >
-          <span className="relative z-10 flex items-center gap-3">
-            Enter
-            <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-          </span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
 interface ParticleSystemProps {
-  scale: number;
-  rotation: number;
   particleCount?: number;
-  autoAnimate?: boolean;
 }
 
 function generateSupernova(count: number): { positions: Float32Array; colors: Float32Array } {
@@ -205,7 +127,7 @@ function generateSupernova(count: number): { positions: Float32Array; colors: Fl
   return { positions, colors };
 }
 
-function GalaxyParticles({ scale, rotation, particleCount = 20000, autoAnimate = false }: ParticleSystemProps) {
+function GalaxyParticles({ particleCount = 20000 }: ParticleSystemProps) {
   const meshRef = useRef<THREE.Points>(null);
   const smoothScaleRef = useRef(1);
   const smoothRotationRef = useRef(0);
@@ -253,14 +175,9 @@ function GalaxyParticles({ scale, rotation, particleCount = 20000, autoAnimate =
     const positions = meshRef.current.geometry.attributes.position.array as Float32Array;
     const time = state.clock.elapsedTime;
     
-    let targetScale = scale;
-    let targetRotation = rotation;
-    
-    if (autoAnimate) {
-      autoAnimatePhase.current += 0.003;
-      targetScale = 1 + Math.sin(autoAnimatePhase.current) * 0.15 + 0.15;
-      targetRotation = Math.sin(autoAnimatePhase.current * 0.7) * 0.1;
-    }
+    autoAnimatePhase.current += 0.003;
+    const targetScale = 1 + Math.sin(autoAnimatePhase.current) * 0.15 + 0.15;
+    const targetRotation = Math.sin(autoAnimatePhase.current * 0.7) * 0.1;
     
     smoothScaleRef.current += (targetScale - smoothScaleRef.current) * 0.008;
     smoothRotationRef.current += (targetRotation - smoothRotationRef.current) * 0.01;
@@ -335,157 +252,9 @@ function CameraController() {
   return <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.05} />;
 }
 
-function useHandTracking() {
-  const [handScale, setHandScale] = useState(1);
-  const [handRotation, setHandRotation] = useState(0);
-  const [isTracking, setIsTracking] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const handsRef = useRef<MediaPipeHands | null>(null);
-  const cameraRef = useRef<MediaPipeCamera | null>(null);
-  const isInitializedRef = useRef(false);
-
-  const calculateHandOpenness = useCallback((landmarks: Array<{ x: number; y: number; z: number }>) => {
-    const wrist = landmarks[0];
-    const thumbTip = landmarks[4];
-    const indexTip = landmarks[8];
-    const middleTip = landmarks[12];
-    const ringTip = landmarks[16];
-    const pinkyTip = landmarks[20];
-
-    const distance = (a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }) => 
-      Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2);
-
-    const avgFingerDist = (
-      distance(wrist, thumbTip) +
-      distance(wrist, indexTip) +
-      distance(wrist, middleTip) +
-      distance(wrist, ringTip) +
-      distance(wrist, pinkyTip)
-    ) / 5;
-
-    const openness = Math.min(Math.max((avgFingerDist - 0.15) / 0.25, 0), 1);
-    return openness;
-  }, []);
-
-  const calculateHandRotation = useCallback((landmarks: Array<{ x: number; y: number; z: number }>) => {
-    const wrist = landmarks[0];
-    const middleMcp = landmarks[9];
-    const angle = Math.atan2(middleMcp.y - wrist.y, middleMcp.x - wrist.x);
-    return angle;
-  }, []);
-
-  const cleanup = useCallback(() => {
-    if (cameraRef.current) {
-      try {
-        cameraRef.current.stop();
-      } catch (e) {
-        console.warn("Error stopping camera:", e);
-      }
-      cameraRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-      videoRef.current.remove();
-      videoRef.current = null;
-    }
-    handsRef.current = null;
-    isInitializedRef.current = false;
-    setIsTracking(false);
-  }, []);
-
-  const startTracking = useCallback(async () => {
-    const HandsClass = (window as any).Hands;
-    const CameraClass = (window as any).Camera;
-    
-    console.log("[HandTracking] Checking for MediaPipe...", { Hands: !!HandsClass, Camera: !!CameraClass });
-    
-    if (!HandsClass || !CameraClass) {
-      console.error("[HandTracking] MediaPipe not available", { Hands: typeof HandsClass, Camera: typeof CameraClass });
-      setError("Hand tracking not available");
-      return;
-    }
-
-    if (isInitializedRef.current) {
-      console.log("[HandTracking] Already initialized");
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      console.log("[HandTracking] Creating video element...");
-      const video = document.createElement('video');
-      video.setAttribute('playsinline', '');
-      video.style.display = 'none';
-      document.body.appendChild(video);
-      videoRef.current = video;
-
-      console.log("[HandTracking] Initializing Hands...");
-      const hands = new HandsClass({
-        locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
-      });
-
-      hands.setOptions({
-        maxNumHands: 1,
-        modelComplexity: 0,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
-      });
-
-      hands.onResults((results: HandResults) => {
-        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-          const landmarks = results.multiHandLandmarks[0];
-          const openness = calculateHandOpenness(landmarks);
-          const rotation = calculateHandRotation(landmarks);
-          
-          const scale = 0.6 + openness * 1.2;
-          setHandScale(scale);
-          setHandRotation(rotation * 0.3);
-        }
-      });
-
-      handsRef.current = hands;
-
-      console.log("[HandTracking] Initializing Camera...");
-      const camera = new CameraClass(video, {
-        onFrame: async () => {
-          if (handsRef.current && videoRef.current) {
-            await handsRef.current.send({ image: videoRef.current });
-          }
-        },
-        width: 320,
-        height: 240
-      });
-
-      cameraRef.current = camera;
-      console.log("[HandTracking] Starting camera...");
-      await camera.start();
-      console.log("[HandTracking] Camera started successfully!");
-      isInitializedRef.current = true;
-      setIsTracking(true);
-      setIsLoading(false);
-    } catch (err: any) {
-      console.error("[HandTracking] Failed to initialize:", err?.message || err);
-      setError(err?.message || "Camera access denied or unavailable");
-      setIsLoading(false);
-      cleanup();
-    }
-  }, [calculateHandOpenness, calculateHandRotation, cleanup]);
-
-  useEffect(() => {
-    return cleanup;
-  }, [cleanup]);
-
-  return { handScale, handRotation, isTracking, isLoading, error, startTracking };
-}
-
 export default function LandingPage() {
   const [, setLocation] = useLocation();
   const [showLogin, setShowLogin] = useState(false);
-  const { handScale, handRotation, isTracking, isLoading, error, startTracking } = useHandTracking();
 
   useEffect(() => {
     const timer = setTimeout(() => setShowLogin(true), 1000);
@@ -494,10 +263,6 @@ export default function LandingPage() {
 
   const handleLogin = () => {
     setLocation("/login");
-  };
-
-  const handleEnableHandTracking = async () => {
-    await startTracking();
   };
 
   return (
@@ -512,52 +277,14 @@ export default function LandingPage() {
             <color attach="background" args={['#0a1628']} />
             <fog attach="fog" args={['#0a1628', 5, 15]} />
             <ambientLight intensity={0.5} />
-            <GalaxyParticles 
-              scale={isTracking ? handScale : 1} 
-              rotation={isTracking ? handRotation : 0} 
-              particleCount={15000}
-              autoAnimate={!isTracking}
-            />
+            <GalaxyParticles particleCount={15000} />
             <CameraController />
           </Canvas>
         </WebGLErrorBoundary>
       </div>
 
-      <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between z-10">
+      <div className="absolute top-0 left-0 right-0 p-6 flex items-center z-10">
         <img src={logoPath} alt="Hawk Ridge Systems" className="h-10" data-testid="img-logo" />
-        
-        {!isTracking && !isLoading && (
-          <div className="flex items-center gap-3">
-            {error && (
-              <span className="text-sm text-[#F26419]/80" style={{ fontFamily: "Hind, sans-serif" }}>
-                {error}
-              </span>
-            )}
-            <button
-              onClick={handleEnableHandTracking}
-              className="flex items-center gap-2 px-4 py-2 text-sm text-white/60 hover:text-white/90 transition-colors rounded-full border border-white/20 hover:border-white/40"
-              data-testid="button-enable-hand-tracking"
-              style={{ fontFamily: "Hind, sans-serif" }}
-            >
-              <Hand className="w-4 h-4" />
-              <span>{error ? "Retry" : "Enable Hand Control"}</span>
-            </button>
-          </div>
-        )}
-        
-        {isLoading && (
-          <div className="flex items-center gap-2 px-4 py-2 text-sm text-white/60" style={{ fontFamily: "Hind, sans-serif" }}>
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white/80 rounded-full animate-spin" />
-            <span>Starting camera...</span>
-          </div>
-        )}
-        
-        {isTracking && (
-          <div className="flex items-center gap-2 px-4 py-2 text-sm text-[#2C88C9]" style={{ fontFamily: "Hind, sans-serif" }}>
-            <Hand className="w-4 h-4" />
-            <span>Hand tracking active</span>
-          </div>
-        )}
       </div>
 
       <div 
@@ -580,15 +307,6 @@ export default function LandingPage() {
           >
             AI-Powered Pre-Call Intelligence
           </p>
-          
-          {isTracking && (
-            <p 
-              className="text-sm text-[#2C88C9]/80 mt-4"
-              style={{ fontFamily: "Hind, sans-serif" }}
-            >
-              Open your hand to expand, close to compress
-            </p>
-          )}
         </div>
 
         <button
