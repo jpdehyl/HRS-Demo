@@ -38,23 +38,16 @@ export async function registerRoutes(
 ): Promise<Server> {
   app.use(express.urlencoded({ extended: true }));
 
-  let sessionStore;
-  if (process.env.NODE_ENV === "production") {
-    console.log("Using PostgreSQL session store");
-    sessionStore = new PgSession({
-      pool: pool,
-      tableName: "session",
-      createTableIfMissing: true,
-      errorLog: (error: Error) => {
-        console.error("PgSession error:", error);
-      },
-    });
-  } else {
-    console.log("Using MemoryStore session store");
-    sessionStore = new MemoryStoreSession({
-      checkPeriod: 86400000,
-    });
-  }
+  // Always use PostgreSQL for persistent sessions across restarts
+  console.log("Using PostgreSQL session store for persistent sessions");
+  const sessionStore = new PgSession({
+    pool: pool,
+    tableName: "session",
+    createTableIfMissing: true,
+    errorLog: (error: Error) => {
+      console.error("PgSession error:", error);
+    },
+  });
 
   app.use(
     session({
