@@ -67,7 +67,19 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
 
   app.patch("/api/leads/:id", requireAuth, async (req: Request, res: Response) => {
     try {
-      const lead = await storage.updateLead(req.params.id, req.body);
+      const updates = { ...req.body };
+      
+      if (updates.handedOffAt && typeof updates.handedOffAt === 'string') {
+        updates.handedOffAt = new Date(updates.handedOffAt);
+      }
+      if (updates.nextFollowUpAt && typeof updates.nextFollowUpAt === 'string') {
+        updates.nextFollowUpAt = new Date(updates.nextFollowUpAt);
+      }
+      if (updates.lastContactedAt && typeof updates.lastContactedAt === 'string') {
+        updates.lastContactedAt = new Date(updates.lastContactedAt);
+      }
+      
+      const lead = await storage.updateLead(req.params.id, updates);
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
