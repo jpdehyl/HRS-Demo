@@ -4,6 +4,7 @@ import { insertLeadSchema } from "@shared/schema";
 import { z } from "zod";
 import { fetchLeadsFromSheet, parseLeadsFromSheet, detectColumnMapping, getSpreadsheetInfo } from "./google/sheetsClient";
 import { researchLead } from "./ai/leadResearch";
+import { extractQualificationFromTranscript, QualificationDraft } from "./ai/qualificationExtractor";
 
 export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, res: Response, next: () => void) => void) {
   
@@ -42,6 +43,64 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
     } catch (error) {
       console.error("Lead fetch error:", error);
       res.status(500).json({ message: "Failed to fetch lead" });
+    }
+  });
+
+  app.get("/api/leads/:id/qualification-draft", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      const callSessions = await storage.getCallSessionsByLead(lead.id);
+      const coachingSessions = await storage.getLiveCoachingSessionsByLead(lead.id);
+      
+      let transcript = "";
+      
+      if (callSessions.length > 0) {
+        const recentSession = callSessions[0];
+        if (recentSession.transcriptText) {
+          transcript = recentSession.transcriptText;
+        }
+      }
+      
+      if (!transcript && coachingSessions.length > 0) {
+        const recentSession = coachingSessions[0];
+        const transcripts = await storage.getLiveTranscriptsBySession(recentSession.id);
+        if (transcripts.length > 0) {
+          transcript = transcripts
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            .map(t => `${t.speaker || "Speaker"}: ${t.content}`)
+            .join("\n");
+        }
+      }
+
+      if (!transcript) {
+        return res.json({
+          qualificationNotes: "",
+          buySignals: "",
+          budget: "",
+          timeline: "",
+          decisionMakers: "",
+          source: "no_data",
+          confidence: "low",
+          message: "No call transcripts found for this lead"
+        });
+      }
+
+      console.log(`[QualificationDraft] Extracting from ${transcript.length} chars of transcript for lead ${lead.id}`);
+      
+      const draft = await extractQualificationFromTranscript(
+        transcript,
+        lead.contactName,
+        lead.companyName
+      );
+
+      res.json(draft);
+    } catch (error) {
+      console.error("Qualification draft error:", error);
+      res.status(500).json({ message: "Failed to generate qualification draft" });
     }
   });
 

@@ -89,6 +89,7 @@ export default function LeadsPage() {
     timeline: "",
     decisionMakers: ""
   });
+  const [qualifyDraftFetched, setQualifyDraftFetched] = useState(false);
   const { toast } = useToast();
 
   const genericDomains = ["gmail.com", "hotmail.com", "live.com", "outlook.com", "yahoo.com", "aol.com", "icloud.com", "mail.com", "protonmail.com", "zoho.com"];
@@ -115,6 +116,47 @@ export default function LeadsPage() {
     queryKey: ["/api/leads", selectedLead?.id],
     enabled: !!selectedLead,
   });
+
+  interface QualificationDraft {
+    qualificationNotes: string;
+    buySignals: string;
+    budget: string;
+    timeline: string;
+    decisionMakers: string;
+    source: "call_transcript" | "no_data";
+    confidence: "high" | "medium" | "low";
+    message?: string;
+  }
+
+  const { data: qualificationDraft, isLoading: draftLoading, refetch: refetchDraft } = useQuery<QualificationDraft>({
+    queryKey: ["/api/leads", selectedLead?.id, "qualification-draft"],
+    enabled: showQualifyDialog && !!selectedLead && !qualifyDraftFetched,
+  });
+
+  useEffect(() => {
+    if (qualificationDraft && showQualifyDialog && !qualifyDraftFetched) {
+      setQualifyData({
+        qualificationNotes: qualificationDraft.qualificationNotes || "",
+        buySignals: qualificationDraft.buySignals || "",
+        budget: qualificationDraft.budget || "",
+        timeline: qualificationDraft.timeline || "",
+        decisionMakers: qualificationDraft.decisionMakers || ""
+      });
+      setQualifyDraftFetched(true);
+      if (qualificationDraft.source === "call_transcript" && qualificationDraft.confidence !== "low") {
+        toast({ 
+          title: "AI Suggestions Loaded", 
+          description: "Fields pre-filled from call transcript. Review and edit as needed." 
+        });
+      }
+    }
+  }, [qualificationDraft, showQualifyDialog, qualifyDraftFetched, toast]);
+
+  useEffect(() => {
+    if (!showQualifyDialog) {
+      setQualifyDraftFetched(false);
+    }
+  }, [showQualifyDialog]);
 
   const researchMutation = useMutation({
     mutationFn: async ({ leadId, refresh = false }: { leadId: string; refresh?: boolean }) => {
@@ -407,7 +449,22 @@ export default function LeadsPage() {
             </DialogDescription>
           </DialogHeader>
           
+          {draftLoading && !qualifyDraftFetched ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Analyzing call transcript...</p>
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="space-y-4 py-4">
+            {qualificationDraft?.source === "call_transcript" && qualificationDraft?.confidence !== "low" && (
+              <div className="flex items-center gap-2 p-2 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <span className="text-xs text-green-700 dark:text-green-300">AI suggestions from call transcript - edit as needed</span>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="qual-notes">Qualification Notes</Label>
               <Textarea
@@ -490,6 +547,8 @@ export default function LeadsPage() {
               Qualify and Hand Off
             </Button>
           </div>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

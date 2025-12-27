@@ -42,6 +42,7 @@ export interface IStorage {
   
   getLiveCoachingSession(id: string): Promise<LiveCoachingSession | undefined>;
   getActiveSessionBySdr(sdrId: string): Promise<LiveCoachingSession | undefined>;
+  getLiveCoachingSessionsByLead(leadId: string): Promise<LiveCoachingSession[]>;
   createLiveCoachingSession(session: InsertLiveCoachingSession): Promise<LiveCoachingSession>;
   updateLiveCoachingSession(id: string, session: Partial<InsertLiveCoachingSession>): Promise<LiveCoachingSession | undefined>;
   
@@ -175,6 +176,13 @@ export class DatabaseStorage implements IStorage {
       .from(liveCoachingSessions)
       .where(eq(liveCoachingSessions.sdrId, sdrId));
     return session;
+  }
+
+  async getLiveCoachingSessionsByLead(leadId: string): Promise<LiveCoachingSession[]> {
+    return db.select()
+      .from(liveCoachingSessions)
+      .where(eq(liveCoachingSessions.leadId, leadId))
+      .orderBy(desc(liveCoachingSessions.startedAt));
   }
 
   async createLiveCoachingSession(insertSession: InsertLiveCoachingSession): Promise<LiveCoachingSession> {
