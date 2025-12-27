@@ -32,6 +32,7 @@ export default function CoachingPage() {
   const [selectedCall, setSelectedCall] = useState<CallSession | null>(null);
   const [callPrepOpen, setCallPrepOpen] = useState(!!leadIdParam);
   const [pendingOutcomeCallId, setPendingOutcomeCallId] = useState<string | null>(null);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const { data: leadDetail } = useQuery<{ lead: Lead; researchPacket: ResearchPacket | null }>({
@@ -237,115 +238,44 @@ export default function CoachingPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Live Transcript
+          <Card className="border-2 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-xl flex items-center gap-2 text-blue-900 dark:text-blue-100">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-md">
+                    <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  AI Coaching Tips
                 </CardTitle>
-                <CardDescription>
-                  Real-time transcription of your call
-                </CardDescription>
-              </div>
-              {currentPhoneNumber && (
-                <Badge variant="secondary" data-testid="badge-active-call">
-                  <Phone className="h-3 w-3 mr-1" />
-                  {currentPhoneNumber}
-                </Badge>
-              )}
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[250px]">
-                {transcripts.length > 0 || livePartial ? (
-                  <div className="space-y-3 pr-4">
-                    {transcripts.map((entry, index) => (
-                      <div
-                        key={index}
-                        className={`p-3 rounded-md ${
-                          entry.speaker === "Agent"
-                            ? "bg-primary/10 ml-4"
-                            : "bg-muted mr-4"
-                        }`}
-                        data-testid={`transcript-entry-${index}`}
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className="text-xs font-medium text-muted-foreground">
-                            {entry.speaker}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(entry.timestamp).toLocaleTimeString()}
-                          </span>
-                        </div>
-                        <p className="text-sm">{entry.text}</p>
-                      </div>
-                    ))}
-                    {livePartial && (
-                      <div
-                        className={`p-3 rounded-md opacity-70 ${
-                          livePartial.speaker === "Agent"
-                            ? "bg-primary/10 ml-4"
-                            : "bg-muted mr-4"
-                        }`}
-                        data-testid="transcript-live-partial"
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-medium text-muted-foreground">
-                            {livePartial.speaker}
-                          </span>
-                          <span className="text-xs text-muted-foreground italic">
-                            typing...
-                          </span>
-                        </div>
-                        <p className="text-sm italic">{livePartial.text}</p>
-                      </div>
-                    )}
-                    <div ref={transcriptEndRef} />
-                  </div>
-                ) : currentPhoneNumber ? (
-                  <div className="h-full flex items-center justify-center text-muted-foreground">
-                    <div className="text-center">
-                      <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>Waiting for transcription...</p>
-                      <p className="text-xs mt-1">Speak to see your conversation here</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground">
-                    <p>Start a call to see the live transcript</p>
-                  </div>
+                {currentPhoneNumber && coachingTips.length > 0 && (
+                  <Badge className="bg-blue-600 text-white" data-testid="badge-tips-count">
+                    {coachingTips.length} tips
+                  </Badge>
                 )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Lightbulb className="h-5 w-5" />
-                AI Coaching Tips
-              </CardTitle>
-              <CardDescription>
-                Real-time suggestions to improve your conversation
+              </div>
+              <CardDescription className="text-blue-700 dark:text-blue-300">
+                Real-time suggestions to guide your conversation
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[180px]">
+              <ScrollArea className="h-[220px]">
                 {coachingTips.length > 0 ? (
                   <div className="space-y-3 pr-4">
                     {coachingTips.map((tip, index) => (
                       <div
                         key={index}
-                        className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-900"
+                        className="p-4 bg-white dark:bg-blue-950/50 rounded-md border border-blue-200 dark:border-blue-800 shadow-sm"
                         data-testid={`coaching-tip-${index}`}
                       >
-                        <div className="flex items-start gap-2">
-                          <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        <div className="flex items-start gap-3">
+                          <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded-full flex-shrink-0">
+                            <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-blue-900 dark:text-blue-100 leading-relaxed">
                               {tip.tip}
                             </p>
-                            <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
                               {new Date(tip.timestamp).toLocaleTimeString()}
                             </p>
                           </div>
@@ -354,25 +284,126 @@ export default function CoachingPage() {
                     ))}
                   </div>
                 ) : currentPhoneNumber ? (
-                  <div className="h-full flex items-center justify-center">
-                    <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-900 text-center">
-                      <Activity className="h-6 w-6 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
-                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  <div className="h-full flex items-center justify-center py-8">
+                    <div className="p-6 bg-white dark:bg-blue-950/50 rounded-md border border-blue-200 dark:border-blue-800 text-center max-w-sm">
+                      <Activity className="h-8 w-8 text-blue-600 dark:text-blue-400 mx-auto mb-3 animate-pulse" />
+                      <p className="text-base font-medium text-blue-900 dark:text-blue-100">
                         Listening for coaching opportunities...
                       </p>
-                      <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                        AI tips will appear as you speak with your prospect
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
+                        AI tips will appear here as you speak with your prospect
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground">
-                    <p>Coaching tips will appear during active calls</p>
+                  <div className="h-full flex items-center justify-center text-blue-600 dark:text-blue-400 py-8">
+                    <div className="text-center">
+                      <Lightbulb className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Start a call to receive coaching tips</p>
+                    </div>
                   </div>
                 )}
               </ScrollArea>
             </CardContent>
           </Card>
+
+          <Collapsible open={transcriptOpen} onOpenChange={setTranscriptOpen}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 cursor-pointer hover-elevate">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5" />
+                        Live Transcript
+                        {transcripts.length > 0 && (
+                          <Badge variant="secondary" className="ml-2">
+                            {transcripts.length} messages
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <CardDescription>
+                        {transcriptOpen ? "Click to collapse" : "Click to expand transcript"}
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {currentPhoneNumber && (
+                      <Badge variant="secondary" data-testid="badge-active-call">
+                        <Phone className="h-3 w-3 mr-1" />
+                        {currentPhoneNumber}
+                      </Badge>
+                    )}
+                    <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${transcriptOpen ? "rotate-180" : ""}`} />
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent>
+                  <ScrollArea className="h-[250px]">
+                    {transcripts.length > 0 || livePartial ? (
+                      <div className="space-y-3 pr-4">
+                        {transcripts.map((entry, index) => (
+                          <div
+                            key={index}
+                            className={`p-3 rounded-md ${
+                              entry.speaker === "Agent"
+                                ? "bg-primary/10 ml-4"
+                                : "bg-muted mr-4"
+                            }`}
+                            data-testid={`transcript-entry-${index}`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {entry.speaker}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(entry.timestamp).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            <p className="text-sm">{entry.text}</p>
+                          </div>
+                        ))}
+                        {livePartial && (
+                          <div
+                            className={`p-3 rounded-md opacity-70 ${
+                              livePartial.speaker === "Agent"
+                                ? "bg-primary/10 ml-4"
+                                : "bg-muted mr-4"
+                            }`}
+                            data-testid="transcript-live-partial"
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {livePartial.speaker}
+                              </span>
+                              <span className="text-xs text-muted-foreground italic">
+                                typing...
+                              </span>
+                            </div>
+                            <p className="text-sm italic">{livePartial.text}</p>
+                          </div>
+                        )}
+                        <div ref={transcriptEndRef} />
+                      </div>
+                    ) : currentPhoneNumber ? (
+                      <div className="h-full flex items-center justify-center text-muted-foreground">
+                        <div className="text-center">
+                          <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>Waiting for transcription...</p>
+                          <p className="text-xs mt-1">Speak to see your conversation here</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-muted-foreground">
+                        <p>Start a call to see the live transcript</p>
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
