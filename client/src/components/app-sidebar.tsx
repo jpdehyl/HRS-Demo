@@ -8,7 +8,8 @@ import {
   Settings, 
   LogOut,
   ChevronDown,
-  Target
+  Target,
+  Calculator
 } from "lucide-react";
 import {
   Sidebar,
@@ -72,6 +73,12 @@ const mainNavItems = [
     url: "/ae-pipeline",
     icon: Target,
     allowedRoles: ["admin", "manager", "account_executive"],
+  },
+  {
+    title: "Budgeting",
+    url: "/budgeting",
+    icon: Calculator,
+    allowedRoles: ["admin", "manager", "sdr", "account_specialist", "account_executive"],
   },
 ];
 

@@ -20,6 +20,7 @@ import CallPrepPage from "@/pages/call-prep";
 import TeamPage from "@/pages/team";
 import ReportsPage from "@/pages/reports";
 import AEPipelinePage from "@/pages/ae-pipeline";
+import BudgetingPage from "@/pages/budgeting";
 
 function LoadingScreen() {
   return (
@@ -198,6 +199,14 @@ function Router() {
         <ProtectedRoute allowedRoles={["admin", "manager", "account_executive"]}>
           <DashboardLayout>
             <AEPipelinePage />
+          </DashboardLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/budgeting">
+        <ProtectedRoute>
+          <DashboardLayout>
+            <BudgetingPage />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>

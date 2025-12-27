@@ -8,11 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Softphone } from "@/components/softphone";
 import { CallBrief } from "@/components/call-brief";
 import { PostCallSummaryForm, type CallOutcomeData } from "@/components/post-call-summary-form";
+import { BudgetingPanel } from "@/components/budgeting-panel";
 import { useTranscription } from "@/hooks/use-transcription";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch } from "wouter";
-import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2 } from "lucide-react";
+import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { CallSession, Lead, ResearchPacket } from "@shared/schema";
@@ -33,6 +34,7 @@ export default function CoachingPage() {
   const [callPrepOpen, setCallPrepOpen] = useState(!!leadIdParam);
   const [pendingOutcomeCallId, setPendingOutcomeCallId] = useState<string | null>(null);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [budgetingOpen, setBudgetingOpen] = useState(false);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const { data: leadDetail } = useQuery<{ lead: Lead; researchPacket: ResearchPacket | null }>({
@@ -214,6 +216,25 @@ export default function CoachingPage() {
                   </ScrollArea>
                 </CardContent>
               </Card>
+            </CollapsibleContent>
+          </Collapsible>
+
+          <Collapsible open={budgetingOpen} onOpenChange={setBudgetingOpen}>
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="w-full justify-between border-green-200 dark:border-green-800 text-green-900 dark:text-green-100"
+                data-testid="button-toggle-budgeting"
+              >
+                <span className="flex items-center gap-2">
+                  <Calculator className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  Quick Budgeting
+                </span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${budgetingOpen ? "rotate-180" : ""}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <BudgetingPanel />
             </CollapsibleContent>
           </Collapsible>
 
