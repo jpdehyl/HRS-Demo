@@ -16,12 +16,14 @@ import { getKnowledgebaseContent, getLeadScoringParameters } from "../google/dri
 function getAiClient(): GoogleGenAI {
   const directKey = process.env.GEMINI_API_KEY;
   if (directKey) {
+    console.log("[LeadResearch] Using direct GEMINI_API_KEY");
     return new GoogleGenAI({ apiKey: directKey });
   }
   
   const replitKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
   const replitBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
   if (replitKey && replitBase) {
+    console.log("[LeadResearch] Using Replit AI Integration for Gemini");
     return new GoogleGenAI({
       apiKey: replitKey,
       httpOptions: { apiVersion: "", baseUrl: replitBase },
@@ -375,10 +377,12 @@ Return a JSON object with these EXACT keys:
 BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with web search for recent news.`;
 
   console.log(`[LeadResearch] Calling Gemini for dossier generation...`);
+  console.log(`[LeadResearch] Prompt length: ${prompt.length} chars`);
 
   try {
     const ai = getAiClient();
-    console.log(`[LeadResearch] AI client created, starting API call...`);
+    console.log(`[LeadResearch] AI client created, starting API call with gemini-2.5-flash...`);
+    const startTime = Date.now();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -404,7 +408,8 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
       text = response.text;
     }
     
-    console.log(`[LeadResearch] API call completed. Raw dossier response length: ${text.length}`);
+    const elapsedTime = Date.now() - startTime;
+    console.log(`[LeadResearch] API call completed in ${elapsedTime}ms. Raw dossier response length: ${text.length}`);
     
     // Clean up markdown code blocks if present
     let cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -430,7 +435,7 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
       penaltyBreakdown.push("-30: Gmail/personal email domain");
     }
     
-    if (!lead.companyWebsite && !scraped.scrapedIntel.websiteContent) {
+    if (!lead.companyWebsite && !scraped.scrapedIntel.website) {
       aiScore -= 15;
       penaltyBreakdown.push("-15: No company website found");
     }
@@ -504,8 +509,9 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
     
     return dossier;
   } catch (error) {
-    console.log("[LeadResearch] ERROR generating dossier:", error instanceof Error ? error.message : String(error));
-    console.log("[LeadResearch] Error stack:", error instanceof Error ? error.stack : "No stack");
+    console.error("[LeadResearch] ERROR generating dossier:", error instanceof Error ? error.message : String(error));
+    console.error("[LeadResearch] Error stack:", error instanceof Error ? error.stack : "No stack");
+    console.error("[LeadResearch] Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error as object), 2));
     
     return {
       companySummary: `${lead.companyName} - ${lead.companyIndustry || "Industry unknown"}. Research pending.`,
