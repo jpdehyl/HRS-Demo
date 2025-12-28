@@ -55,6 +55,7 @@ export interface IStorage {
   getResearchPacketByLead(leadId: string): Promise<ResearchPacket | undefined>;
   createResearchPacket(packet: InsertResearchPacket): Promise<ResearchPacket>;
   updateResearchPacket(id: string, packet: Partial<InsertResearchPacket>): Promise<ResearchPacket | undefined>;
+  deleteResearchPacket(id: string): Promise<boolean>;
   
   getCallSession(id: string): Promise<CallSession | undefined>;
   getCallSessionByCallSid(callSid: string): Promise<CallSession | undefined>;
@@ -226,6 +227,11 @@ export class DatabaseStorage implements IStorage {
   async updateResearchPacket(id: string, updates: Partial<InsertResearchPacket>): Promise<ResearchPacket | undefined> {
     const [packet] = await db.update(researchPackets).set(updates).where(eq(researchPackets.id, id)).returning();
     return packet;
+  }
+
+  async deleteResearchPacket(id: string): Promise<boolean> {
+    const result = await db.delete(researchPackets).where(eq(researchPackets.id, id));
+    return true;
   }
 
   async getCallSession(id: string): Promise<CallSession | undefined> {

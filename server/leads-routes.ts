@@ -331,4 +331,58 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       res.status(500).json({ message: "Failed to fetch call history" });
     }
   });
+
+  app.delete("/api/leads/:id/research", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const researchPacket = await storage.getResearchPacketByLead(req.params.id);
+      if (!researchPacket) {
+        return res.status(404).json({ message: "No research found for this lead" });
+      }
+      await storage.deleteResearchPacket(researchPacket.id);
+      
+      await storage.updateLead(req.params.id, {
+        fitScore: null,
+        priority: null
+      });
+      
+      res.json({ message: "Research deleted successfully" });
+    } catch (error) {
+      console.error("Research delete error:", error);
+      res.status(500).json({ message: "Failed to delete research" });
+    }
+  });
+
+  app.patch("/api/leads/:id/research", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const researchPacket = await storage.getResearchPacketByLead(req.params.id);
+      if (!researchPacket) {
+        return res.status(404).json({ message: "No research found for this lead" });
+      }
+      
+      const allowedFields = [
+        'companyIntel', 'contactIntel', 'painSignals', 'fitAnalysis',
+        'talkTrack', 'discoveryQuestions', 'objectionHandles',
+        'companyHardIntel', 'xIntel', 'linkedInIntel', 'competitorPresence'
+      ];
+      
+      const updates: Record<string, unknown> = {};
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+      
+      updates.updatedAt = new Date();
+      
+      const updatedPacket = await storage.updateResearchPacket(researchPacket.id, updates);
+      res.json(updatedPacket);
+    } catch (error) {
+      console.error("Research update error:", error);
+      res.status(500).json({ message: "Failed to update research" });
+    }
+  });
 }
