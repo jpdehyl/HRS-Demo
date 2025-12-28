@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { 
@@ -46,7 +47,11 @@ import {
   ListFilter,
   Plus,
   ArrowRight,
-  CheckCircle2
+  CheckCircle2,
+  Trash2,
+  Pencil,
+  Save,
+  X
 } from "lucide-react";
 import {
   Select,
@@ -853,6 +858,61 @@ interface CareerHistoryData {
 }
 
 function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWithResearch }) {
+  const { toast } = useToast();
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", `/api/leads/${lead.id}/research`);
+      if (!res.ok) throw new Error("Failed to delete research");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads", lead.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Dossier Cleared", description: "Research has been deleted" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete research", variant: "destructive" });
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ field, value }: { field: string; value: string }) => {
+      const res = await apiRequest("PATCH", `/api/leads/${lead.id}/research`, { [field]: value });
+      if (!res.ok) throw new Error("Failed to update research");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads", lead.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      setEditingField(null);
+      setEditValue("");
+      toast({ title: "Updated", description: "Research field updated" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update research", variant: "destructive" });
+    }
+  });
+
+  const startEditing = (field: string, currentValue: string | null) => {
+    setEditingField(field);
+    setEditValue(currentValue || "");
+  };
+
+  const saveEdit = () => {
+    if (editingField) {
+      updateMutation.mutate({ field: editingField, value: editValue });
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingField(null);
+    setEditValue("");
+  };
+
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString("en-US", {
       month: "short",
@@ -970,13 +1030,48 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
 
   return (
     <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-4">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
           <span>Updated {formatDate(packet.updatedAt)}</span>
           <span className="mx-1">|</span>
           <span>{packet.sources}</span>
         </div>
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              data-testid="button-erase-dossier"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Erase Dossier
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Erase Research Dossier?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete all research intel for {lead.companyName}. 
+                You can regenerate a new dossier later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deleteMutation.mutate()}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Erase"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <Tabs defaultValue="company" className="w-full">
@@ -1004,6 +1099,14 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
             icon={Building2}
             title="Company Overview"
             content={packet.companyIntel}
+            fieldName="companyIntel"
+            isEditing={editingField === "companyIntel"}
+            editValue={editValue}
+            onStartEdit={() => startEditing("companyIntel", packet.companyIntel)}
+            onSave={saveEdit}
+            onCancel={cancelEdit}
+            onEditValueChange={setEditValue}
+            isSaving={updateMutation.isPending}
           />
           
           <IntelCard 
@@ -1011,6 +1114,14 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
             title="Hard Intel"
             content={packet.companyHardIntel}
             variant="compact"
+            fieldName="companyHardIntel"
+            isEditing={editingField === "companyHardIntel"}
+            editValue={editValue}
+            onStartEdit={() => startEditing("companyHardIntel", packet.companyHardIntel)}
+            onSave={saveEdit}
+            onCancel={cancelEdit}
+            onEditValueChange={setEditValue}
+            isSaving={updateMutation.isPending}
           />
           
           {painPoints.length > 0 && (
@@ -1066,6 +1177,14 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
             icon={Globe}
             title="Tech Stack & Competitors"
             content={packet.competitorPresence}
+            fieldName="competitorPresence"
+            isEditing={editingField === "competitorPresence"}
+            editValue={editValue}
+            onStartEdit={() => startEditing("competitorPresence", packet.competitorPresence)}
+            onSave={saveEdit}
+            onCancel={cancelEdit}
+            onEditValueChange={setEditValue}
+            isSaving={updateMutation.isPending}
           />
         </TabsContent>
 
@@ -1074,6 +1193,14 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
             icon={User}
             title="Contact Profile"
             content={packet.contactIntel}
+            fieldName="contactIntel"
+            isEditing={editingField === "contactIntel"}
+            editValue={editValue}
+            onStartEdit={() => startEditing("contactIntel", packet.contactIntel)}
+            onSave={saveEdit}
+            onCancel={cancelEdit}
+            onEditValueChange={setEditValue}
+            isSaving={updateMutation.isPending}
           />
           
           {(linkedInProfile.headline || linkedInProfile.currentPosition || 'currentRole' in linkedInProfile) && (
@@ -1158,6 +1285,14 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
             content={packet.fitAnalysis}
             variant="highlight"
             highlightColor="green"
+            fieldName="fitAnalysis"
+            isEditing={editingField === "fitAnalysis"}
+            editValue={editValue}
+            onStartEdit={() => startEditing("fitAnalysis", packet.fitAnalysis)}
+            onSave={saveEdit}
+            onCancel={cancelEdit}
+            onEditValueChange={setEditValue}
+            isSaving={updateMutation.isPending}
           />
         </TabsContent>
 
@@ -1168,18 +1303,42 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
             content={packet.talkTrack}
             variant="highlight"
             highlightColor="blue"
+            fieldName="talkTrack"
+            isEditing={editingField === "talkTrack"}
+            editValue={editValue}
+            onStartEdit={() => startEditing("talkTrack", packet.talkTrack)}
+            onSave={saveEdit}
+            onCancel={cancelEdit}
+            onEditValueChange={setEditValue}
+            isSaving={updateMutation.isPending}
           />
           
           <IntelCard 
             icon={HelpCircle}
             title="Discovery Questions"
             content={packet.discoveryQuestions}
+            fieldName="discoveryQuestions"
+            isEditing={editingField === "discoveryQuestions"}
+            editValue={editValue}
+            onStartEdit={() => startEditing("discoveryQuestions", packet.discoveryQuestions)}
+            onSave={saveEdit}
+            onCancel={cancelEdit}
+            onEditValueChange={setEditValue}
+            isSaving={updateMutation.isPending}
           />
           
           <IntelCard 
             icon={Shield}
             title="Objection Handles"
             content={packet.objectionHandles}
+            fieldName="objectionHandles"
+            isEditing={editingField === "objectionHandles"}
+            editValue={editValue}
+            onStartEdit={() => startEditing("objectionHandles", packet.objectionHandles)}
+            onSave={saveEdit}
+            onCancel={cancelEdit}
+            onEditValueChange={setEditValue}
+            isSaving={updateMutation.isPending}
           />
         </TabsContent>
 
@@ -1210,15 +1369,31 @@ function IntelCard({
   title, 
   content,
   variant = "default",
-  highlightColor
+  highlightColor,
+  fieldName,
+  isEditing,
+  editValue,
+  onStartEdit,
+  onSave,
+  onCancel,
+  onEditValueChange,
+  isSaving
 }: { 
   icon: React.ComponentType<{ className?: string }>; 
   title: string; 
   content: string | null;
   variant?: "default" | "compact" | "highlight";
   highlightColor?: "red" | "green" | "blue" | "yellow";
+  fieldName?: string;
+  isEditing?: boolean;
+  editValue?: string;
+  onStartEdit?: () => void;
+  onSave?: () => void;
+  onCancel?: () => void;
+  onEditValueChange?: (value: string) => void;
+  isSaving?: boolean;
 }) {
-  if (!content) return null;
+  if (!content && !isEditing) return null;
 
   const highlightStyles: Record<string, string> = {
     red: "border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-950/20",
@@ -1290,13 +1465,59 @@ function IntelCard({
   
   return (
     <div className={`p-4 rounded-lg ${baseStyles}`}>
-      <div className="flex items-center gap-2 mb-3">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <h4 className="font-medium text-sm">{title}</h4>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-muted-foreground" />
+          <h4 className="font-medium text-sm">{title}</h4>
+        </div>
+        {fieldName && !isEditing && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6"
+            onClick={onStartEdit}
+            data-testid={`button-edit-${fieldName}`}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+        )}
+        {isEditing && (
+          <div className="flex items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 text-green-600"
+              onClick={onSave}
+              disabled={isSaving}
+              data-testid={`button-save-${fieldName}`}
+            >
+              {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 text-muted-foreground"
+              onClick={onCancel}
+              disabled={isSaving}
+              data-testid={`button-cancel-${fieldName}`}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
       </div>
-      <div className={variant === "compact" ? "text-sm" : ""}>
-        {formatContent(content)}
-      </div>
+      {isEditing ? (
+        <Textarea
+          value={editValue}
+          onChange={(e) => onEditValueChange?.(e.target.value)}
+          className="min-h-[150px] text-sm"
+          data-testid={`textarea-edit-${fieldName}`}
+        />
+      ) : (
+        <div className={variant === "compact" ? "text-sm" : ""}>
+          {content && formatContent(content)}
+        </div>
+      )}
     </div>
   );
 }
