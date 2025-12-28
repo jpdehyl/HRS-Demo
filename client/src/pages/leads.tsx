@@ -51,7 +51,9 @@ import {
   Trash2,
   Pencil,
   Save,
-  X
+  X,
+  Edit2,
+  Check
 } from "lucide-react";
 import {
   Select,
@@ -862,6 +864,9 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editingScore, setEditingScore] = useState(false);
+  const [scoreValue, setScoreValue] = useState<string>(packet.fitScore?.toString() || "");
+  const [priorityValue, setPriorityValue] = useState<string>(packet.priority || "");
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -880,7 +885,7 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ field, value }: { field: string; value: string }) => {
+    mutationFn: async ({ field, value }: { field: string; value: string | number | null }) => {
       const res = await apiRequest("PATCH", `/api/leads/${lead.id}/research`, { [field]: value });
       if (!res.ok) throw new Error("Failed to update research");
       return res.json();
@@ -890,12 +895,25 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       setEditingField(null);
       setEditValue("");
+      setEditingScore(false);
       toast({ title: "Updated", description: "Research field updated" });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update research", variant: "destructive" });
     }
   });
+
+  const saveScoring = () => {
+    const score = scoreValue ? parseInt(scoreValue) : null;
+    if (score !== null && (score < 0 || score > 100)) {
+      toast({ title: "Invalid Score", description: "Score must be between 0-100", variant: "destructive" });
+      return;
+    }
+    updateMutation.mutate({ field: "fitScore", value: score });
+    if (priorityValue !== packet.priority) {
+      updateMutation.mutate({ field: "priority", value: priorityValue || null });
+    }
+  };
 
   const startEditing = (field: string, currentValue: string | null) => {
     setEditingField(field);
@@ -1030,13 +1048,68 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
 
   return (
     <div className="p-4">
-      <div className="flex items-center justify-between mb-4 gap-4">
+      <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
           <span>Updated {formatDate(packet.updatedAt)}</span>
           <span className="mx-1">|</span>
           <span>{packet.sources}</span>
         </div>
+        
+        <div className="flex items-center gap-3">
+          {editingScore ? (
+            <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-md">
+              <div className="flex items-center gap-1">
+                <label className="text-xs text-muted-foreground">Score:</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={scoreValue}
+                  onChange={(e) => setScoreValue(e.target.value)}
+                  className="w-16 h-7 px-2 text-sm rounded border bg-background"
+                  data-testid="input-fit-score"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <label className="text-xs text-muted-foreground">Priority:</label>
+                <select
+                  value={priorityValue}
+                  onChange={(e) => setPriorityValue(e.target.value)}
+                  className="h-7 px-2 text-sm rounded border bg-background"
+                  data-testid="select-priority"
+                >
+                  <option value="">None</option>
+                  <option value="hot">Hot</option>
+                  <option value="warm">Warm</option>
+                  <option value="cool">Cool</option>
+                  <option value="cold">Cold</option>
+                </select>
+              </div>
+              <Button size="sm" onClick={saveScoring} disabled={updateMutation.isPending} data-testid="button-save-scoring">
+                {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => {
+                setEditingScore(false);
+                setScoreValue(packet.fitScore?.toString() || "");
+                setPriorityValue(packet.priority || "");
+              }} data-testid="button-cancel-scoring">
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setEditingScore(true)}
+              data-testid="button-edit-scoring"
+            >
+              <Edit2 className="h-3 w-3 mr-1" />
+              Edit Scoring
+            </Button>
+          )}
+        </div>
+        
         <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
           <AlertDialogTrigger asChild>
             <Button

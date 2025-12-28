@@ -362,7 +362,8 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       const allowedFields = [
         'companyIntel', 'contactIntel', 'painSignals', 'fitAnalysis',
         'talkTrack', 'discoveryQuestions', 'objectionHandles',
-        'companyHardIntel', 'xIntel', 'linkedInIntel', 'competitorPresence'
+        'companyHardIntel', 'xIntel', 'linkedInIntel', 'competitorPresence',
+        'fitScore', 'priority'
       ];
       
       const updates: Record<string, unknown> = {};
