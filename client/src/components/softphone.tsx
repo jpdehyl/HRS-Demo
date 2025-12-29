@@ -38,6 +38,8 @@ export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false, ini
   const [currentCallSessionId, setCurrentCallSessionId] = useState<string | null>(null);
   
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const initializingRef = useRef(false);
+  const deviceRef = useRef<Device | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -47,7 +49,8 @@ export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false, ini
   }, [initialPhoneNumber]);
 
   const initializeDevice = useCallback(async () => {
-    if (device || isInitializing) return;
+    if (deviceRef.current || initializingRef.current || isInitializing) return;
+    initializingRef.current = true;
     
     setIsInitializing(true);
     try {
@@ -102,10 +105,12 @@ export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false, ini
       });
 
       await newDevice.register();
+      deviceRef.current = newDevice;
       setDevice(newDevice);
     } catch (error) {
       console.error("Failed to initialize device:", error);
       setCallState("error");
+      initializingRef.current = false;
       toast({
         title: "Initialization Failed",
         description: "Could not connect to the phone system. Please try again.",
@@ -114,22 +119,29 @@ export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false, ini
     } finally {
       setIsInitializing(false);
     }
-  }, [device, isInitializing, toast]);
+  }, [isInitializing, toast]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !deviceRef.current && !initializingRef.current) {
       initializeDevice();
     }
 
     return () => {
-      if (device) {
-        device.destroy();
-      }
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }
     };
   }, [isAuthenticated]);
+  
+  useEffect(() => {
+    return () => {
+      if (deviceRef.current) {
+        deviceRef.current.destroy();
+        deviceRef.current = null;
+      }
+      initializingRef.current = false;
+    };
+  }, []);
 
   const startDurationTimer = () => {
     setCallDuration(0);
