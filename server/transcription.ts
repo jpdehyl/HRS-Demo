@@ -5,13 +5,27 @@ import { GoogleGenAI } from "@google/genai";
 import { storage } from "./storage";
 import { getKnowledgebaseContent } from "./google/driveClient";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-  },
-});
+function getAiClient(): GoogleGenAI {
+  const directKey = process.env.GEMINI_API_KEY;
+  if (directKey) {
+    console.log("[Transcription] Using direct GEMINI_API_KEY");
+    return new GoogleGenAI({ apiKey: directKey });
+  }
+
+  const replitKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  const replitBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  if (replitKey && replitBase) {
+    console.log("[Transcription] Using Replit AI Integration for Gemini");
+    return new GoogleGenAI({
+      apiKey: replitKey,
+      httpOptions: { apiVersion: "", baseUrl: replitBase },
+    });
+  }
+
+  throw new Error("No Gemini API key configured");
+}
+
+const ai = getAiClient();
 
 const activeConnections = new Map<string, Set<WebSocket>>();
 const callTranscripts = new Map<string, { speaker: string; text: string; timestamp: Date }[]>();
@@ -84,8 +98,8 @@ async function getKnowledgeBase(): Promise<string> {
 
 async function generateCoachingTip(transcript: string, sessionId: string): Promise<string | null> {
   console.log("[CoachingTip] Starting generation for session:", sessionId);
-  console.log("[CoachingTip] API Key exists:", !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY);
-  console.log("[CoachingTip] Base URL:", process.env.AI_INTEGRATIONS_GEMINI_BASE_URL);
+  console.log("[CoachingTip] Direct API Key exists:", !!process.env.GEMINI_API_KEY);
+  console.log("[CoachingTip] Replit API Key exists:", !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY);
   
   try {
     const knowledgeBase = await getKnowledgeBase();
