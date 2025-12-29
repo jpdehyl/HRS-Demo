@@ -191,13 +191,16 @@ export function registerTwilioVoiceRoutes(app: Express): void {
         
         await storage.updateCallSessionByCallSid(CallSid, updates);
         
-        if (CallStatus === "completed" && existingSession.transcriptText) {
-          console.log(`[Coaching] Call completed with transcript, triggering coaching email for call ${CallSid}`);
+        if (CallStatus === "completed") {
+          // Re-fetch session to get the latest transcript (may have been updated via WebSocket)
           const updatedSession = await storage.getCallSessionByCallSid(CallSid);
-          if (updatedSession) {
+          if (updatedSession?.transcriptText && updatedSession.transcriptText.trim().length >= 50) {
+            console.log(`[Coaching] Call completed with transcript, triggering coaching email for call ${CallSid}`);
             processPostCallCoaching(updatedSession).catch(err => {
               console.error("[Coaching] Failed to process post-call coaching:", err);
             });
+          } else {
+            console.log(`[Coaching] Call completed but transcript too short or missing for call ${CallSid}`);
           }
         }
       }
