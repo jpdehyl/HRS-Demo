@@ -820,14 +820,24 @@ export async function registerRoutes(
       }
 
       const user = await storage.getUser(callSession.userId);
-      if (!user || !user.sdrId) {
-        return res.status(400).json({ message: "SDR not found for this call" });
+      if (!user) {
+        return res.status(400).json({ message: "User not found for this call" });
       }
 
-      const sdr = await storage.getSdr(user.sdrId);
-      if (!sdr) {
-        return res.status(400).json({ message: "SDR record not found" });
+      let sdr = null;
+      if (user.sdrId) {
+        sdr = await storage.getSdr(user.sdrId);
       }
+      
+      const sdrInfo = sdr || {
+        id: user.id,
+        name: user.fullName || user.username,
+        email: user.email || `${user.username}@unknown.com`,
+        phone: null,
+        managerId: null,
+        region: "Unknown",
+        createdAt: new Date(),
+      };
 
       const existingAnalysis = await storage.getManagerCallAnalysisByCallSession(id);
       if (existingAnalysis) {
@@ -835,8 +845,8 @@ export async function registerRoutes(
       }
 
       const { analyzeCallForManager, saveManagerAnalysis } = await import("./ai/managerAnalysis");
-      const analysis = await analyzeCallForManager(callSession, sdr);
-      await saveManagerAnalysis(callSession, sdr, analysis);
+      const analysis = await analyzeCallForManager(callSession, sdrInfo);
+      await saveManagerAnalysis(callSession, sdrInfo, analysis);
 
       const savedAnalysis = await storage.getManagerCallAnalysisByCallSession(id);
       res.json(savedAnalysis || analysis);
