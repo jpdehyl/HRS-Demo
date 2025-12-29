@@ -503,7 +503,12 @@ export default function CoachingPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open(selectedCall.recordingUrl!, "_blank")}
+                  onClick={() => {
+                    const match = selectedCall.recordingUrl!.match(/Recordings\/([A-Za-z0-9]+)/);
+                    if (match) {
+                      window.open(`/api/voice/recording/${match[1]}`, "_blank");
+                    }
+                  }}
                   data-testid="button-play-recording"
                 >
                   <Play className="h-4 w-4 mr-1" />

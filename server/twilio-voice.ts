@@ -370,4 +370,38 @@ export function registerTwilioVoiceRoutes(app: Express): void {
       res.status(500).json({ message: "Failed to fetch calls" });
     }
   });
+
+  app.get("/api/voice/recording/:recordingSid", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    try {
+      const { recordingSid } = req.params;
+      
+      const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Recordings/${recordingSid}.mp3`;
+      
+      const authHeader = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
+      
+      const response = await fetch(recordingUrl, {
+        headers: {
+          'Authorization': `Basic ${authHeader}`
+        }
+      });
+
+      if (!response.ok) {
+        console.error("Failed to fetch recording:", response.status, response.statusText);
+        return res.status(response.status).json({ message: "Failed to fetch recording" });
+      }
+
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Content-Disposition', `inline; filename="${recordingSid}.mp3"`);
+      
+      const arrayBuffer = await response.arrayBuffer();
+      res.send(Buffer.from(arrayBuffer));
+    } catch (error) {
+      console.error("Error fetching recording:", error);
+      res.status(500).json({ message: "Failed to fetch recording" });
+    }
+  });
 }
