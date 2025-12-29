@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Device, Call } from "@twilio/voice-sdk";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   Phone, 
@@ -12,10 +12,12 @@ import {
   Pause, 
   Play,
   Delete,
-  X
+  X,
+  Mail
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/lib/auth";
 
 type CallState = "idle" | "ready" | "connecting" | "ringing" | "on-call" | "disconnected" | "error";
 
@@ -27,6 +29,7 @@ interface SoftphoneProps {
 }
 
 export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false, initialPhoneNumber }: SoftphoneProps) {
+  const { user } = useAuth();
   const [device, setDevice] = useState<Device | null>(null);
   const [activeCall, setActiveCall] = useState<Call | null>(null);
   const [callState, setCallState] = useState<CallState>("idle");
@@ -353,6 +356,12 @@ export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false, ini
             {getStatusText()}
           </Badge>
         </div>
+        {user && (
+          <CardDescription className="flex items-center gap-1 text-xs" data-testid="text-caller-email">
+            <Mail className="h-3 w-3" />
+            Calling as: {user.email}
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="relative">

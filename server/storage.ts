@@ -29,6 +29,8 @@ export interface IStorage {
   getAllSdrs(): Promise<Sdr[]>;
   getSdrsByManager(managerId: string): Promise<Sdr[]>;
   createSdr(sdr: InsertSdr): Promise<Sdr>;
+  updateSdr(id: string, updates: Partial<InsertSdr>): Promise<Sdr | undefined>;
+  deleteSdr(id: string): Promise<boolean>;
   getUsersBySdrIds(sdrIds: string[]): Promise<User[]>;
   
   getLead(id: string): Promise<Lead | undefined>;
@@ -127,6 +129,16 @@ export class DatabaseStorage implements IStorage {
   async createSdr(insertSdr: InsertSdr): Promise<Sdr> {
     const [sdr] = await db.insert(sdrs).values(insertSdr).returning();
     return sdr;
+  }
+
+  async updateSdr(id: string, updates: Partial<InsertSdr>): Promise<Sdr | undefined> {
+    const [sdr] = await db.update(sdrs).set(updates).where(eq(sdrs.id, id)).returning();
+    return sdr;
+  }
+
+  async deleteSdr(id: string): Promise<boolean> {
+    await db.delete(sdrs).where(eq(sdrs.id, id));
+    return true;
   }
 
   async getLead(id: string): Promise<Lead | undefined> {

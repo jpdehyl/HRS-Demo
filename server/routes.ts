@@ -236,6 +236,60 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/sdrs/:id", requireRole("admin", "manager"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const sdr = await storage.updateSdr(id, updates);
+      if (!sdr) {
+        return res.status(404).json({ message: "SDR not found" });
+      }
+      
+      res.json(sdr);
+    } catch (error) {
+      console.error("Update SDR error:", error);
+      res.status(500).json({ message: "Failed to update SDR" });
+    }
+  });
+
+  app.delete("/api/sdrs/:id", requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteSdr(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete SDR error:", error);
+      res.status(500).json({ message: "Failed to delete SDR" });
+    }
+  });
+
+  app.post("/api/sdrs", requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const { id, name, email, managerEmail, managerId, gender, timezone } = req.body;
+      
+      if (!id || !name || !email || !managerEmail) {
+        return res.status(400).json({ message: "ID, name, email, and manager email are required" });
+      }
+      
+      const sdr = await storage.createSdr({
+        id,
+        name,
+        email,
+        managerEmail,
+        managerId: managerId || null,
+        gender: gender || "neutral",
+        timezone: timezone || null,
+        isActive: true
+      });
+      
+      res.json(sdr);
+    } catch (error) {
+      console.error("Create SDR error:", error);
+      res.status(500).json({ message: "Failed to create SDR" });
+    }
+  });
+
   app.get("/api/team", requireAuth, async (req: Request, res: Response) => {
     try {
       const allManagers = await storage.getAllManagers();
