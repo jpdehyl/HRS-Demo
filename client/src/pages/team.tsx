@@ -22,9 +22,12 @@ import {
   FolderSync,
   Pencil,
   Trash2,
-  Plus
+  Plus,
+  Briefcase,
+  Phone,
+  MapPin
 } from "lucide-react";
-import type { Manager, Sdr } from "@shared/schema";
+import type { Manager, Sdr, AccountExecutive } from "@shared/schema";
 
 interface TeamData {
   teamByManager: { manager: Manager; sdrs: Sdr[] }[];
@@ -263,6 +266,10 @@ export default function TeamPage() {
     queryKey: ["/api/team"],
   });
 
+  const { data: accountExecutives = [] } = useQuery<AccountExecutive[]>({
+    queryKey: ["/api/account-executives"],
+  });
+
   const populateSdrsMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/admin/populate-sdrs", {});
@@ -401,6 +408,10 @@ export default function TeamPage() {
             <Users className="h-3 w-3" />
             {teamData?.totalSdrs || 0} SDRs
           </Badge>
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Briefcase className="h-3 w-3" />
+            {accountExecutives.length} AEs
+          </Badge>
         </div>
       </div>
 
@@ -490,6 +501,87 @@ export default function TeamPage() {
           </Card>
         )}
       </div>
+
+      {accountExecutives.length > 0 && (
+        <Card>
+          <Collapsible defaultOpen>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        <Briefcase className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <CardTitle className="text-base">Account Executives</CardTitle>
+                      <CardDescription>Available for lead handoffs</CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{accountExecutives.length} AEs</Badge>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {accountExecutives.map((ae) => (
+                    <div
+                      key={ae.id}
+                      className="flex items-center gap-3 p-3 bg-muted/50 rounded-md"
+                      data-testid={`ae-card-${ae.id}`}
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                          {getInitials(ae.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{ae.name}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Mail className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{ae.email}</span>
+                        </div>
+                        <div className="flex gap-2 mt-1 flex-wrap">
+                          {ae.region && (
+                            <Badge variant="outline" className="text-xs">
+                              <MapPin className="h-3 w-3 mr-1" />
+                              {ae.region}
+                            </Badge>
+                          )}
+                          {ae.specialty && (
+                            <Badge variant="secondary" className="text-xs">
+                              {ae.specialty}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {ae.phone && (
+                          <Button variant="ghost" size="icon" asChild>
+                            <a href={`tel:${ae.phone}`}>
+                              <Phone className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" asChild>
+                          <a href={`mailto:${ae.email}`}>
+                            <Mail className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+      )}
 
       {(!teamData?.teamByManager || teamData.teamByManager.length === 0) && 
        (!teamData?.unassignedSdrs || teamData.unassignedSdrs.length === 0) && (
