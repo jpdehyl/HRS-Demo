@@ -377,6 +377,110 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/learning/insights", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      
+      const callSessions = await storage.getCallSessionsByUser(userId);
+      const managerAnalyses = await storage.getManagerAnalysesByUser(userId);
+      const coachingTips = await storage.getCoachingTipsByUser(userId);
+      
+      const scoresByDimension = {
+        opening: 0,
+        discovery: 0,
+        valueProposition: 0,
+        objectionHandling: 0,
+        closing: 0,
+        tone: 0,
+        compliance: 0,
+      };
+      
+      let totalScore = 0;
+      const allStrengths: string[] = [];
+      const allImprovements: string[] = [];
+      
+      if (managerAnalyses.length > 0) {
+        for (const analysis of managerAnalyses) {
+          totalScore += analysis.overallScore || 0;
+          scoresByDimension.opening += analysis.openingScore || 0;
+          scoresByDimension.discovery += analysis.discoveryScore || 0;
+          scoresByDimension.valueProposition += analysis.valuePropositionScore || 0;
+          scoresByDimension.objectionHandling += analysis.objectionScore || 0;
+          scoresByDimension.closing += analysis.closingScore || 0;
+          scoresByDimension.tone += analysis.listeningScore || 0;
+          scoresByDimension.compliance += analysis.complianceScore || 0;
+          
+          if (analysis.keyObservations) {
+            const observations = analysis.keyObservations.split(/[.!?]/).filter(s => s.trim());
+            allStrengths.push(...observations.slice(0, 2).map(s => s.trim()));
+          }
+          if (analysis.recommendations) {
+            const recs = analysis.recommendations.split(/[.!?]/).filter(s => s.trim());
+            allImprovements.push(...recs.slice(0, 2).map(s => s.trim()));
+          }
+        }
+        
+        const count = managerAnalyses.length;
+        scoresByDimension.opening /= count;
+        scoresByDimension.discovery /= count;
+        scoresByDimension.valueProposition /= count;
+        scoresByDimension.objectionHandling /= count;
+        scoresByDimension.closing /= count;
+        scoresByDimension.tone /= count;
+        scoresByDimension.compliance /= count;
+        totalScore /= count;
+      }
+      
+      const strengthCounts: Record<string, number> = {};
+      const improvementCounts: Record<string, number> = {};
+      
+      allStrengths.forEach(s => {
+        if (s.length > 10) strengthCounts[s] = (strengthCounts[s] || 0) + 1;
+      });
+      allImprovements.forEach(i => {
+        if (i.length > 10) improvementCounts[i] = (improvementCounts[i] || 0) + 1;
+      });
+      
+      const topStrengths = Object.entries(strengthCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([s]) => s);
+      
+      const areasForImprovement = Object.entries(improvementCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([i]) => i);
+      
+      const recentAnalyses = managerAnalyses.slice(0, 10).map(analysis => {
+        const session = callSessions.find(s => s.id === analysis.callSessionId);
+        return {
+          ...analysis,
+          session: session ? {
+            toNumber: session.toNumber,
+            duration: session.duration,
+            startedAt: session.startedAt,
+          } : undefined,
+        };
+      });
+      
+      res.json({
+        recentTips: coachingTips.slice(0, 20),
+        recentAnalyses,
+        performanceStats: {
+          totalCalls: callSessions.length,
+          analyzedCalls: managerAnalyses.length,
+          averageScore: totalScore,
+          scoresByDimension,
+        },
+        topStrengths,
+        areasForImprovement,
+      });
+    } catch (error) {
+      console.error("Learning insights error:", error);
+      res.status(500).json({ message: "Failed to fetch learning insights" });
+    }
+  });
+
   app.get("/api/managers", requireAuth, async (req: Request, res: Response) => {
     try {
       const allManagers = await storage.getAllManagers();

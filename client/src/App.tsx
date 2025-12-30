@@ -23,6 +23,7 @@ import ReportsPage from "@/pages/reports";
 import AEPipelinePage from "@/pages/ae-pipeline";
 import BudgetingPage from "@/pages/budgeting";
 import SettingsPage from "@/pages/settings";
+import LearningPage from "@/pages/learning";
 
 function LoadingScreen() {
   return (
@@ -212,6 +213,14 @@ function Router() {
         <ProtectedRoute>
           <DashboardLayout>
             <BudgetingPage />
+          </DashboardLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/learning">
+        <ProtectedRoute>
+          <DashboardLayout>
+            <LearningPage />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>

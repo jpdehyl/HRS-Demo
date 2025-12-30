@@ -91,7 +91,9 @@ export interface IStorage {
   getManagerCallAnalysis(id: string): Promise<ManagerCallAnalysis | undefined>;
   getManagerCallAnalysisByCallSession(callSessionId: string): Promise<ManagerCallAnalysis | undefined>;
   getManagerCallAnalysesBySdr(sdrId: string): Promise<ManagerCallAnalysis[]>;
+  getManagerAnalysesByUser(userId: string): Promise<ManagerCallAnalysis[]>;
   getAllManagerCallAnalyses(): Promise<ManagerCallAnalysis[]>;
+  getCoachingTipsByUser(userId: string): Promise<LiveCoachingTip[]>;
   
   createNotification(notification: InsertNotification): Promise<Notification>;
   getNotificationsByUser(userId: string, limit?: number): Promise<Notification[]>;
@@ -439,6 +441,32 @@ export class DatabaseStorage implements IStorage {
 
   async getAllManagerCallAnalyses(): Promise<ManagerCallAnalysis[]> {
     return db.select().from(managerCallAnalyses).orderBy(desc(managerCallAnalyses.analyzedAt));
+  }
+
+  async getManagerAnalysesByUser(userId: string): Promise<ManagerCallAnalysis[]> {
+    const userSessions = await db.select({ id: callSessions.id })
+      .from(callSessions)
+      .where(eq(callSessions.userId, userId));
+    
+    if (userSessions.length === 0) return [];
+    
+    const sessionIds = userSessions.map(s => s.id);
+    return db.select().from(managerCallAnalyses)
+      .where(inArray(managerCallAnalyses.callSessionId, sessionIds))
+      .orderBy(desc(managerCallAnalyses.analyzedAt));
+  }
+
+  async getCoachingTipsByUser(userId: string): Promise<LiveCoachingTip[]> {
+    const userSessions = await db.select({ id: callSessions.id })
+      .from(callSessions)
+      .where(eq(callSessions.userId, userId));
+    
+    if (userSessions.length === 0) return [];
+    
+    const sessionIds = userSessions.map(s => s.id);
+    return db.select().from(liveCoachingTips)
+      .where(inArray(liveCoachingTips.sessionId, sessionIds))
+      .orderBy(desc(liveCoachingTips.createdAt));
   }
 
   async createNotification(notification: InsertNotification): Promise<Notification> {
