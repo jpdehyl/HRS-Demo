@@ -160,12 +160,12 @@ RESEARCH AND RETURN a detailed JSON object with these EXACT keys:
 Be thorough and specific. Use web search to find accurate information. Make intelligent inferences based on their role, company, and industry when specific data isn't available.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: prompt,
       config: {
+        tools: [{ googleSearch: {} }],
         temperature: 0.5,
         maxOutputTokens: 3000,
-        responseMimeType: "application/json",
       },
     });
 

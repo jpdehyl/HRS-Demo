@@ -381,15 +381,15 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
 
   try {
     const ai = getAiClient();
-    console.log(`[LeadResearch] AI client created, starting API call with gemini-2.5-flash...`);
+    console.log(`[LeadResearch] AI client created, starting API call with gemini-2.0-flash + Google Search...`);
     const startTime = Date.now();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
+        tools: [{ googleSearch: {} }],
         temperature: 0.7,
         maxOutputTokens: 6000,
-        responseMimeType: "application/json",
       },
     });
 

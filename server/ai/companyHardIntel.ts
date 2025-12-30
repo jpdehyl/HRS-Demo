@@ -65,12 +65,12 @@ Be accurate. If you cannot find specific information, use null for that field. D
 
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
+        tools: [{ googleSearch: {} }],
         temperature: 0.3,
         maxOutputTokens: 2000,
-        responseMimeType: "application/json",
       },
     });
 
