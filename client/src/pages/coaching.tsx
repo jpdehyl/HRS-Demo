@@ -13,7 +13,7 @@ import { useTranscription } from "@/hooks/use-transcription";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch } from "wouter";
-import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator, BarChart3, CheckCircle, XCircle, AlertCircle, TrendingUp, Send, Trophy, Zap, Award } from "lucide-react";
+import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator, BarChart3, CheckCircle, XCircle, AlertCircle, TrendingUp, Send, Trophy, Zap, Award, Mail } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AccountExecutive } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -220,6 +220,23 @@ export default function CoachingPage() {
     },
     onError: () => {
       toast({ title: "Send failed", description: "Could not send handoff email", variant: "destructive" });
+    },
+  });
+
+  const resendEmailMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const res = await apiRequest("POST", `/api/coach/resend-email/${sessionId}`, {});
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to send email");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Email Sent", description: data.message || "Coaching email sent successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Email Failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -858,6 +875,22 @@ export default function CoachingPage() {
                     <Send className="h-4 w-4 mr-1" />
                     Send to AE
                   </Button>
+                  {selectedCall?.coachingNotes && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => selectedCall.id && resendEmailMutation.mutate(selectedCall.id)}
+                      disabled={resendEmailMutation.isPending}
+                      data-testid="button-resend-email"
+                    >
+                      {resendEmailMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Mail className="h-4 w-4 mr-1" />
+                      )}
+                      Send Coaching Email
+                    </Button>
+                  )}
                 </>
               )}
               {showAeSelector && selectedCall && (

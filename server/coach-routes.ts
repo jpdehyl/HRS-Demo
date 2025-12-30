@@ -111,6 +111,79 @@ export function registerCoachRoutes(app: Express, requireAuth: (req: Request, re
     }
   });
 
+  app.post("/api/coach/resend-email/:sessionId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const currentUser = (req as any).user;
+      
+      const callSession = await storage.getCallSession(sessionId);
+      if (!callSession) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+      
+      const isOwner = callSession.userId === currentUser?.id;
+      const isPrivileged = currentUser?.role === "admin" || currentUser?.role === "manager";
+      
+      if (!isOwner && !isPrivileged) {
+        return res.status(403).json({ message: "Not authorized to send email for this call" });
+      }
+      
+      if (!callSession.coachingNotes) {
+        return res.status(400).json({ message: "No coaching analysis available. Please analyze the call first." });
+      }
+      
+      const user = callSession.userId ? await storage.getUser(callSession.userId) : null;
+      const sdr = user?.sdrId ? await storage.getSdr(user.sdrId) : null;
+      
+      const recipientEmail = sdr?.email || user?.email;
+      if (!recipientEmail) {
+        return res.status(400).json({ message: "No email address found for SDR or user" });
+      }
+      
+      const sdrName = sdr?.name || user?.name || "Team Member";
+      const callDate = callSession.startedAt 
+        ? new Date(callSession.startedAt) 
+        : new Date();
+      
+      let managerSummary: string[] = [];
+      try {
+        if (callSession.managerSummary) {
+          managerSummary = JSON.parse(callSession.managerSummary);
+        }
+      } catch (e) {
+        console.log("[Coach] Could not parse manager summary, continuing without it");
+      }
+      
+      const emailBody = formatFeedbackEmail(
+        sdrName,
+        callDate,
+        "Call",
+        managerSummary,
+        callSession.coachingNotes
+      );
+      
+      const dateStr = formatCallDate(callDate, "short");
+      
+      await sendFeedbackEmail({
+        to: recipientEmail,
+        cc: sdr?.managerEmail,
+        subject: `Call Coaching Feedback - ${dateStr}`,
+        body: emailBody,
+      });
+      
+      console.log(`[Coach] Resent coaching email to ${recipientEmail}`);
+      
+      res.json({
+        success: true,
+        sentTo: recipientEmail,
+        message: `Coaching email sent to ${recipientEmail}`
+      });
+    } catch (error) {
+      console.error("Resend email error:", error);
+      res.status(500).json({ message: "Failed to send coaching email" });
+    }
+  });
+
   app.post("/api/coach/daily-summary/:sessionId", requireAuth, async (req: Request, res: Response) => {
     try {
       const { sessionId } = req.params;
