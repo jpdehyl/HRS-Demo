@@ -6,6 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Phone,
   Mail,
   Building2,
@@ -25,7 +31,12 @@ import {
   Briefcase,
   ExternalLink,
   Copy,
-  Check
+  Check,
+  CheckCircle,
+  AlertCircle,
+  DollarSign,
+  Users,
+  Clock
 } from "lucide-react";
 import { SiLinkedin } from "react-icons/si";
 import type { Lead, ResearchPacket } from "@shared/schema";
@@ -198,7 +209,7 @@ export default function CallPrepPage() {
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-6 max-w-4xl mx-auto space-y-6">
+        <div className="p-6 max-w-4xl mx-auto space-y-8">
           {!researchPacket ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -211,112 +222,269 @@ export default function CallPrepPage() {
             </Card>
           ) : (
             <>
-              {openingLine && (
-                <PrepCard 
-                  icon={MessageSquare} 
-                  title="Opening Line" 
-                  variant="highlight"
-                  highlightColor="blue"
-                >
-                  <p className="text-lg leading-relaxed">{openingLine}</p>
-                </PrepCard>
-              )}
-
-              <div className="grid gap-6 md:grid-cols-2">
-                <PrepCard icon={Building2} title="Company Intel">
-                  <CompactText content={researchPacket.companyIntel} />
-                </PrepCard>
-
-                <PrepCard icon={User} title="Contact Intel">
-                  <CompactText content={researchPacket.contactIntel} />
-                </PrepCard>
-              </div>
-
-              {researchPacket.painSignals && (
-                <PrepCard 
-                  icon={AlertTriangle} 
-                  title="Pain Signals" 
-                  variant="highlight"
-                  highlightColor="red"
-                >
-                  <CompactText content={researchPacket.painSignals} />
-                </PrepCard>
-              )}
-
-              {questions.length > 0 && (
-                <PrepCard icon={HelpCircle} title="Discovery Questions">
-                  <div className="space-y-2">
-                    {questions.slice(0, 5).map((q, i) => (
-                      <div key={i} className="flex items-start gap-3 p-2 rounded-md bg-muted/50">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
-                          {i + 1}
-                        </span>
-                        <p className="text-sm pt-0.5">{q}</p>
-                      </div>
-                    ))}
+              {/* Hero Fit Score */}
+              <div className="text-center py-8">
+                <div className="inline-flex flex-col items-center gap-3">
+                  <div className={`text-7xl font-bold tracking-tight ${
+                    (researchPacket.fitScore || 0) >= 70
+                      ? "text-green-600 dark:text-green-400"
+                      : (researchPacket.fitScore || 0) >= 40
+                      ? "text-yellow-600 dark:text-yellow-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}>
+                    {researchPacket.fitScore || 0}
                   </div>
-                </PrepCard>
-              )}
-
-              <div className="grid gap-6 md:grid-cols-2">
-                <PrepCard icon={Target} title="Portfolio Fit">
-                  <CompactText content={researchPacket.fitAnalysis} />
-                </PrepCard>
-
-                <PrepCard icon={Shield} title="Objection Handles">
-                  <CompactText content={researchPacket.objectionHandles} lines={8} />
-                </PrepCard>
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                      Fit Score
+                    </span>
+                  </div>
+                  {researchPacket.confidence && (
+                    <Badge
+                      variant="secondary"
+                      className={`${
+                        researchPacket.confidence === "high"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                          : researchPacket.confidence === "medium"
+                          ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300"
+                          : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                      } gap-1`}
+                    >
+                      {researchPacket.confidence === "high" && <CheckCircle className="h-3 w-3" />}
+                      {researchPacket.confidence === "medium" && <AlertCircle className="h-3 w-3" />}
+                      {researchPacket.confidence === "low" && <AlertTriangle className="h-3 w-3" />}
+                      {researchPacket.confidence} confidence
+                    </Badge>
+                  )}
+                </div>
               </div>
 
+              {/* Opening Line - Always Visible */}
+              {openingLine && (
+                <Card className="border-0 shadow-sm bg-blue-50/50 dark:bg-blue-950/20 border-l-4 border-l-blue-500">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <MessageSquare className="h-5 w-5 text-blue-600" />
+                      <h3 className="font-semibold text-lg">Opening Line</h3>
+                    </div>
+                    <p className="text-base leading-relaxed">{openingLine}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => copyToClipboard(openingLine, 'opening')}
+                    >
+                      {copiedField === 'opening' ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2 text-green-500" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Progressive Disclosure Accordion */}
+              <Accordion type="multiple" defaultValue={["pain", "questions"]} className="space-y-3">
+                {/* Pain Points */}
+                {researchPacket.painSignals && (
+                  <AccordionItem value="pain" className="border-0 shadow-sm rounded-lg bg-card">
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 rounded-lg transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-md bg-red-100 dark:bg-red-900/30">
+                          <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                        </div>
+                        <span className="font-semibold text-base">Pain Points</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                      <CompactText content={researchPacket.painSignals} />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {/* Discovery Questions */}
+                {questions.length > 0 && (
+                  <AccordionItem value="questions" className="border-0 shadow-sm rounded-lg bg-card">
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 rounded-lg transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-md bg-purple-100 dark:bg-purple-900/30">
+                          <HelpCircle className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <span className="font-semibold text-base">Discovery Questions</span>
+                        <Badge variant="secondary" className="ml-auto mr-4">{questions.length}</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                      <div className="space-y-2">
+                        {questions.map((q, i) => (
+                          <div key={i} className="flex items-start gap-3 p-3 rounded-md bg-muted/50 hover:bg-muted transition-colors duration-200">
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                              {i + 1}
+                            </span>
+                            <p className="text-sm pt-0.5">{q}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {/* Product Fit */}
+                {researchPacket.fitAnalysis && (
+                  <AccordionItem value="fit" className="border-0 shadow-sm rounded-lg bg-card">
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 rounded-lg transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-md bg-green-100 dark:bg-green-900/30">
+                          <Target className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <span className="font-semibold text-base">Product Fit Analysis</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                      <CompactText content={researchPacket.fitAnalysis} />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {/* Budget & Decision Makers */}
+                {(lead.budget || lead.decisionMakers || lead.timeline) && (
+                  <AccordionItem value="bant" className="border-0 shadow-sm rounded-lg bg-card">
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 rounded-lg transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30">
+                          <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <span className="font-semibold text-base">BANT Qualification</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                      <div className="space-y-4">
+                        {lead.budget && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <DollarSign className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Budget</span>
+                            </div>
+                            <p className="text-sm">{lead.budget}</p>
+                          </div>
+                        )}
+                        {lead.timeline && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Timeline</span>
+                            </div>
+                            <p className="text-sm">{lead.timeline}</p>
+                          </div>
+                        )}
+                        {lead.decisionMakers && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Users className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Decision Makers</span>
+                            </div>
+                            <p className="text-sm">{lead.decisionMakers}</p>
+                          </div>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {/* Company Intel */}
+                {researchPacket.companyIntel && (
+                  <AccordionItem value="company" className="border-0 shadow-sm rounded-lg bg-card">
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 rounded-lg transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800">
+                          <Building2 className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                        </div>
+                        <span className="font-semibold text-base">Company Intel</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                      <CompactText content={researchPacket.companyIntel} />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {/* Contact Intel */}
+                {researchPacket.contactIntel && (
+                  <AccordionItem value="contact" className="border-0 shadow-sm rounded-lg bg-card">
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 rounded-lg transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-md bg-cyan-100 dark:bg-cyan-900/30">
+                          <User className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                        </div>
+                        <span className="font-semibold text-base">Contact Intel</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                      <CompactText content={researchPacket.contactIntel} />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {/* Objection Handles */}
+                {researchPacket.objectionHandles && (
+                  <AccordionItem value="objections" className="border-0 shadow-sm rounded-lg bg-card">
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 rounded-lg transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-md bg-amber-100 dark:bg-amber-900/30">
+                          <Shield className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <span className="font-semibold text-base">Objection Handles</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                      <CompactText content={researchPacket.objectionHandles} />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+              </Accordion>
+
+              {/* The Ask - Always Visible */}
               {theAsk && (
-                <PrepCard 
-                  icon={Target} 
-                  title="The Ask" 
-                  variant="highlight"
-                  highlightColor="green"
-                >
-                  <p className="text-lg font-medium">{theAsk}</p>
-                </PrepCard>
+                <Card className="border-0 shadow-sm bg-green-50/50 dark:bg-green-950/20 border-l-4 border-l-green-500">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Target className="h-5 w-5 text-green-600" />
+                      <h3 className="font-semibold text-lg">The Ask</h3>
+                    </div>
+                    <p className="text-base font-medium">{theAsk}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => copyToClipboard(theAsk, 'ask')}
+                    >
+                      {copiedField === 'ask' ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2 text-green-500" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
               )}
             </>
           )}
         </div>
       </ScrollArea>
-    </div>
-  );
-}
-
-function PrepCard({
-  icon: Icon,
-  title,
-  children,
-  variant = "default",
-  highlightColor
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  children: React.ReactNode;
-  variant?: "default" | "highlight";
-  highlightColor?: "red" | "green" | "blue" | "yellow";
-}) {
-  const highlightStyles: Record<string, string> = {
-    red: "border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-950/20",
-    green: "border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20",
-    blue: "border-l-4 border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20",
-    yellow: "border-l-4 border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-950/20",
-  };
-
-  const cardClass = variant === "highlight" && highlightColor
-    ? `rounded-lg p-4 ${highlightStyles[highlightColor]}`
-    : "rounded-lg p-4 bg-muted/30 border";
-
-  return (
-    <div className={cardClass}>
-      <div className="flex items-center gap-2 mb-3">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <h3 className="font-semibold text-sm">{title}</h3>
-      </div>
-      {children}
     </div>
   );
 }
