@@ -115,56 +115,46 @@ function formatCurrency(value: number): string {
   return `$${value}`;
 }
 
-function HeroMetric({ 
-  label, 
-  value, 
-  trend, 
-  icon, 
+function HeroMetric({
+  label,
+  value,
+  trend,
+  icon,
   prefix = "",
   suffix = "",
   loading = false,
   accentColor = "primary"
-}: { 
-  label: string; 
-  value: number | string; 
-  trend?: number; 
+}: {
+  label: string;
+  value: number | string;
+  trend?: number;
   icon: React.ReactNode;
   prefix?: string;
   suffix?: string;
   loading?: boolean;
   accentColor?: "primary" | "green" | "blue" | "purple";
 }) {
-  const accentClasses = {
-    primary: "from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10",
-    green: "from-green-500/10 to-green-500/5 dark:from-green-500/20 dark:to-green-500/10",
-    blue: "from-blue-500/10 to-blue-500/5 dark:from-blue-500/20 dark:to-blue-500/10",
-    purple: "from-purple-500/10 to-purple-500/5 dark:from-purple-500/20 dark:to-purple-500/10",
-  };
-
   return (
-    <Card className={`bg-gradient-to-br ${accentClasses[accentColor]} border-0`}>
-      <CardContent className="pt-6">
+    <Card className="border-0 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
+      <CardContent className="pt-8 pb-8 text-center">
         {loading ? (
-          <div className="flex items-center justify-center h-20">
+          <div className="flex items-center justify-center h-32">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-muted-foreground">{label}</span>
-              <div className="p-2 rounded-md bg-background/50">{icon}</div>
+          <div className="space-y-3">
+            <div className="text-6xl font-bold tracking-tight" data-testid={`metric-${label.toLowerCase().replace(/\s/g, '-')}`}>
+              {prefix}{typeof value === "number" ? value.toLocaleString() : value}{suffix}
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold" data-testid={`metric-${label.toLowerCase().replace(/\s/g, '-')}`}>
-                {prefix}{typeof value === "number" ? value.toLocaleString() : value}{suffix}
-              </span>
-              {trend !== undefined && trend !== 0 && (
-                <div className={`flex items-center text-sm font-medium ${trend > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                  {trend > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                  {Math.abs(trend)}%
-                </div>
-              )}
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {label}
             </div>
+            {trend !== undefined && trend !== 0 && (
+              <div className={`inline-flex items-center gap-1 text-sm font-medium ${trend > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                {trend > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                {Math.abs(trend)}% vs prev
+              </div>
+            )}
           </div>
         )}
       </CardContent>
@@ -202,47 +192,53 @@ function FunnelStage({
   );
 }
 
-function LeaderboardRow({ 
-  rank, 
-  name, 
-  qualified, 
-  meetings, 
-  calls, 
-  connectRate 
-}: { 
-  rank: number; 
-  name: string; 
-  qualified: number; 
+function LeaderboardRow({
+  rank,
+  name,
+  qualified,
+  meetings,
+  calls,
+  connectRate
+}: {
+  rank: number;
+  name: string;
+  qualified: number;
   meetings: number;
   calls: number;
   connectRate: number;
 }) {
-  const RankIcon = rank === 1 ? Crown : rank === 2 ? Medal : rank === 3 ? Award : Trophy;
-  const rankColor = rank === 1 ? "text-yellow-500" : rank === 2 ? "text-gray-400" : rank === 3 ? "text-orange-400" : "text-muted-foreground";
+  const isTopThree = rank <= 3;
+  const rankBg = rank === 1
+    ? "bg-gradient-to-br from-yellow-400 to-orange-500"
+    : rank === 2
+    ? "bg-gradient-to-br from-gray-300 to-gray-400"
+    : rank === 3
+    ? "bg-gradient-to-br from-orange-300 to-orange-400"
+    : "bg-muted";
 
   return (
-    <div className="flex items-center gap-3 p-3 rounded-md hover-elevate" data-testid={`leaderboard-row-${rank}`}>
-      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${rank <= 3 ? 'bg-muted' : ''}`}>
-        {rank <= 3 ? (
-          <RankIcon className={`h-4 w-4 ${rankColor}`} />
-        ) : (
-          <span className="text-sm font-medium text-muted-foreground">{rank}</span>
-        )}
+    <div
+      className="flex items-center gap-4 p-4 rounded-lg hover:bg-muted/30 transition-all duration-200 border-b border-border last:border-0"
+      data-testid={`leaderboard-row-${rank}`}
+    >
+      <div className={`flex items-center justify-center w-10 h-10 rounded-full ${rankBg} ${isTopThree ? 'text-white' : ''} font-semibold`}>
+        {rank}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{name}</p>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <p className="font-semibold text-base truncate">{name}</p>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
           <span>{calls} calls</span>
-          <span className="text-green-600">{connectRate}% connect</span>
+          <span>•</span>
+          <span className="text-green-600 font-medium">{connectRate}% connect</span>
         </div>
       </div>
-      <div className="text-right">
-        <p className="font-semibold text-green-600">{qualified}</p>
-        <p className="text-xs text-muted-foreground">qualified</p>
+      <div className="text-center min-w-[80px]">
+        <p className="text-2xl font-bold text-green-600">{qualified}</p>
+        <p className="text-xs text-muted-foreground uppercase tracking-wide">qualified</p>
       </div>
-      <div className="text-right">
-        <p className="font-semibold text-blue-600">{meetings}</p>
-        <p className="text-xs text-muted-foreground">meetings</p>
+      <div className="text-center min-w-[80px]">
+        <p className="text-2xl font-bold text-blue-600">{meetings}</p>
+        <p className="text-xs text-muted-foreground uppercase tracking-wide">meetings</p>
       </div>
     </div>
   );
@@ -307,27 +303,15 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold" data-testid="text-greeting">
-            {getGreeting()}, {user?.name?.split(" ")[0]}
-          </h1>
-          <p className="text-muted-foreground">
-            {metrics?.isPrivileged 
-              ? "Your team's performance at a glance" 
-              : "Your sales performance at a glance"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1">
-            <Users className="h-3 w-3" />
-            {metrics?.teamSize.sdrs || 0} SDRs
-          </Badge>
-          <Badge variant="outline" className="gap-1">
-            <Target className="h-3 w-3" />
-            {metrics?.teamSize.leads || 0} Leads
-          </Badge>
-        </div>
+      <div className="flex flex-col gap-2 mb-2">
+        <h1 className="text-4xl font-bold tracking-tight" data-testid="text-greeting">
+          {getGreeting()}, {user?.name?.split(" ")[0]} 👋
+        </h1>
+        <p className="text-muted-foreground text-lg">
+          {metrics?.isPrivileged
+            ? "Your team's performance at a glance"
+            : "Your sales performance at a glance"}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
