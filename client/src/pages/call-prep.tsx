@@ -41,11 +41,13 @@ import {
 import { SiLinkedin } from "react-icons/si";
 import type { Lead, ResearchPacket } from "@shared/schema";
 import { useState } from "react";
+import { Switch } from "@/components/ui/switch";
 
 export default function CallPrepPage() {
   const params = useParams<{ leadId: string }>();
   const [, navigate] = useLocation();
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [speedBrief, setSpeedBrief] = useState(false);
 
   const { data: leadDetail, isLoading } = useQuery<{ lead: Lead; researchPacket: ResearchPacket | null }>({
     queryKey: ["/api/leads", params.leadId],
@@ -148,13 +150,27 @@ export default function CallPrepPage() {
   return (
     <div className="h-full flex flex-col bg-background">
       <div className="border-b bg-muted/30 px-6 py-4">
-        <div className="flex items-center gap-4 mb-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/leads")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <Separator orientation="vertical" className="h-6" />
-          <span className="text-sm text-muted-foreground font-medium">CALL PREP</span>
+        <div className="flex items-center gap-4 mb-4 justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/leads")}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <Separator orientation="vertical" className="h-6" />
+            <span className="text-sm text-muted-foreground font-medium">CALL PREP</span>
+          </div>
+
+          {/* Speed Brief Toggle */}
+          <div className="flex items-center gap-3">
+            <label htmlFor="speed-brief" className="text-sm font-medium cursor-pointer">
+              {speedBrief ? "⚡ Speed Brief" : "📋 Full View"}
+            </label>
+            <Switch
+              id="speed-brief"
+              checked={speedBrief}
+              onCheckedChange={setSpeedBrief}
+            />
+          </div>
         </div>
 
         <div className="flex items-start justify-between gap-6">
@@ -220,7 +236,134 @@ export default function CallPrepPage() {
                 </p>
               </CardContent>
             </Card>
+          ) : speedBrief ? (
+            /* Speed Brief Mode - Essential info only */
+            <div className="max-w-2xl mx-auto space-y-6">
+              {/* Fit Score - Compact */}
+              <div className="text-center py-6">
+                <div className={`text-5xl font-bold tracking-tight ${
+                  (researchPacket.fitScore || 0) >= 70
+                    ? "text-green-600 dark:text-green-400"
+                    : (researchPacket.fitScore || 0) >= 40
+                    ? "text-yellow-600 dark:text-yellow-400"
+                    : "text-red-600 dark:text-red-400"
+                }`}>
+                  {researchPacket.fitScore || 0}
+                </div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
+                  Fit Score
+                </div>
+              </div>
+
+              {/* Opening Line */}
+              {openingLine && (
+                <Card className="border-l-4 border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MessageSquare className="h-4 w-4 text-blue-600" />
+                      <h3 className="font-bold text-sm uppercase tracking-wide">Opening Line</h3>
+                    </div>
+                    <p className="text-base leading-relaxed mb-3">{openingLine}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(openingLine, 'opening')}
+                    >
+                      {copiedField === 'opening' ? (
+                        <>
+                          <Check className="h-3 w-3 mr-2 text-green-500" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3 mr-2" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Top Pain Point */}
+              {researchPacket.painSignals && (
+                <Card className="border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-950/20">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="h-4 w-4 text-red-600" />
+                      <h3 className="font-bold text-sm uppercase tracking-wide">Top Pain Point</h3>
+                    </div>
+                    <p className="text-sm">
+                      {researchPacket.painSignals.split('\n').filter(l => l.trim())[0]?.replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '')}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* The Ask */}
+              {theAsk && (
+                <Card className="border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="h-4 w-4 text-green-600" />
+                      <h3 className="font-bold text-sm uppercase tracking-wide">The Ask</h3>
+                    </div>
+                    <p className="text-base font-medium mb-3">{theAsk}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(theAsk, 'ask')}
+                    >
+                      {copiedField === 'ask' ? (
+                        <>
+                          <Check className="h-3 w-3 mr-2 text-green-500" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3 mr-2" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Quick Stats */}
+              <div className="grid grid-cols-2 gap-3 pt-4 border-t">
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{questions.length}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Discovery Qs</p>
+                </div>
+                <div className="text-center">
+                  <Badge
+                    variant="secondary"
+                    className={`text-xs ${
+                      researchPacket.confidence === "high"
+                        ? "bg-green-100 text-green-700"
+                        : researchPacket.confidence === "medium"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {researchPacket.confidence} confidence
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Toggle to Full View */}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setSpeedBrief(false)}
+              >
+                View Full Intel
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
           ) : (
+            /* Full View Mode - All research sections */
             <>
               {/* Hero Fit Score */}
               <div className="text-center py-8">
