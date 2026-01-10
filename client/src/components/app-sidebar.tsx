@@ -1,4 +1,5 @@
 import { useLocation, Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { 
   LayoutDashboard, 
   Users, 
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import logoPath from "@assets/logoab_1766696790372.png";
+import type { NavigationSetting } from "@shared/schema";
 
 import _1 from "@assets/1.png";
 
@@ -94,6 +96,39 @@ export function AppSidebar() {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
 
+  const { data: navigationSettings = [] } = useQuery<NavigationSetting[]>({
+    queryKey: ["/api/navigation-settings"],
+    enabled: !!user,
+  });
+
+  const navKeyMap: Record<string, string> = {
+    dashboard: "Dashboard",
+    leads: "Leads",
+    coaching: "Live Coaching",
+    team: "Team",
+    reports: "Reports",
+    ae_pipeline: "AE Pipeline",
+    budgeting: "Budgeting",
+  };
+
+  const filteredAndSortedNavItems = mainNavItems
+    .filter((item) => {
+      if (!user || !item.allowedRoles.includes(user.role)) return false;
+      if (navigationSettings.length === 0) return true;
+      const navKey = Object.entries(navKeyMap).find(([, title]) => title === item.title)?.[0];
+      if (!navKey) return true;
+      const setting = navigationSettings.find((s) => s.navKey === navKey);
+      return setting ? setting.isEnabled : true;
+    })
+    .sort((a, b) => {
+      if (navigationSettings.length === 0) return 0;
+      const navKeyA = Object.entries(navKeyMap).find(([, title]) => title === a.title)?.[0];
+      const navKeyB = Object.entries(navKeyMap).find(([, title]) => title === b.title)?.[0];
+      const settingA = navigationSettings.find((s) => s.navKey === navKeyA);
+      const settingB = navigationSettings.find((s) => s.navKey === navKeyB);
+      return (settingA?.sortOrder ?? 99) - (settingB?.sortOrder ?? 99);
+    });
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -131,9 +166,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems
-                .filter((item) => !user || item.allowedRoles.includes(user.role))
-                .map((item) => (
+              {filteredAndSortedNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild 
