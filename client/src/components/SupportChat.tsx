@@ -22,6 +22,10 @@ import {
   ChevronRight,
   Clock,
   Target,
+  TrendingUp,
+  Award,
+  Package,
+  HelpCircle,
 } from "lucide-react";
 
 interface Message {
@@ -50,6 +54,17 @@ interface CallSummary {
   date: string;
 }
 
+interface SdrPerformance {
+  id: string;
+  name: string;
+  totalLeads: number;
+  totalCalls: number;
+  callsToday: number;
+  callsThisWeek: number;
+  qualifiedLeads: number;
+  connectionRate: number;
+}
+
 interface UserContextData {
   leads: LeadSummary[];
   recentCalls: CallSummary[];
@@ -58,6 +73,16 @@ interface UserContextData {
     leadsThisWeek: number;
     callsToday: number;
     callsThisWeek: number;
+    qualifiedLeads?: number;
+    connectionRate?: number;
+    avgCallDuration?: number;
+  };
+  teamData?: {
+    sdrs: SdrPerformance[];
+    teamTotalCalls: number;
+    teamTotalLeads: number;
+    teamQualifiedLeads: number;
+    topPerformer?: string;
   };
 }
 
@@ -157,16 +182,97 @@ function LeadCard({ lead, onNavigate }: { lead: LeadSummary; onNavigate: (id: st
   );
 }
 
-function UserDataDisplay({ data, onNavigateToLead }: { data: UserContextData; onNavigateToLead: (id: string) => void }) {
+function SdrCard({ sdr }: { sdr: SdrPerformance }) {
+  return (
+    <div className="p-3 rounded-lg border bg-card">
+      <div className="flex items-center justify-between">
+        <span className="font-medium text-sm">{sdr.name}</span>
+        {sdr.connectionRate >= 20 && (
+          <Award className="h-4 w-4 text-yellow-500" />
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+        <div>
+          <span className="text-muted-foreground">Calls/Week:</span>
+          <span className="ml-1 font-medium">{sdr.callsThisWeek}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Leads:</span>
+          <span className="ml-1 font-medium">{sdr.totalLeads}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Qualified:</span>
+          <span className="ml-1 font-medium">{sdr.qualifiedLeads}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Connect %:</span>
+          <span className={cn("ml-1 font-medium", sdr.connectionRate >= 20 ? "text-green-600" : "")}>
+            {sdr.connectionRate}%
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamDataDisplay({ teamData }: { teamData: NonNullable<UserContextData["teamData"]> }) {
+  return (
+    <div className="space-y-3 mt-2">
+      {/* Team Stats Overview */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="p-2 rounded-lg bg-blue-500/10 border">
+          <div className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-blue-600" />
+            <span className="text-xs font-medium">{teamData.teamTotalLeads} Team Leads</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            {teamData.teamQualifiedLeads} qualified
+          </p>
+        </div>
+        <div className="p-2 rounded-lg bg-green-500/10 border">
+          <div className="flex items-center gap-1.5">
+            <Phone className="h-3.5 w-3.5 text-green-600" />
+            <span className="text-xs font-medium">{teamData.teamTotalCalls} Team Calls</span>
+          </div>
+          {teamData.topPerformer && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Top: {teamData.topPerformer}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* SDR Performance Cards */}
+      {teamData.sdrs.length > 0 && (
+        <div>
+          <span className="text-xs font-medium text-muted-foreground">SDR Performance</span>
+          <div className="mt-2 space-y-2 max-h-[200px] overflow-y-auto">
+            {teamData.sdrs.map((sdr) => (
+              <SdrCard key={sdr.id} sdr={sdr} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserDataDisplay({ data, onNavigateToLead, userRole }: {
+  data: UserContextData;
+  onNavigateToLead: (id: string) => void;
+  userRole?: string;
+}) {
   const [, setLocation] = useLocation();
 
   const handleNavigate = (leadId: string) => {
     setLocation(`/call-prep/${leadId}`);
   };
 
+  const isManager = userRole === "manager" || userRole === "admin";
+
   return (
     <div className="space-y-3 mt-2">
-      {/* Stats Cards */}
+      {/* Individual Stats Cards */}
       <div className="grid grid-cols-2 gap-2">
         <div className="p-2 rounded-lg bg-primary/10 border">
           <div className="flex items-center gap-1.5">
@@ -187,6 +293,41 @@ function UserDataDisplay({ data, onNavigateToLead }: { data: UserContextData; on
           </p>
         </div>
       </div>
+
+      {/* Performance Stats (if available) */}
+      {(data.stats.connectionRate !== undefined || data.stats.qualifiedLeads !== undefined) && (
+        <div className="grid grid-cols-3 gap-2">
+          {data.stats.qualifiedLeads !== undefined && (
+            <div className="p-2 rounded-lg bg-muted/50 border text-center">
+              <span className="text-lg font-bold text-green-600">{data.stats.qualifiedLeads}</span>
+              <p className="text-[10px] text-muted-foreground">Qualified</p>
+            </div>
+          )}
+          {data.stats.connectionRate !== undefined && (
+            <div className="p-2 rounded-lg bg-muted/50 border text-center">
+              <span className="text-lg font-bold">{data.stats.connectionRate}%</span>
+              <p className="text-[10px] text-muted-foreground">Connect Rate</p>
+            </div>
+          )}
+          {data.stats.avgCallDuration !== undefined && (
+            <div className="p-2 rounded-lg bg-muted/50 border text-center">
+              <span className="text-lg font-bold">{data.stats.avgCallDuration}m</span>
+              <p className="text-[10px] text-muted-foreground">Avg Duration</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Team Data (Manager/Admin only) */}
+      {isManager && data.teamData && (
+        <div className="pt-2 border-t">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">Team Overview</span>
+          </div>
+          <TeamDataDisplay teamData={data.teamData} />
+        </div>
+      )}
 
       {/* Leads List */}
       {data.leads.length > 0 && (
@@ -249,6 +390,8 @@ export function SupportChat() {
   const [inputValue, setInputValue] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isManager = user?.role === "manager" || user?.role === "admin";
 
   // Load messages from localStorage on mount
   useEffect(() => {
@@ -388,6 +531,11 @@ export function SupportChat() {
     return null;
   }
 
+  // Role-specific quick action topics
+  const quickTopics = isManager
+    ? ["Team coaching", "Call review", "Performance benchmarks", "Salesforce sync"]
+    : ["Lead research", "Call features", "Product recommendations", "Salesforce sync"];
+
   return (
     <>
       {/* Chat Window */}
@@ -406,6 +554,11 @@ export function SupportChat() {
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
               <CardTitle className="text-base font-semibold">Support</CardTitle>
+              {isManager && (
+                <Badge variant="outline" className="text-[10px] px-1.5">
+                  Manager View
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-1">
               {state.messages.length > 0 && (
@@ -438,7 +591,9 @@ export function SupportChat() {
                   <div className="text-center py-6 px-4">
                     <Bot className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
                     <p className="text-sm text-muted-foreground mb-4">
-                      Hi! I'm your Lead Intel assistant. How can I help you today?
+                      {isManager
+                        ? "Hi! I can help you with team performance, coaching tips, and platform features."
+                        : "Hi! I'm your Lead Intel assistant. How can I help you today?"}
                     </p>
 
                     {/* Quick Action Buttons */}
@@ -467,17 +622,41 @@ export function SupportChat() {
                           variant="outline"
                           size="sm"
                           className="text-xs h-8"
-                          onClick={() => handleQuickAction("How am I doing? Show my stats")}
+                          onClick={() => handleQuickAction("How am I doing? Show my performance")}
                         >
                           <BarChart3 className="h-3 w-3 mr-1.5" />
                           My Stats
                         </Button>
                       </div>
 
+                      {/* Manager-specific quick actions */}
+                      {isManager && (
+                        <div className="flex flex-wrap gap-2 justify-center mt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-8 border-blue-200 bg-blue-50 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/30"
+                            onClick={() => handleQuickAction("Show team performance metrics")}
+                          >
+                            <TrendingUp className="h-3 w-3 mr-1.5" />
+                            Team Metrics
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-8 border-blue-200 bg-blue-50 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/30"
+                            onClick={() => handleQuickAction("Who is my top performer this week?")}
+                          >
+                            <Award className="h-3 w-3 mr-1.5" />
+                            Top Performer
+                          </Button>
+                        </div>
+                      )}
+
                       <div className="mt-4 pt-4 border-t">
                         <p className="text-xs text-muted-foreground">Or ask about:</p>
                         <div className="flex flex-wrap gap-2 justify-center mt-2">
-                          {["Lead research", "Call features", "Salesforce sync"].map((topic) => (
+                          {quickTopics.map((topic) => (
                             <Button
                               key={topic}
                               variant="ghost"
@@ -492,6 +671,28 @@ export function SupportChat() {
                             </Button>
                           ))}
                         </div>
+                      </div>
+
+                      {/* Product Help Button */}
+                      <div className="mt-4 pt-4 border-t">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => handleQuickAction("What products should I recommend for a manufacturing company with design challenges?")}
+                        >
+                          <Package className="h-3 w-3 mr-1.5" />
+                          Product Recommendations
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => handleQuickAction("What are good benchmarks for my role?")}
+                        >
+                          <HelpCircle className="h-3 w-3 mr-1.5" />
+                          Performance Benchmarks
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -553,6 +754,7 @@ export function SupportChat() {
                         <UserDataDisplay
                           data={message.userData}
                           onNavigateToLead={handleNavigateToLead}
+                          userRole={user?.role}
                         />
                       </div>
                     )}
@@ -594,7 +796,7 @@ export function SupportChat() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask anything or try 'show my leads'..."
+                placeholder={isManager ? "Ask about team metrics, coaching..." : "Ask about leads, calls, products..."}
                 disabled={state.isLoading}
                 className="flex-1"
               />

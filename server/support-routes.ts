@@ -2,6 +2,7 @@ import { Express, Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt } from "./prompts/supportAgent.js";
 import { storage } from "./storage.js";
+import { HAWK_RIDGE_PRODUCTS, matchProductsToLead } from "./ai/productCatalog.js";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -24,6 +25,19 @@ interface CallSummary {
   duration: number | null;
   disposition: string | null;
   date: string;
+  userId?: string;
+  userName?: string;
+}
+
+interface SdrPerformance {
+  id: string;
+  name: string;
+  totalLeads: number;
+  totalCalls: number;
+  callsToday: number;
+  callsThisWeek: number;
+  qualifiedLeads: number;
+  connectionRate: number;
 }
 
 interface UserContextData {
@@ -34,6 +48,17 @@ interface UserContextData {
     leadsThisWeek: number;
     callsToday: number;
     callsThisWeek: number;
+    qualifiedLeads?: number;
+    connectionRate?: number;
+    avgCallDuration?: number;
+  };
+  // Manager-only: team data
+  teamData?: {
+    sdrs: SdrPerformance[];
+    teamTotalCalls: number;
+    teamTotalLeads: number;
+    teamQualifiedLeads: number;
+    topPerformer?: string;
   };
 }
 
@@ -52,6 +77,7 @@ interface SupportChatResponse {
   response: string;
   timestamp: string;
   userData?: UserContextData;
+  dataIntent?: string;
 }
 
 let anthropicClient: Anthropic | null = null;
@@ -67,28 +93,67 @@ function getAnthropicClient(): Anthropic {
   return anthropicClient;
 }
 
-// Keywords that indicate user wants to see their data
+// Keywords that indicate user wants to see their data - organized by role access
 const DATA_INTENT_KEYWORDS = {
-  leads: ["my leads", "show leads", "list leads", "see leads", "view leads", "leads i have", "assigned leads", "current leads"],
-  calls: ["my calls", "recent calls", "call history", "calls today", "show calls", "view calls"],
-  stats: ["my stats", "my metrics", "how am i doing", "my performance", "my numbers"],
+  // Available to all roles
+  leads: ["my leads", "show leads", "list leads", "see leads", "view leads", "leads i have", "assigned leads", "current leads", "pipeline"],
+  calls: ["my calls", "recent calls", "call history", "calls today", "show calls", "view calls", "call log"],
+  stats: ["my stats", "my metrics", "how am i doing", "my performance", "my numbers", "my kpis"],
+
+  // Performance questions (context-aware based on role)
+  performance: ["performance", "performing", "conversion rate", "connection rate", "qualification rate", "call volume", "benchmarks", "targets", "goals"],
+
+  // Product questions (available to all)
+  products: ["product", "solidworks", "camworks", "3dexperience", "stratasys", "markforged", "driveworks", "pdm", "simulation", "which product", "recommend product", "pain point"],
+
+  // Manager-only intents
+  team: ["team", "my sdrs", "sdr performance", "team metrics", "team stats", "who is", "leaderboard", "top performer", "coaching"],
 };
 
-function detectDataIntent(message: string): "leads" | "calls" | "stats" | null {
+type DataIntent = "leads" | "calls" | "stats" | "performance" | "products" | "team" | null;
+
+function detectDataIntent(message: string, userRole: string): DataIntent {
   const lowerMessage = message.toLowerCase();
 
+  // Check for team intent first (manager/admin only)
+  if ((userRole === "manager" || userRole === "admin") &&
+      DATA_INTENT_KEYWORDS.team.some(keyword => lowerMessage.includes(keyword))) {
+    return "team";
+  }
+
+  // Check product questions
+  if (DATA_INTENT_KEYWORDS.products.some(keyword => lowerMessage.includes(keyword))) {
+    return "products";
+  }
+
+  // Check performance questions
+  if (DATA_INTENT_KEYWORDS.performance.some(keyword => lowerMessage.includes(keyword))) {
+    return "performance";
+  }
+
+  // Check standard data intents
   for (const [intent, keywords] of Object.entries(DATA_INTENT_KEYWORDS)) {
+    if (intent === "team" || intent === "performance" || intent === "products") continue;
     if (keywords.some(keyword => lowerMessage.includes(keyword))) {
-      return intent as "leads" | "calls" | "stats";
+      return intent as DataIntent;
     }
   }
+
   return null;
 }
 
-async function fetchUserContextData(userId: string): Promise<UserContextData | null> {
+async function fetchUserContextData(userId: string, userRole: string): Promise<UserContextData | null> {
   try {
     const user = await storage.getUser(userId);
     if (!user) return null;
+
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
 
     // Get user's SDR ID if they are an SDR
     const sdrId = user.sdrId;
@@ -102,15 +167,6 @@ async function fetchUserContextData(userId: string): Promise<UserContextData | n
     // Fetch recent calls
     const userCalls = await storage.getCallSessionsByUser(userId);
     const recentCalls = userCalls.slice(0, 10);
-
-    // Calculate stats
-    const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
 
     const leadsThisWeek = userLeads.filter(lead => {
       const createdAt = new Date(lead.createdAt);
@@ -127,6 +183,22 @@ async function fetchUserContextData(userId: string): Promise<UserContextData | n
       return callDate >= startOfWeek;
     }).length;
 
+    const qualifiedLeads = userLeads.filter(lead =>
+      lead.status === "qualified" || lead.status === "handed_off" || lead.status === "converted"
+    ).length;
+
+    // Calculate connection rate (calls with disposition != 'no_answer')
+    const connectedCalls = userCalls.filter(call =>
+      call.disposition && call.disposition !== "no_answer" && call.disposition !== "busy"
+    ).length;
+    const connectionRate = userCalls.length > 0 ? Math.round((connectedCalls / userCalls.length) * 100) : 0;
+
+    // Calculate average call duration
+    const callsWithDuration = userCalls.filter(call => call.duration && call.duration > 0);
+    const avgCallDuration = callsWithDuration.length > 0
+      ? Math.round(callsWithDuration.reduce((sum, call) => sum + (call.duration || 0), 0) / callsWithDuration.length / 60)
+      : 0;
+
     // Format leads for response
     const leadSummaries: LeadSummary[] = userLeads.slice(0, 20).map(lead => ({
       id: lead.id,
@@ -141,13 +213,13 @@ async function fetchUserContextData(userId: string): Promise<UserContextData | n
     // Format calls for response
     const callSummaries: CallSummary[] = recentCalls.map(call => ({
       id: call.id,
-      leadName: null, // Would need to join with leads table
+      leadName: null,
       duration: call.duration,
       disposition: call.disposition,
       date: new Date(call.startedAt).toLocaleDateString(),
     }));
 
-    return {
+    const result: UserContextData = {
       leads: leadSummaries,
       recentCalls: callSummaries,
       stats: {
@@ -155,42 +227,146 @@ async function fetchUserContextData(userId: string): Promise<UserContextData | n
         leadsThisWeek,
         callsToday,
         callsThisWeek,
+        qualifiedLeads,
+        connectionRate,
+        avgCallDuration,
       },
     };
+
+    // Fetch team data for managers/admins
+    if (userRole === "manager" || userRole === "admin") {
+      const teamData = await fetchTeamData(user, userRole, startOfWeek, startOfDay);
+      if (teamData) {
+        result.teamData = teamData;
+      }
+    }
+
+    return result;
   } catch (error) {
     console.error("[SupportChat] Error fetching user context:", error);
     return null;
   }
 }
 
-function formatUserDataForPrompt(data: UserContextData, intent: string): string {
+async function fetchTeamData(
+  user: any,
+  userRole: string,
+  startOfWeek: Date,
+  startOfDay: Date
+): Promise<UserContextData["teamData"] | null> {
+  try {
+    // Get SDRs under this manager or all SDRs for admin
+    let teamSdrs: any[] = [];
+
+    if (userRole === "admin") {
+      teamSdrs = await storage.getAllSdrs();
+    } else if (user.managerId) {
+      teamSdrs = await storage.getSdrsByManager(user.managerId);
+    }
+
+    if (teamSdrs.length === 0) return null;
+
+    // Get user IDs for these SDRs
+    const sdrIds = teamSdrs.map(sdr => sdr.id);
+    const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
+    const userIds = sdrUsers.map(u => u.id);
+
+    // Get all calls for team
+    const teamCalls = await storage.getCallSessionsByUserIds(userIds);
+
+    // Get all leads for team SDRs
+    const allTeamLeads: any[] = [];
+    for (const sdr of teamSdrs) {
+      const sdrLeads = await storage.getLeadsBySdr(sdr.id);
+      allTeamLeads.push(...sdrLeads.map(l => ({ ...l, sdrId: sdr.id, sdrName: sdr.name })));
+    }
+
+    // Calculate team stats
+    const teamTotalCalls = teamCalls.length;
+    const teamTotalLeads = allTeamLeads.length;
+    const teamQualifiedLeads = allTeamLeads.filter(lead =>
+      lead.status === "qualified" || lead.status === "handed_off" || lead.status === "converted"
+    ).length;
+
+    // Calculate per-SDR performance
+    const sdrPerformance: SdrPerformance[] = teamSdrs.map(sdr => {
+      const sdrUser = sdrUsers.find(u => u.sdrId === sdr.id);
+      const sdrCalls = sdrUser ? teamCalls.filter(c => c.userId === sdrUser.id) : [];
+      const sdrLeads = allTeamLeads.filter(l => l.sdrId === sdr.id);
+
+      const callsToday = sdrCalls.filter(call => new Date(call.startedAt) >= startOfDay).length;
+      const callsThisWeek = sdrCalls.filter(call => new Date(call.startedAt) >= startOfWeek).length;
+      const qualifiedLeads = sdrLeads.filter(lead =>
+        lead.status === "qualified" || lead.status === "handed_off" || lead.status === "converted"
+      ).length;
+      const connectedCalls = sdrCalls.filter(call =>
+        call.disposition && call.disposition !== "no_answer" && call.disposition !== "busy"
+      ).length;
+      const connectionRate = sdrCalls.length > 0 ? Math.round((connectedCalls / sdrCalls.length) * 100) : 0;
+
+      return {
+        id: sdr.id,
+        name: sdr.name,
+        totalLeads: sdrLeads.length,
+        totalCalls: sdrCalls.length,
+        callsToday,
+        callsThisWeek,
+        qualifiedLeads,
+        connectionRate,
+      };
+    });
+
+    // Find top performer by calls this week
+    const topPerformer = sdrPerformance.reduce((top, sdr) =>
+      sdr.callsThisWeek > (top?.callsThisWeek || 0) ? sdr : top,
+      sdrPerformance[0]
+    );
+
+    return {
+      sdrs: sdrPerformance,
+      teamTotalCalls,
+      teamTotalLeads,
+      teamQualifiedLeads,
+      topPerformer: topPerformer?.name,
+    };
+  } catch (error) {
+    console.error("[SupportChat] Error fetching team data:", error);
+    return null;
+  }
+}
+
+function formatUserDataForPrompt(data: UserContextData, intent: DataIntent, userRole: string): string {
   let formatted = "\n\n---\n**User's Current Data:**\n";
 
-  if (intent === "leads" || intent === "stats") {
-    formatted += `\n**Leads Summary:**\n`;
+  // Individual stats (available to all)
+  if (intent === "leads" || intent === "stats" || intent === "performance") {
+    formatted += `\n**Your Leads Summary:**\n`;
     formatted += `- Total leads: ${data.stats.totalLeads}\n`;
-    formatted += `- New leads this week: ${data.stats.leadsThisWeek}\n\n`;
+    formatted += `- New leads this week: ${data.stats.leadsThisWeek}\n`;
+    formatted += `- Qualified leads: ${data.stats.qualifiedLeads || 0}\n\n`;
 
-    if (data.leads.length > 0) {
+    if (intent === "leads" && data.leads.length > 0) {
       formatted += `**Your Leads (${Math.min(data.leads.length, 10)} most recent):**\n`;
       data.leads.slice(0, 10).forEach((lead, i) => {
         formatted += `${i + 1}. **${lead.companyName}** - ${lead.contactName}\n`;
-        formatted += `   Status: ${lead.status}${lead.fitScore ? ` | Fit Score: ${lead.fitScore}` : ""}\n`;
+        formatted += `   Status: ${lead.status}${lead.fitScore ? ` | Fit Score: ${lead.fitScore}%` : ""}\n`;
         if (lead.nextFollowUp) {
           formatted += `   Next Follow-up: ${lead.nextFollowUp}\n`;
         }
       });
-    } else {
+    } else if (intent === "leads") {
       formatted += `_No leads currently assigned._\n`;
     }
   }
 
-  if (intent === "calls" || intent === "stats") {
-    formatted += `\n**Calls Summary:**\n`;
+  if (intent === "calls" || intent === "stats" || intent === "performance") {
+    formatted += `\n**Your Calls Summary:**\n`;
     formatted += `- Calls today: ${data.stats.callsToday}\n`;
-    formatted += `- Calls this week: ${data.stats.callsThisWeek}\n\n`;
+    formatted += `- Calls this week: ${data.stats.callsThisWeek}\n`;
+    formatted += `- Connection rate: ${data.stats.connectionRate || 0}%\n`;
+    formatted += `- Avg call duration: ${data.stats.avgCallDuration || 0} min\n\n`;
 
-    if (data.recentCalls.length > 0) {
+    if (intent === "calls" && data.recentCalls.length > 0) {
       formatted += `**Recent Calls:**\n`;
       data.recentCalls.slice(0, 5).forEach((call, i) => {
         const duration = call.duration ? `${Math.round(call.duration / 60)} min` : "N/A";
@@ -200,9 +376,42 @@ function formatUserDataForPrompt(data: UserContextData, intent: string): string 
         }
         formatted += `\n`;
       });
-    } else {
+    } else if (intent === "calls") {
       formatted += `_No recent calls._\n`;
     }
+  }
+
+  // Team data for managers/admins
+  if ((userRole === "manager" || userRole === "admin") &&
+      (intent === "team" || intent === "performance") &&
+      data.teamData) {
+    formatted += `\n**Team Overview:**\n`;
+    formatted += `- Total team leads: ${data.teamData.teamTotalLeads}\n`;
+    formatted += `- Total team calls: ${data.teamData.teamTotalCalls}\n`;
+    formatted += `- Team qualified leads: ${data.teamData.teamQualifiedLeads}\n`;
+    if (data.teamData.topPerformer) {
+      formatted += `- Top performer this week: ${data.teamData.topPerformer}\n`;
+    }
+    formatted += `\n`;
+
+    if (data.teamData.sdrs.length > 0) {
+      formatted += `**SDR Performance:**\n`;
+      data.teamData.sdrs.forEach((sdr, i) => {
+        formatted += `${i + 1}. **${sdr.name}**\n`;
+        formatted += `   Leads: ${sdr.totalLeads} | Calls this week: ${sdr.callsThisWeek}\n`;
+        formatted += `   Qualified: ${sdr.qualifiedLeads} | Connection Rate: ${sdr.connectionRate}%\n`;
+      });
+    }
+  }
+
+  // Product context (only provide catalog info, not user data)
+  if (intent === "products") {
+    formatted += `\n**Product Matching Help:**\n`;
+    formatted += `When discussing products with prospects, ask about:\n`;
+    formatted += `- Their industry and company size\n`;
+    formatted += `- Specific pain points (manual processes, design delays, compliance needs)\n`;
+    formatted += `- Current tech stack (existing CAD, PDM, or manufacturing software)\n\n`;
+    formatted += `The AI research dossier on each lead includes product recommendations based on their profile.\n`;
   }
 
   formatted += "---\n";
@@ -218,7 +427,8 @@ export function registerSupportRoutes(app: Express): void {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const userData = await fetchUserContextData(userId);
+      const user = await storage.getUser(userId);
+      const userData = await fetchUserContextData(userId, user?.role || "sdr");
       if (!userData) {
         return res.status(404).json({ error: "User data not found" });
       }
@@ -230,7 +440,7 @@ export function registerSupportRoutes(app: Express): void {
     }
   });
 
-  // Support chat endpoint with data injection
+  // Support chat endpoint with role-aware data injection
   app.post("/api/support/chat", async (req: Request, res: Response) => {
     try {
       const { message, conversationHistory = [], userContext, includeUserData } = req.body as SupportChatRequest;
@@ -239,23 +449,37 @@ export function registerSupportRoutes(app: Express): void {
         return res.status(400).json({ error: "Message is required" });
       }
 
-      // Detect if user is asking for their data
-      const dataIntent = detectDataIntent(message);
+      // Get user role from session or context
+      const userId = req.session?.userId;
+      let userRole = userContext?.userRole || "sdr";
+
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user) {
+          userRole = user.role;
+        }
+      }
+
+      // Detect data intent with role awareness
+      const dataIntent = detectDataIntent(message, userRole);
       let userData: UserContextData | null = null;
       let enhancedMessage = message;
 
       // Fetch user data if they're asking for it or if explicitly requested
-      if ((dataIntent || includeUserData) && req.session?.userId) {
-        userData = await fetchUserContextData(req.session.userId);
+      if ((dataIntent || includeUserData) && userId) {
+        userData = await fetchUserContextData(userId, userRole);
 
         if (userData && dataIntent) {
           // Append user data to the message for AI context
-          enhancedMessage = message + formatUserDataForPrompt(userData, dataIntent);
+          enhancedMessage = message + formatUserDataForPrompt(userData, dataIntent, userRole);
         }
       }
 
-      // Build the system prompt with user context
-      const systemPrompt = buildSystemPrompt(userContext);
+      // Build the system prompt with user context (includes role-based knowledge)
+      const systemPrompt = buildSystemPrompt({
+        ...userContext,
+        userRole,
+      });
 
       // Build messages array for the API call
       const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
@@ -275,13 +499,13 @@ export function registerSupportRoutes(app: Express): void {
         content: enhancedMessage,
       });
 
-      console.log(`[SupportChat] Processing message from user ${userContext?.userId || req.session?.userId || "anonymous"}${dataIntent ? ` (data intent: ${dataIntent})` : ""}`);
+      console.log(`[SupportChat] Processing message from ${userRole} user ${userId || "anonymous"}${dataIntent ? ` (data intent: ${dataIntent})` : ""}`);
 
       const client = getAnthropicClient();
 
       const response = await client.messages.create({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 1500, // Increased for data responses
+        max_tokens: 2000, // Increased for team data responses
         system: systemPrompt,
         messages: messages,
         temperature: 0.7,
@@ -297,9 +521,10 @@ export function registerSupportRoutes(app: Express): void {
         response: textContent.text,
         timestamp: new Date().toISOString(),
         userData: dataIntent ? userData || undefined : undefined,
+        dataIntent: dataIntent || undefined,
       };
 
-      console.log(`[SupportChat] Response generated successfully`);
+      console.log(`[SupportChat] Response generated successfully for ${userRole}`);
       res.json(result);
     } catch (error) {
       console.error("[SupportChat] Error:", error);

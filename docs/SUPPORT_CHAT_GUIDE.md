@@ -1,7 +1,7 @@
 # Support Chat Agent Guide
 
 > **Feature:** AI-Powered Support Chat Widget
-> **Version:** 1.0
+> **Version:** 2.0
 > **Last Updated:** January 11, 2026
 
 The Support Chat is an AI-powered assistant that helps you get answers to platform questions, troubleshoot issues, and learn best practices—all without leaving your current workflow.
@@ -12,11 +12,13 @@ The Support Chat is an AI-powered assistant that helps you get answers to platfo
 
 1. [Overview](#overview)
 2. [Getting Started](#getting-started)
-3. [Auto-Populate Features](#auto-populate-features)
-4. [Use Cases by Role](#use-cases-by-role)
-5. [Example Conversations](#example-conversations)
-6. [Tips for Better Responses](#tips-for-better-responses)
-7. [Limitations](#limitations)
+3. [Role-Based Access](#role-based-access)
+4. [Auto-Populate Features](#auto-populate-features)
+5. [Performance & Product Knowledge](#performance--product-knowledge)
+6. [Use Cases by Role](#use-cases-by-role)
+7. [Example Conversations](#example-conversations)
+8. [Tips for Better Responses](#tips-for-better-responses)
+9. [Limitations](#limitations)
 
 ---
 
@@ -72,6 +74,42 @@ The research pulls data from the company website, LinkedIn, and other sources to
 - Click the **X** button in the chat window header
 - Click the chat bubble again
 - Your conversation history is saved automatically
+
+---
+
+## Role-Based Access
+
+The Support Chat automatically adapts to your role, showing relevant information and capabilities.
+
+### Role-Specific Experiences
+
+| Role | Data Access | Special Features |
+|------|-------------|------------------|
+| **SDR** | Own leads, calls, metrics | Product recommendations, call tips, BANT guidance |
+| **Manager** | Team metrics, all SDR data | Team performance, coaching frameworks, SDR comparisons |
+| **Admin** | All system data | Integration troubleshooting, user management help |
+| **Account Executive** | Handed-off leads | Handoff context, lead history |
+
+### What SDRs Can Ask About
+
+- Your personal leads and pipeline
+- Your call history and metrics
+- Performance benchmarks for your experience level
+- Product recommendations for prospects
+- BANT qualification guidance
+- Best practices for discovery calls
+
+### What Managers Can Ask About (In Addition to SDR Features)
+
+- **Team metrics**: "Show team performance" or "Team stats"
+- **SDR comparisons**: "Who is my top performer?"
+- **Coaching tips**: "How should I coach an SDR on discovery?"
+- **7-dimensional call scoring**: Understanding and using AI call analysis
+- **Benchmarks by experience**: Performance targets for new vs experienced SDRs
+
+### Manager View Indicator
+
+When logged in as a Manager or Admin, the chat header displays a "Manager View" badge indicating you have access to team-level data.
 
 ---
 
@@ -157,6 +195,115 @@ When you ask for stats, you'll see:
 - **Calls This Week** - Total calls for the current week
 
 This gives you a quick snapshot of your activity without opening the dashboard.
+
+---
+
+## Performance & Product Knowledge
+
+The Support Chat includes built-in knowledge about performance metrics and Hawk Ridge products.
+
+### Performance Metrics Help
+
+Ask the chat about metrics and benchmarks:
+
+**SDR Performance Questions:**
+- "What's a good connection rate?"
+- "How many calls should I make per day?"
+- "What are the benchmarks for my experience level?"
+- "How is qualification rate calculated?"
+
+**Manager Performance Questions:**
+- "What are good benchmarks by SDR experience?"
+- "What red flags should I look for in call reviews?"
+- "How should I coach someone with low connection rate?"
+
+### Performance Benchmarks
+
+The chat knows industry benchmarks:
+
+| Experience Level | Calls/Day | Connection Rate | Qualification Rate |
+|-----------------|-----------|-----------------|-------------------|
+| New (0-6 months) | 40-60 | 15% | 15% |
+| Experienced (6-18 months) | 60-80 | 20% | 25% |
+| Top Performer (18+ months) | 80+ | 25%+ | 30%+ |
+
+### Product Knowledge
+
+The chat can help with Hawk Ridge product recommendations:
+
+**Product Questions:**
+- "What products solve design challenges?"
+- "Which SOLIDWORKS version is best for small teams?"
+- "What should I recommend for a manufacturing company?"
+- "When should I suggest simulation tools?"
+
+**Example:**
+```
+You: I have a prospect in aerospace who mentioned compliance issues
+
+Support: For aerospace companies with compliance concerns, consider:
+
+1. **SOLIDWORKS PDM Professional** - Addresses version control and
+   regulatory compliance (FDA, AS9100 requirements)
+2. **SOLIDWORKS Premium** - Includes simulation for design validation
+3. **3DEXPERIENCE Platform** - For multi-site collaboration if needed
+
+Key pain points to explore:
+- Are they struggling with audit trails?
+- Do they need revision control across teams?
+- What's their current file management approach?
+```
+
+### 7-Dimensional Call Scoring (Managers)
+
+Understand the AI call analysis dimensions:
+
+1. **Opening/Rapport** - Credibility and connection
+2. **Discovery** - Uncovering pain points
+3. **Value Proposition** - Articulating benefits
+4. **Objection Handling** - Addressing concerns
+5. **Next Steps** - Securing commitments
+6. **Talk/Listen Ratio** - Balance (30/70 ideal)
+7. **Overall Effectiveness** - Achieving objectives
+
+### Manager-Only: Team Data Display
+
+When managers ask about team performance, they see:
+
+- **Team Overview Cards**: Total leads, calls, qualified leads
+- **Top Performer**: Who's leading this week
+- **SDR Performance Cards**: Per-SDR metrics including:
+  - Calls this week
+  - Total leads
+  - Qualified leads
+  - Connection rate
+  - Achievement badges (award icon for 20%+ connection rate)
+
+### Example: Manager Viewing Team Stats
+
+```
+Manager: Show team performance
+
+Support: Here's your team's performance this week. You have 5 SDRs
+with 156 total leads. Sarah Johnson is your top performer with
+45 calls this week.
+
+[Team Overview Cards]
+156 Team Leads (23 qualified) | 287 Team Calls (Top: Sarah Johnson)
+
+[SDR Performance Cards]
+1. Sarah Johnson
+   Calls/Week: 45 | Leads: 38
+   Qualified: 8 | Connect %: 24% 🏆
+
+2. Mike Chen
+   Calls/Week: 42 | Leads: 35
+   Qualified: 6 | Connect %: 21% 🏆
+
+3. Emily Davis
+   Calls/Week: 38 | Leads: 32
+   Qualified: 5 | Connect %: 18%
+```
 
 ---
 
@@ -483,15 +630,16 @@ Click these for common starting points.
 
 ## Limitations
 
-The Support Chat is designed to help with platform-related questions. It **cannot**:
+The Support Chat is designed to help with platform-related questions. While it can access your role-appropriate data, it **cannot**:
 
 | Cannot Do | Alternative |
 |-----------|-------------|
-| Access your specific account data (minutes balance, exact metrics) | Check Settings or Dashboard |
-| Make changes to your account | Use the appropriate page in the app |
+| Make changes to your account or data | Use the appropriate page in the app |
+| Access other users' data (SDRs can't see other SDRs) | Managers can see their team's data |
 | Access external systems directly | Use the respective integrations |
 | Provide real-time call coaching | Use the Live Coaching feature during calls |
 | Handle billing or subscription changes | Contact support@hawkridge.com |
+| Access data outside your role permissions | Contact your manager or admin |
 
 ### When to Contact Human Support
 
