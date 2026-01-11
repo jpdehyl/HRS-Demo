@@ -513,8 +513,8 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
         queued: leads.length,
       });
     } catch (error) {
-      console.error("Research delete error:", error);
-      res.status(500).json({ message: "Failed to delete research" });
+      console.error("Batch research error:", error);
+      res.status(500).json({ message: "Failed to queue batch research" });
     }
   });
 
