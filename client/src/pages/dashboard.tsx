@@ -5,7 +5,9 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
+import { useState } from "react";
 import { CallQueue } from "@/components/call-queue";
+import { DialingModal } from "@/components/dialing-modal";
 import { ROIStats } from "@/components/roi-stats";
 import { 
   Users, 
@@ -78,6 +80,12 @@ interface DashboardMetrics {
     sdrs: number;
     aes: number;
     leads: number;
+  };
+  roiTracking: {
+    callsWithPrep: number;
+    callsWithoutPrep: number;
+    meetingsWithPrep: number;
+    meetingsWithoutPrep: number;
   };
   isPrivileged: boolean;
   currentUserId: string;
@@ -282,18 +290,18 @@ function ActionItem({
 export default function DashboardPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
+  const [dialingLead, setDialingLead] = useState<any | null>(null);
 
   const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
     queryKey: ["/api/dashboard/metrics"],
   });
 
-  const { data: leads = [] } = useQuery({
+  const { data: leads = [] } = useQuery<any[]>({
     queryKey: ["/api/leads"],
   });
 
   const handleCall = (lead: any) => {
-    // Navigate to coaching page with phone number pre-filled
-    navigate(`/coaching?phone=${encodeURIComponent(lead.contactPhone || "")}&leadId=${lead.id}`);
+    setDialingLead(lead);
   };
 
   const getGreeting = () => {
@@ -330,12 +338,12 @@ export default function DashboardPage() {
       <CallQueue leads={leads} onCall={handleCall} />
 
       {/* ROI Stats - Show value of using the tool */}
-      {!metrics?.isPrivileged && (
+      {!metrics?.isPrivileged && metrics?.roiTracking && (
         <ROIStats
-          callsWithPrep={12}
-          callsWithoutPrep={38}
-          meetingsWithPrep={4}
-          meetingsWithoutPrep={2}
+          callsWithPrep={metrics.roiTracking.callsWithPrep}
+          callsWithoutPrep={metrics.roiTracking.callsWithoutPrep}
+          meetingsWithPrep={metrics.roiTracking.meetingsWithPrep}
+          meetingsWithoutPrep={metrics.roiTracking.meetingsWithoutPrep}
         />
       )}
 
@@ -683,6 +691,12 @@ export default function DashboardPage() {
           </Card>
         )}
       </div>
+
+      <DialingModal
+        open={!!dialingLead}
+        onOpenChange={(open) => !open && setDialingLead(null)}
+        lead={dialingLead}
+      />
     </div>
   );
 }

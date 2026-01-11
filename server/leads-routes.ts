@@ -1,11 +1,126 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
-import { insertLeadSchema } from "@shared/schema";
+import { insertLeadSchema, type Lead } from "@shared/schema";
 import { z } from "zod";
 import { fetchLeadsFromSheet, parseLeadsFromSheet, detectColumnMapping, getSpreadsheetInfo } from "./google/sheetsClient";
 import { researchLead } from "./ai/leadResearch";
 import { extractQualificationFromTranscript, QualificationDraft } from "./ai/qualificationExtractor";
 import { notifyLeadStatusChange, notifyLeadQualified, notifyManagersOfQualifiedLead, notifyAEHandoff, notifyResearchReady } from "./notificationService";
+import pLimit from "p-limit";
+
+// Limit concurrent research to 3 to avoid rate limits
+const researchLimit = pLimit(3);
+
+// Track research in progress to prevent duplicate work
+const researchInProgress = new Set<string>();
+
+// Shared helper for processing lead research with all guardrails
+async function processLeadResearch(lead: Lead, options: { forceRefresh?: boolean; notifyUserId?: string } = {}): Promise<{ success: boolean; packet?: any; isExisting?: boolean }> {
+  const { forceRefresh = false, notifyUserId } = options;
+  const leadId = lead.id;
+  
+  // Check if research already in progress
+  if (researchInProgress.has(leadId)) {
+    console.log(`[LeadResearch] Already in progress for ${lead.contactName || leadId}, skipping`);
+    const existingPacket = await storage.getResearchPacketByLead(leadId);
+    return { success: true, packet: existingPacket, isExisting: true };
+  }
+  
+  // Skip if no company info
+  if (!lead.companyName && !lead.companyWebsite) {
+    console.log(`[LeadResearch] Skipping ${leadId} - no company info`);
+    return { success: false };
+  }
+  
+  // Check for existing research
+  const existingPacket = await storage.getResearchPacketByLead(leadId);
+  const existingIsFallback = existingPacket?.sources?.includes("Fallback template");
+  
+  // Return existing if not forcing refresh and not fallback
+  if (existingPacket && !forceRefresh && !existingIsFallback) {
+    return { success: true, packet: existingPacket, isExisting: true };
+  }
+  
+  // Mark as in progress
+  researchInProgress.add(leadId);
+  
+  try {
+    console.log(`[LeadResearch] Processing: ${lead.contactName || lead.companyName}`);
+    const researchResult = await researchLead(lead);
+    
+    // Check if new result is fallback but existing was good
+    const newIsFallback = researchResult.packet.sources?.includes("Fallback template");
+    if (existingPacket && !existingIsFallback && newIsFallback) {
+      console.log(`[LeadResearch] New result is fallback, keeping existing for ${lead.contactName}`);
+      return { success: true, packet: existingPacket, isExisting: true };
+    }
+    
+    // Save research packet
+    let researchPacket;
+    if (existingPacket) {
+      researchPacket = await storage.updateResearchPacket(existingPacket.id, researchResult.packet);
+    } else {
+      researchPacket = await storage.createResearchPacket(researchResult.packet);
+    }
+    
+    // Update lead with discovered info
+    const { discoveredInfo } = researchResult;
+    const updateData: Record<string, string | number | null> = {};
+    if (discoveredInfo.linkedInUrl && !lead.contactLinkedIn) {
+      updateData.contactLinkedIn = discoveredInfo.linkedInUrl;
+    }
+    if (discoveredInfo.phoneNumber && !lead.contactPhone) {
+      updateData.contactPhone = discoveredInfo.phoneNumber;
+    }
+    if (discoveredInfo.jobTitle && !lead.contactTitle) {
+      updateData.contactTitle = discoveredInfo.jobTitle;
+    }
+    if (discoveredInfo.companyWebsite && !lead.companyWebsite) {
+      updateData.companyWebsite = discoveredInfo.companyWebsite;
+    }
+    
+    // Update fitScore and priority from research
+    if (researchPacket && researchPacket.fitScore !== null && researchPacket.fitScore !== undefined) {
+      updateData.fitScore = researchPacket.fitScore;
+    }
+    if (researchPacket && researchPacket.priority) {
+      updateData.priority = researchPacket.priority;
+    }
+    
+    if (Object.keys(updateData).length > 0) {
+      await storage.updateLead(leadId, updateData);
+      console.log(`[LeadResearch] Updated lead ${leadId} with:`, Object.keys(updateData));
+    }
+    
+    // Send notification if user ID provided
+    if (notifyUserId) {
+      await notifyResearchReady(notifyUserId, leadId, lead.contactName, lead.companyName);
+    }
+    
+    console.log(`[LeadResearch] Completed: ${lead.contactName || lead.companyName}`);
+    return { success: true, packet: researchPacket, isExisting: false };
+    
+  } catch (err: any) {
+    console.error(`[LeadResearch] Failed for ${leadId}:`, err.message);
+    return { success: false };
+  } finally {
+    researchInProgress.delete(leadId);
+  }
+}
+
+// Background research processor for bulk imports
+async function processResearchQueue(leads: Lead[]) {
+  console.log(`[AutoResearch] Starting background research for ${leads.length} leads`);
+  
+  const researchPromises = leads.map(lead => 
+    researchLimit(async () => {
+      await processLeadResearch(lead);
+    })
+  );
+  
+  await Promise.allSettled(researchPromises);
+  console.log(`[AutoResearch] Batch complete for ${leads.length} leads`);
+}
 
 export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, res: Response, next: () => void) => void) {
   
@@ -115,6 +230,15 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       }
       
       const lead = await storage.createLead(validatedData);
+      
+      // Auto-trigger research in background (non-blocking)
+      if (lead.companyName || lead.companyWebsite) {
+        console.log(`[AutoResearch] Triggering auto-research for new lead: ${lead.contactName || lead.companyName}`);
+        processLeadResearch(lead).catch(err => {
+          console.error(`[AutoResearch] Failed for ${lead.id}:`, err.message);
+        });
+      }
+      
       res.status(201).json(lead);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -256,6 +380,14 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       
       const createdLeads = await storage.createLeads(newLeads);
       
+      // Auto-trigger research for all imported leads in background (non-blocking)
+      if (createdLeads.length > 0) {
+        console.log(`[AutoResearch] Queueing ${createdLeads.length} leads for background research`);
+        processResearchQueue(createdLeads).catch(err => {
+          console.error("[AutoResearch] Batch processing error:", err.message);
+        });
+      }
+      
       res.json({
         imported: createdLeads.length,
         skipped,
@@ -263,6 +395,7 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
         duplicateEmails: duplicates.slice(0, 10),
         errors: errors.slice(0, 10),
         leads: createdLeads,
+        researchQueued: createdLeads.length,
       });
     } catch (error) {
       console.error("Leads import error:", error);
@@ -270,8 +403,6 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
     }
   });
 
-  const researchInProgress = new Set<string>();
-  
   app.post("/api/leads/:id/research", requireAuth, async (req: Request, res: Response) => {
     try {
       const leadId = req.params.id;
@@ -280,94 +411,22 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
         return res.status(404).json({ message: "Lead not found" });
       }
       
-      const existingPacket = await storage.getResearchPacketByLead(lead.id);
-      const existingIsFallback = existingPacket?.sources?.includes("Fallback template");
-      
-      if (existingPacket && req.query.refresh !== "true" && !existingIsFallback) {
-        return res.json({ 
-          message: "Research already exists", 
-          researchPacket: existingPacket,
-          isExisting: true 
-        });
-      }
-      
-      if (researchInProgress.has(leadId)) {
-        console.log(`[LeadResearch] Research already in progress for ${lead.contactName}, returning existing or waiting`);
-        if (existingPacket) {
-          return res.json({
-            message: "Research in progress",
-            researchPacket: existingPacket,
-            isExisting: true
-          });
-        }
-        return res.status(429).json({ message: "Research already in progress for this lead" });
-      }
-      
-      researchInProgress.add(leadId);
-      
-      if (existingIsFallback) {
-        console.log(`[LeadResearch] Existing research has fallback data, regenerating for ${lead.contactName}`);
-      }
-      
-      let researchResult;
-      try {
-        researchResult = await researchLead(lead);
-      } finally {
-        researchInProgress.delete(leadId);
-      }
-      
-      const newIsFallback = researchResult.packet.sources?.includes("Fallback template");
-      if (existingPacket && !existingIsFallback && newIsFallback) {
-        console.log(`[LeadResearch] New result is fallback but existing is good, keeping existing for ${lead.contactName}`);
-        return res.json({
-          message: "Research already exists",
-          researchPacket: existingPacket,
-          isExisting: true
-        });
-      }
-      
-      let researchPacket;
-      if (existingPacket) {
-        researchPacket = await storage.updateResearchPacket(existingPacket.id, researchResult.packet);
-      } else {
-        researchPacket = await storage.createResearchPacket(researchResult.packet);
-      }
-      
-      const { discoveredInfo } = researchResult;
-      const updateData: Record<string, string | number | null> = {};
-      if (discoveredInfo.linkedInUrl && !lead.contactLinkedIn) {
-        updateData.contactLinkedIn = discoveredInfo.linkedInUrl;
-      }
-      if (discoveredInfo.phoneNumber && !lead.contactPhone) {
-        updateData.contactPhone = discoveredInfo.phoneNumber;
-      }
-      if (discoveredInfo.jobTitle && !lead.contactTitle) {
-        updateData.contactTitle = discoveredInfo.jobTitle;
-      }
-      if (discoveredInfo.companyWebsite && !lead.companyWebsite) {
-        updateData.companyWebsite = discoveredInfo.companyWebsite;
-      }
-      
-      // Always update fitScore and priority from research
-      if (researchPacket && researchPacket.fitScore !== null && researchPacket.fitScore !== undefined) {
-        updateData.fitScore = researchPacket.fitScore;
-      }
-      if (researchPacket && researchPacket.priority) {
-        updateData.priority = researchPacket.priority;
-      }
-      
-      if (Object.keys(updateData).length > 0) {
-        await storage.updateLead(lead.id, updateData);
-        console.log(`[LeadResearch] Updated lead ${lead.id} with:`, Object.keys(updateData));
-      }
-      
+      const forceRefresh = req.query.refresh === "true";
       const userId = req.session.userId!;
-      await notifyResearchReady(userId, lead.id, lead.contactName, lead.companyName);
+      
+      const result = await processLeadResearch(lead, { 
+        forceRefresh, 
+        notifyUserId: userId 
+      });
+      
+      if (!result.success && !result.packet) {
+        return res.status(500).json({ message: "Failed to research lead" });
+      }
       
       res.json({ 
-        message: "Research completed", 
-        researchPacket,
-        isExisting: false 
+        message: result.isExisting ? "Research already exists" : "Research completed", 
+        researchPacket: result.packet,
+        isExisting: result.isExisting 
       });
     } catch (error) {
       console.error("Lead research error:", error);

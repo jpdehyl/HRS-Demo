@@ -149,18 +149,17 @@ export default function CallPrepPage() {
 
   return (
     <div className="h-full flex flex-col bg-background">
-      <div className="border-b bg-muted/30 px-6 py-4">
-        <div className="flex items-center gap-4 mb-4 justify-between">
-          <div className="flex items-center gap-4">
+      <div className="border-b bg-muted/30 px-4 sm:px-6 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:justify-between">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Button variant="ghost" size="sm" onClick={() => navigate("/leads")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              <ArrowLeft className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Back</span>
             </Button>
-            <Separator orientation="vertical" className="h-6" />
+            <Separator orientation="vertical" className="h-6 hidden sm:block" />
             <span className="text-sm text-muted-foreground font-medium">CALL PREP</span>
           </div>
 
-          {/* Speed Brief Toggle */}
           <div className="flex items-center gap-3">
             <label htmlFor="speed-brief" className="text-sm font-medium cursor-pointer">
               {speedBrief ? "⚡ Speed Brief" : "📋 Full View"}
@@ -173,50 +172,51 @@ export default function CallPrepPage() {
           </div>
         </div>
 
-        <div className="flex items-start justify-between gap-6">
-          <div>
-            <h1 className="text-2xl font-bold mb-1">{lead.contactName}</h1>
-            <div className="flex items-center gap-4 text-muted-foreground">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold mb-1 truncate">{lead.contactName}</h1>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <Building2 className="h-4 w-4" />
-                {lead.companyName}
+                <Building2 className="h-4 w-4 shrink-0" />
+                <span className="truncate">{lead.companyName}</span>
               </span>
               {lead.contactTitle && (
                 <span className="flex items-center gap-1.5">
-                  <Briefcase className="h-4 w-4" />
-                  {lead.contactTitle}
+                  <Briefcase className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{lead.contactTitle}</span>
                 </span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {getFitScoreDisplay(researchPacket?.fitScore || lead.fitScore)}
             {getPriorityDisplay(researchPacket?.priority || lead.priority)}
           </div>
         </div>
 
-        <div className="flex items-center gap-3 mt-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-4">
           {lead.contactPhone && (
-            <Button size="sm" className="gap-2" onClick={() => navigate(`/coaching?phone=${encodeURIComponent(lead.contactPhone || "")}&leadId=${lead.id}`)}>
+            <Button size="sm" className="gap-2 flex-1 sm:flex-none" onClick={() => navigate(`/coaching?phone=${encodeURIComponent(lead.contactPhone || "")}&leadId=${lead.id}`)}>
               <Phone className="h-4 w-4" />
-              {lead.contactPhone}
+              <span className="truncate">{lead.contactPhone}</span>
             </Button>
           )}
           <Button 
             size="sm" 
             variant="outline" 
-            className="gap-2"
+            className="gap-2 flex-1 sm:flex-none min-w-0"
             onClick={() => copyToClipboard(lead.contactEmail, 'email')}
           >
-            <Mail className="h-4 w-4" />
-            {lead.contactEmail}
-            {copiedField === 'email' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+            <Mail className="h-4 w-4 shrink-0" />
+            <span className="truncate hidden sm:inline">{lead.contactEmail}</span>
+            <span className="sm:hidden">Email</span>
+            {copiedField === 'email' ? <Check className="h-3 w-3 text-green-500 shrink-0" /> : <Copy className="h-3 w-3 shrink-0" />}
           </Button>
           {lead.contactLinkedIn && (
-            <Button size="sm" variant="outline" className="gap-2" asChild>
+            <Button size="sm" variant="outline" className="gap-2 flex-1 sm:flex-none" asChild>
               <a href={lead.contactLinkedIn} target="_blank" rel="noopener noreferrer">
                 <SiLinkedin className="h-4 w-4" />
-                LinkedIn
+                <span className="hidden sm:inline">LinkedIn</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
             </Button>
@@ -225,7 +225,7 @@ export default function CallPrepPage() {
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-6 max-w-4xl mx-auto space-y-8">
+        <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 sm:space-y-8">
           {!researchPacket ? (
             <Card>
               <CardContent className="py-12 text-center">

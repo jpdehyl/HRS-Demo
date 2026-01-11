@@ -781,6 +781,41 @@ export async function registerRoutes(
       );
       const leadsWithoutResearch = leadsWithResearchStatus.filter(l => !l.hasResearch).slice(0, 5);
 
+      const roiTracking = await (async () => {
+        let callsWithPrep = 0;
+        let callsWithoutPrep = 0;
+        let meetingsWithPrep = 0;
+        let meetingsWithoutPrep = 0;
+        
+        for (const session of weekSessions) {
+          if (!session.leadId) {
+            callsWithoutPrep++;
+            if (session.disposition === "meeting-booked") {
+              meetingsWithoutPrep++;
+            }
+            continue;
+          }
+          
+          const researchPacket = await storage.getResearchPacketByLead(session.leadId);
+          const hadResearch = researchPacket && researchPacket.createdAt && session.startedAt &&
+            new Date(researchPacket.createdAt) < new Date(session.startedAt);
+          
+          if (hadResearch) {
+            callsWithPrep++;
+            if (session.disposition === "meeting-booked") {
+              meetingsWithPrep++;
+            }
+          } else {
+            callsWithoutPrep++;
+            if (session.disposition === "meeting-booked") {
+              meetingsWithoutPrep++;
+            }
+          }
+        }
+        
+        return { callsWithPrep, callsWithoutPrep, meetingsWithPrep, meetingsWithoutPrep };
+      })();
+
       res.json({
         hero: {
           pipelineValue,
@@ -823,6 +858,7 @@ export async function registerRoutes(
           aes: allAEs.length,
           leads: allLeads.length,
         },
+        roiTracking,
         isPrivileged,
         currentUserId: req.session.userId,
       });
@@ -882,6 +918,71 @@ export async function registerRoutes(
         return acc;
       }, {} as Record<string, number>);
 
+      const toolUsageAccountability = await (async () => {
+        let callsWithPrep = 0;
+        let callsWithoutPrep = 0;
+        let meetingsWithPrep = 0;
+        let meetingsWithoutPrep = 0;
+        let connectedWithPrep = 0;
+        let connectedWithoutPrep = 0;
+        
+        for (const session of weekSessions) {
+          const connected = session.disposition === "connected" || 
+            session.disposition === "qualified" || 
+            session.disposition === "meeting-booked" ||
+            session.disposition === "callback-scheduled";
+          const isMeeting = session.disposition === "meeting-booked";
+          
+          if (!session.leadId) {
+            callsWithoutPrep++;
+            if (isMeeting) meetingsWithoutPrep++;
+            if (connected) connectedWithoutPrep++;
+            continue;
+          }
+          
+          const researchPacket = await storage.getResearchPacketByLead(session.leadId);
+          const hadResearch = researchPacket && researchPacket.createdAt && session.startedAt &&
+            new Date(researchPacket.createdAt) < new Date(session.startedAt);
+          
+          if (hadResearch) {
+            callsWithPrep++;
+            if (isMeeting) meetingsWithPrep++;
+            if (connected) connectedWithPrep++;
+          } else {
+            callsWithoutPrep++;
+            if (isMeeting) meetingsWithoutPrep++;
+            if (connected) connectedWithoutPrep++;
+          }
+        }
+        
+        const connectRateWithPrep = callsWithPrep > 0 
+          ? Math.round((connectedWithPrep / callsWithPrep) * 100) : 0;
+        const connectRateWithoutPrep = callsWithoutPrep > 0 
+          ? Math.round((connectedWithoutPrep / callsWithoutPrep) * 100) : 0;
+        const meetingRateWithPrep = callsWithPrep > 0 
+          ? Math.round((meetingsWithPrep / callsWithPrep) * 100) : 0;
+        const meetingRateWithoutPrep = callsWithoutPrep > 0 
+          ? Math.round((meetingsWithoutPrep / callsWithoutPrep) * 100) : 0;
+        
+        const connectRateImprovement = connectRateWithoutPrep > 0 
+          ? Math.round(((connectRateWithPrep - connectRateWithoutPrep) / connectRateWithoutPrep) * 100) : 0;
+        const meetingRateImprovement = meetingRateWithoutPrep > 0 
+          ? Math.round(((meetingRateWithPrep - meetingRateWithoutPrep) / meetingRateWithoutPrep) * 100) : 0;
+        
+        return {
+          callsWithPrep,
+          callsWithoutPrep,
+          meetingsWithPrep,
+          meetingsWithoutPrep,
+          connectRateWithPrep,
+          connectRateWithoutPrep,
+          meetingRateWithPrep,
+          meetingRateWithoutPrep,
+          connectRateImprovement,
+          meetingRateImprovement,
+        };
+      })();
+
       res.json({
         weeklyStats: {
           totalCalls: weekSessions.length,
@@ -899,6 +1000,7 @@ export async function registerRoutes(
         },
         sdrPerformance,
         dispositionBreakdown,
+        toolUsageAccountability,
         recentCalls: callSessions.slice(0, 50),
       });
     } catch (error) {
