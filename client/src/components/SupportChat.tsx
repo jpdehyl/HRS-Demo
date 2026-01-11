@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
@@ -14,6 +15,13 @@ import {
   Bot,
   User,
   Minimize2,
+  Building2,
+  Phone,
+  BarChart3,
+  Users,
+  ChevronRight,
+  Clock,
+  Target,
 } from "lucide-react";
 
 interface Message {
@@ -21,6 +29,36 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  userData?: UserContextData;
+}
+
+interface LeadSummary {
+  id: string;
+  companyName: string;
+  contactName: string;
+  status: string;
+  fitScore: number | null;
+  lastContact: string | null;
+  nextFollowUp: string | null;
+}
+
+interface CallSummary {
+  id: string;
+  leadName: string | null;
+  duration: number | null;
+  disposition: string | null;
+  date: string;
+}
+
+interface UserContextData {
+  leads: LeadSummary[];
+  recentCalls: CallSummary[];
+  stats: {
+    totalLeads: number;
+    leadsThisWeek: number;
+    callsToday: number;
+    callsThisWeek: number;
+  };
 }
 
 interface SupportChatState {
@@ -63,16 +101,145 @@ function loadMessagesFromStorage(): Message[] {
 
 function saveMessagesToStorage(messages: Message[]): void {
   try {
-    const toStore = messages.slice(-MAX_STORED_MESSAGES);
+    // Don't store userData in localStorage to save space
+    const toStore = messages.slice(-MAX_STORED_MESSAGES).map((msg) => ({
+      ...msg,
+      userData: undefined,
+    }));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
   } catch (e) {
     console.error("Failed to save chat messages to storage:", e);
   }
 }
 
+const statusColors: Record<string, string> = {
+  new: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  contacted: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+  qualified: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  engaged: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+  handed_off: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300",
+  lost: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+};
+
+function LeadCard({ lead, onNavigate }: { lead: LeadSummary; onNavigate: (id: string) => void }) {
+  return (
+    <button
+      onClick={() => onNavigate(lead.id)}
+      className="w-full text-left p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="font-medium text-sm truncate">{lead.companyName}</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 truncate">{lead.contactName}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <Badge variant="secondary" className={cn("text-[10px] px-1.5 py-0", statusColors[lead.status] || "")}>
+            {lead.status}
+          </Badge>
+          {lead.fitScore && (
+            <div className="flex items-center gap-1">
+              <Target className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground">{lead.fitScore}%</span>
+            </div>
+          )}
+        </div>
+      </div>
+      {lead.nextFollowUp && (
+        <div className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          <span>Follow-up: {lead.nextFollowUp}</span>
+        </div>
+      )}
+    </button>
+  );
+}
+
+function UserDataDisplay({ data, onNavigateToLead }: { data: UserContextData; onNavigateToLead: (id: string) => void }) {
+  const [, setLocation] = useLocation();
+
+  const handleNavigate = (leadId: string) => {
+    setLocation(`/call-prep/${leadId}`);
+  };
+
+  return (
+    <div className="space-y-3 mt-2">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="p-2 rounded-lg bg-primary/10 border">
+          <div className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-medium">{data.stats.totalLeads} Leads</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            +{data.stats.leadsThisWeek} this week
+          </p>
+        </div>
+        <div className="p-2 rounded-lg bg-green-500/10 border">
+          <div className="flex items-center gap-1.5">
+            <Phone className="h-3.5 w-3.5 text-green-600" />
+            <span className="text-xs font-medium">{data.stats.callsToday} Calls Today</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            {data.stats.callsThisWeek} this week
+          </p>
+        </div>
+      </div>
+
+      {/* Leads List */}
+      {data.leads.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-muted-foreground">Your Leads</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs px-2"
+              onClick={() => setLocation("/leads")}
+            >
+              View All <ChevronRight className="h-3 w-3 ml-1" />
+            </Button>
+          </div>
+          <div className="space-y-2 max-h-[200px] overflow-y-auto">
+            {data.leads.slice(0, 5).map((lead) => (
+              <LeadCard key={lead.id} lead={lead} onNavigate={handleNavigate} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Calls */}
+      {data.recentCalls.length > 0 && (
+        <div>
+          <span className="text-xs font-medium text-muted-foreground">Recent Calls</span>
+          <div className="mt-2 space-y-1">
+            {data.recentCalls.slice(0, 3).map((call) => (
+              <div key={call.id} className="flex items-center justify-between text-xs p-2 rounded bg-muted/50">
+                <span>{call.date}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">
+                    {call.duration ? `${Math.round(call.duration / 60)}m` : "N/A"}
+                  </span>
+                  {call.disposition && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      {call.disposition}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SupportChat() {
   const { user } = useAuth();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [state, setState] = useState<SupportChatState>({
     isOpen: false,
     messages: [],
@@ -116,8 +283,8 @@ export function SupportChat() {
     setState((prev) => ({ ...prev, isOpen: !prev.isOpen, error: null }));
   }, []);
 
-  const sendMessage = useCallback(async () => {
-    const trimmedInput = inputValue.trim();
+  const sendMessage = useCallback(async (messageText?: string) => {
+    const trimmedInput = (messageText || inputValue).trim();
     if (!trimmedInput || state.isLoading) return;
 
     const userMessage: Message = {
@@ -171,6 +338,7 @@ export function SupportChat() {
         role: "assistant",
         content: data.response,
         timestamp: new Date(data.timestamp),
+        userData: data.userData,
       };
 
       setState((prev) => ({
@@ -206,6 +374,15 @@ export function SupportChat() {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  const handleQuickAction = useCallback((action: string) => {
+    sendMessage(action);
+  }, [sendMessage]);
+
+  const handleNavigateToLead = useCallback((leadId: string) => {
+    setLocation(`/call-prep/${leadId}`);
+    setState((prev) => ({ ...prev, isOpen: false }));
+  }, [setLocation]);
+
   // Don't render if user is not authenticated
   if (!user) {
     return null;
@@ -219,9 +396,9 @@ export function SupportChat() {
           className={cn(
             "fixed z-50 shadow-lg flex flex-col",
             // Desktop: bottom-right corner, fixed size
-            "bottom-20 right-4 w-[400px] h-[500px]",
+            "bottom-20 right-4 w-[420px] h-[550px]",
             // Mobile: full width, taller
-            "max-sm:bottom-0 max-sm:right-0 max-sm:left-0 max-sm:w-full max-sm:h-[70vh] max-sm:rounded-b-none"
+            "max-sm:bottom-0 max-sm:right-0 max-sm:left-0 max-sm:w-full max-sm:h-[80vh] max-sm:rounded-b-none"
           )}
         >
           {/* Header */}
@@ -258,35 +435,63 @@ export function SupportChat() {
               <div ref={scrollRef} className="p-4 space-y-4">
                 {/* Welcome message if no messages */}
                 {state.messages.length === 0 && !state.isLoading && (
-                  <div className="text-center py-8 px-4">
-                    <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                    <p className="text-sm text-muted-foreground">
-                      Hi! I'm your Lead Intel support assistant. How can I help
-                      you today?
+                  <div className="text-center py-6 px-4">
+                    <Bot className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Hi! I'm your Lead Intel assistant. How can I help you today?
                     </p>
-                    <div className="mt-4 space-y-2">
-                      <p className="text-xs text-muted-foreground">
-                        Try asking about:
-                      </p>
+
+                    {/* Quick Action Buttons */}
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium">Quick Actions:</p>
                       <div className="flex flex-wrap gap-2 justify-center">
-                        {[
-                          "Lead research",
-                          "Call features",
-                          "Salesforce sync",
-                        ].map((topic) => (
-                          <Button
-                            key={topic}
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => {
-                              setInputValue(`How do I use ${topic.toLowerCase()}?`);
-                              inputRef.current?.focus();
-                            }}
-                          >
-                            {topic}
-                          </Button>
-                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-8"
+                          onClick={() => handleQuickAction("Show my leads")}
+                        >
+                          <Users className="h-3 w-3 mr-1.5" />
+                          My Leads
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-8"
+                          onClick={() => handleQuickAction("Show my recent calls")}
+                        >
+                          <Phone className="h-3 w-3 mr-1.5" />
+                          My Calls
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-8"
+                          onClick={() => handleQuickAction("How am I doing? Show my stats")}
+                        >
+                          <BarChart3 className="h-3 w-3 mr-1.5" />
+                          My Stats
+                        </Button>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t">
+                        <p className="text-xs text-muted-foreground">Or ask about:</p>
+                        <div className="flex flex-wrap gap-2 justify-center mt-2">
+                          {["Lead research", "Call features", "Salesforce sync"].map((topic) => (
+                            <Button
+                              key={topic}
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={() => {
+                                setInputValue(`How do I use ${topic.toLowerCase()}?`);
+                                inputRef.current?.focus();
+                              }}
+                            >
+                              {topic}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -294,52 +499,63 @@ export function SupportChat() {
 
                 {/* Messages */}
                 {state.messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={cn(
-                      "flex gap-2",
-                      message.role === "user" ? "flex-row-reverse" : "flex-row"
-                    )}
-                  >
-                    {/* Avatar */}
+                  <div key={message.id} className="space-y-2">
                     <div
                       className={cn(
-                        "shrink-0 h-7 w-7 rounded-full flex items-center justify-center",
-                        message.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
+                        "flex gap-2",
+                        message.role === "user" ? "flex-row-reverse" : "flex-row"
                       )}
                     >
-                      {message.role === "user" ? (
-                        <User className="h-4 w-4" />
-                      ) : (
-                        <Bot className="h-4 w-4" />
-                      )}
-                    </div>
-
-                    {/* Message Bubble */}
-                    <div
-                      className={cn(
-                        "max-w-[80%] rounded-lg px-3 py-2 text-sm",
-                        message.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      )}
-                    >
-                      <p className="whitespace-pre-wrap break-words">
-                        {message.content}
-                      </p>
-                      <p
+                      {/* Avatar */}
+                      <div
                         className={cn(
-                          "text-[10px] mt-1",
+                          "shrink-0 h-7 w-7 rounded-full flex items-center justify-center",
                           message.role === "user"
-                            ? "text-primary-foreground/70"
-                            : "text-muted-foreground"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
                         )}
                       >
-                        {formatTime(message.timestamp)}
-                      </p>
+                        {message.role === "user" ? (
+                          <User className="h-4 w-4" />
+                        ) : (
+                          <Bot className="h-4 w-4" />
+                        )}
+                      </div>
+
+                      {/* Message Bubble */}
+                      <div
+                        className={cn(
+                          "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+                          message.role === "user"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        )}
+                      >
+                        <p className="whitespace-pre-wrap break-words">
+                          {message.content}
+                        </p>
+                        <p
+                          className={cn(
+                            "text-[10px] mt-1",
+                            message.role === "user"
+                              ? "text-primary-foreground/70"
+                              : "text-muted-foreground"
+                          )}
+                        >
+                          {formatTime(message.timestamp)}
+                        </p>
+                      </div>
                     </div>
+
+                    {/* User Data Display */}
+                    {message.role === "assistant" && message.userData && (
+                      <div className="ml-9">
+                        <UserDataDisplay
+                          data={message.userData}
+                          onNavigateToLead={handleNavigateToLead}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
 
@@ -378,12 +594,12 @@ export function SupportChat() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type your message..."
+                placeholder="Ask anything or try 'show my leads'..."
                 disabled={state.isLoading}
                 className="flex-1"
               />
               <Button
-                onClick={sendMessage}
+                onClick={() => sendMessage()}
                 disabled={!inputValue.trim() || state.isLoading}
                 size="icon"
               >

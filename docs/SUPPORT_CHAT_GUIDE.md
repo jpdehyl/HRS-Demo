@@ -12,10 +12,11 @@ The Support Chat is an AI-powered assistant that helps you get answers to platfo
 
 1. [Overview](#overview)
 2. [Getting Started](#getting-started)
-3. [Use Cases by Role](#use-cases-by-role)
-4. [Example Conversations](#example-conversations)
-5. [Tips for Better Responses](#tips-for-better-responses)
-6. [Limitations](#limitations)
+3. [Auto-Populate Features](#auto-populate-features)
+4. [Use Cases by Role](#use-cases-by-role)
+5. [Example Conversations](#example-conversations)
+6. [Tips for Better Responses](#tips-for-better-responses)
+7. [Limitations](#limitations)
 
 ---
 
@@ -71,6 +72,91 @@ The research pulls data from the company website, LinkedIn, and other sources to
 - Click the **X** button in the chat window header
 - Click the chat bubble again
 - Your conversation history is saved automatically
+
+---
+
+## Auto-Populate Features
+
+The Support Chat can automatically fetch and display your real data from Lead Intel. This makes it easy to see your leads, calls, and stats without navigating away from your current page.
+
+### Quick Action Buttons
+
+When you open the chat, you'll see three quick action buttons:
+
+| Button | What It Does |
+|--------|--------------|
+| **My Leads** | Fetches and displays your assigned leads with status, fit score, and follow-up dates |
+| **My Calls** | Shows your recent call history with duration and disposition |
+| **My Stats** | Displays your performance metrics (leads, calls today, calls this week) |
+
+### Trigger Phrases
+
+You can also type natural language phrases to trigger data fetching:
+
+**For Leads:**
+- "Show my leads"
+- "List my leads"
+- "What leads do I have?"
+- "View my assigned leads"
+
+**For Calls:**
+- "Show my recent calls"
+- "My call history"
+- "Calls today"
+
+**For Stats:**
+- "How am I doing?"
+- "My performance"
+- "Show my stats"
+- "My metrics"
+
+### Interactive Lead Cards
+
+When leads are displayed, they appear as clickable cards showing:
+
+- **Company Name** - The lead's company
+- **Contact Name** - Your primary contact
+- **Status Badge** - Color-coded status (new, contacted, qualified, etc.)
+- **Fit Score** - AI-calculated fit percentage
+- **Next Follow-up** - When you should reach out next
+
+**Click any lead card** to navigate directly to the Call Prep page for that lead.
+
+### Example: Viewing Your Leads
+
+```
+You: Show my leads
+
+Support: Here are your currently assigned leads. I can see you have
+12 leads total, with 3 new ones this week. Click any lead below to
+view their full profile and prepare for a call.
+
+[Stats Cards showing: 12 Leads (+3 this week) | 5 Calls Today (18 this week)]
+
+[Lead Card] Acme Corp - John Smith
+            Status: qualified | Fit: 85%
+            Follow-up: 1/12/2026
+
+[Lead Card] TechStart Inc - Sarah Jones
+            Status: new | Fit: 72%
+
+[Lead Card] Global Manufacturing - Mike Brown
+            Status: contacted | Fit: 68%
+            Follow-up: 1/13/2026
+
+[View All →]
+```
+
+### Stats Overview
+
+When you ask for stats, you'll see:
+
+- **Total Leads** - All leads currently assigned to you
+- **Leads This Week** - New leads added in the current week
+- **Calls Today** - Number of calls you've made today
+- **Calls This Week** - Total calls for the current week
+
+This gives you a quick snapshot of your activity without opening the dashboard.
 
 ---
 
