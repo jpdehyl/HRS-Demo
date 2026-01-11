@@ -133,6 +133,7 @@ export default function SignupPage() {
                       id="name"
                       type="text"
                       placeholder="John Doe"
+                      autoComplete="name"
                       className="pl-10 h-11"
                       {...form.register("name")}
                       data-testid="input-name"
@@ -151,6 +152,7 @@ export default function SignupPage() {
                       id="email"
                       type="email"
                       placeholder="you@company.com"
+                      autoComplete="email"
                       className="pl-10 h-11"
                       {...form.register("email")}
                       data-testid="input-email"
@@ -187,6 +189,7 @@ export default function SignupPage() {
                       id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="Create a password"
+                      autoComplete="new-password"
                       className="pl-10 pr-10 h-11"
                       {...form.register("password")}
                       data-testid="input-password"

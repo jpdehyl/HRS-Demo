@@ -121,6 +121,7 @@ export default function LoginPage() {
                     id="email"
                     type="email"
                     placeholder="you@company.com"
+                    autoComplete="email"
                     className="h-12 text-base transition-all duration-200 focus:ring-2 focus:ring-[#2C88C9]/20"
                     {...form.register("email")}
                     data-testid="input-email"
@@ -137,6 +138,7 @@ export default function LoginPage() {
                       id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
+                      autoComplete="current-password"
                       className="h-12 pr-12 text-base transition-all duration-200 focus:ring-2 focus:ring-[#2C88C9]/20"
                       {...form.register("password")}
                       data-testid="input-password"
