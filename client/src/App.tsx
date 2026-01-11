@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationBell } from "@/components/notification-bell";
+import { SupportChat } from "@/components/SupportChat";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
@@ -255,6 +256,7 @@ function App() {
           <AuthProvider>
             <Toaster />
             <Router />
+            <SupportChat />
           </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>
