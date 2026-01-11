@@ -122,6 +122,51 @@ async function processResearchQueue(leads: Lead[]) {
   console.log(`[AutoResearch] Batch complete for ${leads.length} leads`);
 }
 
+// Validation schema for research packet updates (PATCH)
+const updateResearchPacketSchema = z.object({
+  companyIntel: z.string().optional(),
+  contactIntel: z.string().optional(),
+  painSignals: z.string().optional(),
+  fitAnalysis: z.string().optional(),
+  talkTrack: z.string().optional(),
+  discoveryQuestions: z.string().optional(),
+  objectionHandles: z.string().optional(),
+  companyHardIntel: z.string().optional(),
+  xIntel: z.string().optional(),
+  linkedInIntel: z.string().optional(),
+  competitorPresence: z.string().optional(),
+  fitScore: z.number().int().min(0).max(100).optional(),
+  priority: z.string().optional(),
+}).strict();
+
+// Validation schema for lead updates (PATCH)
+const updateLeadSchema = z.object({
+  companyName: z.string().min(1).optional(),
+  companyWebsite: z.string().url().optional().or(z.literal("")),
+  companyIndustry: z.string().optional(),
+  companySize: z.string().optional(),
+  contactName: z.string().min(1).optional(),
+  contactTitle: z.string().optional(),
+  contactEmail: z.string().email().optional(),
+  contactPhone: z.string().optional(),
+  contactLinkedIn: z.string().url().optional().or(z.literal("")),
+  source: z.string().optional(),
+  status: z.enum(["new", "researching", "contacted", "engaged", "qualified", "handed_off", "converted", "lost"]).optional(),
+  fitScore: z.number().int().min(0).max(100).optional(),
+  priority: z.string().optional(),
+  assignedSdrId: z.string().optional(),
+  assignedAeId: z.string().optional(),
+  qualificationNotes: z.string().optional(),
+  buySignals: z.string().optional(),
+  budget: z.string().optional(),
+  timeline: z.string().optional(),
+  decisionMakers: z.string().optional(),
+  handedOffAt: z.string().datetime().or(z.date()).optional(),
+  handedOffBy: z.string().optional(),
+  nextFollowUpAt: z.string().datetime().or(z.date()).optional(),
+  lastContactedAt: z.string().datetime().or(z.date()).optional(),
+}).strict(); // Reject any fields not in this schema
+
 export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, res: Response, next: () => void) => void) {
   
   app.get("/api/leads", requireAuth, async (req: Request, res: Response) => {
@@ -255,10 +300,14 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       if (!existingLead) {
         return res.status(404).json({ message: "Lead not found" });
       }
-      
-      const updates = { ...req.body };
+
+      // Validate request body with Zod schema
+      const validatedUpdates = updateLeadSchema.parse(req.body);
+
+      // Convert date strings to Date objects
+      const updates: any = { ...validatedUpdates };
       const oldStatus = existingLead.status;
-      
+
       if (updates.handedOffAt && typeof updates.handedOffAt === 'string') {
         updates.handedOffAt = new Date(updates.handedOffAt);
       }
@@ -268,7 +317,7 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       if (updates.lastContactedAt && typeof updates.lastContactedAt === 'string') {
         updates.lastContactedAt = new Date(updates.lastContactedAt);
       }
-      
+
       const lead = await storage.updateLead(req.params.id, updates);
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
@@ -299,6 +348,12 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       
       res.json(lead);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Lead update error:", error);
       res.status(500).json({ message: "Failed to update lead" });
     }
@@ -524,18 +579,15 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       if (!researchPacket) {
         return res.status(404).json({ message: "No research found for this lead" });
       }
-      
-      const allowedFields = [
-        'companyIntel', 'contactIntel', 'painSignals', 'fitAnalysis',
-        'talkTrack', 'discoveryQuestions', 'objectionHandles',
-        'companyHardIntel', 'xIntel', 'linkedInIntel', 'competitorPresence',
-        'fitScore', 'priority'
-      ];
-      
-      const updates: Record<string, unknown> = {};
-      for (const field of allowedFields) {
-        if (req.body[field] !== undefined) {
-          updates[field] = req.body[field];
+
+      // Validate request body with Zod schema
+      const validatedUpdates = updateResearchPacketSchema.parse(req.body);
+      const updates: Record<string, unknown> = { ...validatedUpdates };
+
+      // Remove undefined fields
+      for (const key in updates) {
+        if (updates[key] === undefined) {
+          delete updates[key];
         }
       }
       
@@ -560,6 +612,12 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       
       res.json(updatedPacket);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Research update error:", error);
       res.status(500).json({ message: "Failed to update research" });
     }

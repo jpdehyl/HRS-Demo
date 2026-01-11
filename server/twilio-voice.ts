@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import twilio from "twilio";
+import { z } from "zod";
 import { storage } from "./storage";
 import { uploadFileToDrive } from "./google/driveClient";
 import { GOOGLE_CONFIG } from "./google/config";
@@ -49,6 +50,17 @@ function validateTwilioWebhook(req: Request, res: Response, next: Function): voi
 
   next();
 }
+
+// Validation schema for call session updates
+const updateCallSessionSchema = z.object({
+  status: z.enum(["in-progress", "completed", "failed", "no-answer", "busy", "canceled"]).optional(),
+  duration: z.number().optional(),
+  recordingUrl: z.string().url().optional().or(z.literal("")),
+  disposition: z.enum(["connected", "voicemail", "no_answer", "busy", "invalid_number", "do_not_call"]).optional(),
+  keyTakeaways: z.string().optional(),
+  nextSteps: z.string().optional(),
+  sdrNotes: z.string().optional(),
+}).strict();
 
 export function registerTwilioVoiceRoutes(app: Express): void {
   app.post("/api/voice/token", async (req: Request, res: Response) => {
@@ -357,16 +369,24 @@ export function registerTwilioVoiceRoutes(app: Express): void {
 
     try {
       const { callSid } = req.params;
-      const updates = req.body;
+
+      // Validate request body
+      const updates = updateCallSessionSchema.parse(req.body);
 
       const session = await storage.updateCallSessionByCallSid(callSid, updates);
-      
+
       if (!session) {
         return res.status(404).json({ message: "Call session not found" });
       }
 
       res.json({ callSession: session });
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Error updating call:", error);
       res.status(500).json({ message: "Failed to update call" });
     }

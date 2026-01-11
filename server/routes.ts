@@ -5,6 +5,7 @@ import session from "express-session";
 import MemoryStore from "memorystore";
 import connectPgSimple from "connect-pg-simple";
 import bcrypt from "bcrypt";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { pool } from "./db";
 import { insertUserSchema } from "@shared/schema";
@@ -28,10 +29,52 @@ const PgSession = connectPgSimple(session);
 
 const SALT_ROUNDS = 12;
 
+// Rate limiter for auth endpoints: 5 attempts per 15 minutes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per windowMs
+  message: { message: "Too many authentication attempts, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
+
+// Validation schemas for PATCH endpoints
+const updateUserProfileSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+}).strict();
+
+const updateUserRoleSchema = z.object({
+  role: z.enum(["admin", "manager", "sdr", "account_specialist", "account_executive"]),
+}).strict();
+
+const updateSdrSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  managerId: z.string().optional(),
+  gender: z.string().optional(),
+  timezone: z.string().optional(),
+}).strict();
+
+const updateCallOutcomeSchema = z.object({
+  disposition: z.enum(["connected", "voicemail", "no_answer", "busy", "invalid_number", "do_not_call"]).optional(),
+  nextSteps: z.string().optional(),
+  keyTakeaways: z.string().optional(),
+  sdrNotes: z.string().optional(),
+  callbackDate: z.string().datetime().or(z.date()).optional(),
+}).strict();
+
+const updateManagerNotesSchema = z.object({
+  managerSummary: z.string().optional(),
+  coachingNotes: z.string().optional(),
+  sentimentScore: z.number().min(0).max(10).optional(),
+}).strict();
 
 export async function registerRoutes(
   httpServer: Server,
@@ -50,17 +93,22 @@ export async function registerRoutes(
     },
   });
 
+  // Validate critical environment variables
+  if (!process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET environment variable is required. Set it in your .env file or Replit Secrets.");
+  }
+
   app.use(
     session({
       store: sessionStore,
-      secret: process.env.SESSION_SECRET || "lead-intel-secret-key-change-in-prod",
+      secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: process.env.NODE_ENV === "production",
+        secure: true, // Always use secure cookies
         httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (not 30)
+        sameSite: "strict", // Strict for better CSRF protection
       },
     })
   );
@@ -97,7 +145,7 @@ export async function registerRoutes(
     };
   };
 
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
+  app.post("/api/auth/register", authLimiter, async (req: Request, res: Response) => {
     try {
       const validatedData = insertUserSchema.parse(req.body);
       
@@ -127,7 +175,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
+  app.post("/api/auth/login", authLimiter, async (req: Request, res: Response) => {
     try {
       const { email, password } = loginSchema.parse(req.body);
 
@@ -208,20 +256,21 @@ export async function registerRoutes(
 
   app.patch("/api/user/profile", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { name, email } = req.body;
+      // Validate request body
+      const validatedData = updateUserProfileSchema.parse(req.body);
       const updates: { name?: string; email?: string } = {};
-      
-      if (name && typeof name === "string" && name.trim()) {
-        updates.name = name.trim();
+
+      if (validatedData.name) {
+        updates.name = validatedData.name.trim();
       }
-      if (email && typeof email === "string" && email.trim()) {
-        const existingUser = await storage.getUserByEmail(email.trim());
+      if (validatedData.email) {
+        const existingUser = await storage.getUserByEmail(validatedData.email.trim());
         if (existingUser && existingUser.id !== req.session.userId) {
           return res.status(400).json({ message: "Email already in use" });
         }
-        updates.email = email.trim();
+        updates.email = validatedData.email.trim();
       }
-      
+
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({ message: "No valid updates provided" });
       }
@@ -234,6 +283,12 @@ export async function registerRoutes(
       const { password: _, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Update profile error:", error);
       res.status(500).json({ message: "Failed to update profile" });
     }
@@ -261,7 +316,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Current password is incorrect" });
       }
       
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
       await storage.updateUserPassword(req.session.userId!, hashedPassword);
       
       res.json({ message: "Password updated successfully" });
@@ -285,13 +340,10 @@ export async function registerRoutes(
   app.patch("/api/users/:id/role", requireRole("admin"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { role } = req.body;
-      
-      const validRoles = ["admin", "manager", "sdr", "account_specialist", "account_executive"];
-      if (!role || !validRoles.includes(role)) {
-        return res.status(400).json({ message: "Invalid role" });
-      }
-      
+
+      // Validate request body
+      const { role } = updateUserRoleSchema.parse(req.body);
+
       if (id === req.session.userId && role !== "admin") {
         return res.status(400).json({ message: "Cannot demote yourself" });
       }
@@ -304,6 +356,12 @@ export async function registerRoutes(
       const { password: _, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Update role error:", error);
       res.status(500).json({ message: "Failed to update role" });
     }
@@ -550,8 +608,10 @@ export async function registerRoutes(
   app.patch("/api/sdrs/:id", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const updates = req.body;
-      
+
+      // Validate request body
+      const updates = updateSdrSchema.parse(req.body);
+
       const sdr = await storage.updateSdr(id, updates);
       if (!sdr) {
         return res.status(404).json({ message: "SDR not found" });
@@ -559,6 +619,12 @@ export async function registerRoutes(
       
       res.json(sdr);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Update SDR error:", error);
       res.status(500).json({ message: "Failed to update SDR" });
     }
@@ -1036,7 +1102,9 @@ export async function registerRoutes(
   app.patch("/api/manager/call-review/:callId/notes", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const { callId } = req.params;
-      const { managerSummary, coachingNotes, sentimentScore } = req.body;
+
+      // Validate request body
+      const validatedData = updateManagerNotesSchema.parse(req.body);
 
       const callSession = await storage.getCallSession(callId);
       if (!callSession) {
@@ -1044,13 +1112,19 @@ export async function registerRoutes(
       }
 
       const updated = await storage.updateCallSession(callId, {
-        managerSummary: managerSummary || callSession.managerSummary,
-        coachingNotes: coachingNotes || callSession.coachingNotes,
-        sentimentScore: sentimentScore || callSession.sentimentScore,
+        managerSummary: validatedData.managerSummary || callSession.managerSummary,
+        coachingNotes: validatedData.coachingNotes || callSession.coachingNotes,
+        sentimentScore: validatedData.sentimentScore || callSession.sentimentScore,
       });
 
       res.json(updated);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Manager notes update error:", error);
       res.status(500).json({ message: "Failed to update manager notes" });
     }
@@ -1552,7 +1626,9 @@ export async function registerRoutes(
   app.patch("/api/call-sessions/:id/outcome", requireAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { disposition, keyTakeaways, nextSteps, sdrNotes, callbackDate } = req.body;
+
+      // Validate request body
+      const validatedData = updateCallOutcomeSchema.parse(req.body);
 
       const session = await storage.getCallSession(id);
       if (!session) {
@@ -1560,15 +1636,21 @@ export async function registerRoutes(
       }
 
       const updated = await storage.updateCallSession(id, {
-        disposition,
-        keyTakeaways: keyTakeaways || null,
-        nextSteps: nextSteps || null,
-        sdrNotes: sdrNotes || null,
-        callbackDate: callbackDate ? new Date(callbackDate) : null,
+        disposition: validatedData.disposition,
+        keyTakeaways: validatedData.keyTakeaways || null,
+        nextSteps: validatedData.nextSteps || null,
+        sdrNotes: validatedData.sdrNotes || null,
+        callbackDate: validatedData.callbackDate ? new Date(validatedData.callbackDate) : null,
       });
 
       res.json(updated);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Call outcome update error:", error);
       res.status(500).json({ message: "Failed to update call outcome" });
     }
