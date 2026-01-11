@@ -2134,6 +2134,215 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== MANAGER DASHBOARD ENDPOINTS ====================
+
+  /**
+   * GET /api/manager/activity-feed
+   * Real-time activity feed showing recent team actions
+   */
+  app.get("/api/manager/activity-feed", requireRole("manager", "admin"), async (req: Request, res: Response) => {
+    try {
+      const user = await storage.getUserById(req.session!.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get all SDRs under this manager
+      const sdrs = user.managerId
+        ? await storage.getSdrsByManager(user.managerId)
+        : await storage.getAllSdrs();
+      const sdrIds = sdrs.map(s => s.id);
+
+      // Get recent activities (last 24 hours)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      // Get recent call sessions
+      const recentCalls = await Promise.all(
+        sdrIds.map(sdrId => storage.getCallSessionsByUser(sdrId))
+      ).then(results => results.flat()
+        .filter(call => new Date(call.startedAt || 0) > oneDayAgo)
+        .sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime())
+        .slice(0, 50)
+      );
+
+      // Get recent lead qualifications
+      const allLeads = await storage.getAllLeads();
+      const recentQualifications = allLeads
+        .filter(lead =>
+          sdrIds.includes(lead.assignedSdrId || '') &&
+          (lead.status === 'qualified' || lead.status === 'handed_off') &&
+          lead.handedOffAt &&
+          new Date(lead.handedOffAt) > oneDayAgo
+        )
+        .slice(0, 20);
+
+      // Build activity feed
+      const activities = [
+        ...recentCalls.map(call => ({
+          type: 'call',
+          timestamp: call.startedAt || call.createdAt,
+          sdrId: call.userId,
+          sdrName: sdrs.find(s => s.id === (user.sdrId || call.userId))?.name || 'Unknown',
+          data: {
+            toNumber: call.toNumber,
+            duration: call.duration,
+            disposition: call.disposition,
+            callId: call.id,
+          }
+        })),
+        ...recentQualifications.map(lead => ({
+          type: 'qualification',
+          timestamp: lead.handedOffAt || lead.createdAt,
+          sdrId: lead.assignedSdrId,
+          sdrName: sdrs.find(s => s.id === lead.assignedSdrId)?.name || 'Unknown',
+          data: {
+            companyName: lead.companyName,
+            contactName: lead.contactName,
+            leadId: lead.id,
+          }
+        }))
+      ]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 50);
+
+      res.json({
+        activities,
+        stats: {
+          callsLast24h: recentCalls.length,
+          qualificationsLast24h: recentQualifications.length,
+          activeSDRs: new Set(activities.map(a => a.sdrId)).size,
+        }
+      });
+    } catch (error) {
+      console.error("Activity feed error:", error);
+      res.status(500).json({ message: "Failed to fetch activity feed" });
+    }
+  });
+
+  /**
+   * GET /api/manager/team-performance
+   * Team-wide performance metrics for manager dashboard
+   */
+  app.get("/api/manager/team-performance", requireRole("manager", "admin"), async (req: Request, res: Response) => {
+    try {
+      const user = await storage.getUserById(req.session!.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get all SDRs under this manager
+      const sdrs = user.managerId
+        ? await storage.getSdrsByManager(user.managerId)
+        : await storage.getAllSdrs();
+
+      // Calculate metrics for each SDR
+      const sdrMetrics = await Promise.all(
+        sdrs.map(async (sdr) => {
+          const calls = await storage.getCallSessionsByUser(sdr.id);
+          const leads = await storage.getLeadsBySdr(sdr.id);
+
+          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          const weekCalls = calls.filter(c => new Date(c.startedAt || 0) > weekAgo);
+          const weekQualified = leads.filter(l =>
+            (l.status === 'qualified' || l.status === 'handed_off') &&
+            l.handedOffAt &&
+            new Date(l.handedOffAt) > weekAgo
+          );
+
+          return {
+            sdrId: sdr.id,
+            sdrName: sdr.name,
+            email: sdr.email,
+            callsThisWeek: weekCalls.length,
+            qualifiedThisWeek: weekQualified.length,
+            totalLeads: leads.length,
+            conversionRate: weekCalls.length > 0
+              ? Math.round((weekQualified.length / weekCalls.length) * 100)
+              : 0,
+            avgCallDuration: weekCalls.length > 0
+              ? Math.round(weekCalls.reduce((sum, c) => sum + (c.duration || 0), 0) / weekCalls.length)
+              : 0,
+          };
+        })
+      );
+
+      // Calculate team totals
+      const teamTotals = {
+        totalCalls: sdrMetrics.reduce((sum, m) => sum + m.callsThisWeek, 0),
+        totalQualified: sdrMetrics.reduce((sum, m) => sum + m.qualifiedThisWeek, 0),
+        avgConversionRate: sdrMetrics.length > 0
+          ? Math.round(sdrMetrics.reduce((sum, m) => sum + m.conversionRate, 0) / sdrMetrics.length)
+          : 0,
+        teamSize: sdrs.length,
+      };
+
+      res.json({
+        teamMetrics: teamTotals,
+        sdrPerformance: sdrMetrics.sort((a, b) => b.qualifiedThisWeek - a.qualifiedThisWeek),
+        topPerformers: sdrMetrics
+          .sort((a, b) => b.conversionRate - a.conversionRate)
+          .slice(0, 3),
+      });
+    } catch (error) {
+      console.error("Team performance error:", error);
+      res.status(500).json({ message: "Failed to fetch team performance" });
+    }
+  });
+
+  /**
+   * GET /api/manager/coaching-queue
+   * Calls that need manager review or have coaching opportunities
+   */
+  app.get("/api/manager/coaching-queue", requireRole("manager", "admin"), async (req: Request, res: Response) => {
+    try {
+      const user = await storage.getUserById(req.session!.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get all SDRs under this manager
+      const sdrs = user.managerId
+        ? await storage.getSdrsByManager(user.managerId)
+        : await storage.getAllSdrs();
+      const sdrIds = sdrs.map(s => s.id);
+
+      // Get all call sessions for team
+      const allCalls = await Promise.all(
+        sdrIds.map(sdrId => storage.getCallSessionsByUser(sdrId))
+      ).then(results => results.flat());
+
+      // Filter for coaching opportunities
+      const coachingQueue = allCalls
+        .filter(call =>
+          call.status === 'completed' &&
+          call.transcriptText && // Has transcript
+          call.duration && call.duration > 60 && // Meaningful duration
+          !call.managerSummary // Not yet reviewed by manager
+        )
+        .sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime())
+        .slice(0, 20);
+
+      // Enrich with SDR names
+      const enrichedQueue = coachingQueue.map(call => ({
+        ...call,
+        sdrName: sdrs.find(s => s.id === call.userId)?.name || 'Unknown',
+      }));
+
+      res.json({
+        queue: enrichedQueue,
+        stats: {
+          totalPending: enrichedQueue.length,
+          averageCallDuration: enrichedQueue.length > 0
+            ? Math.round(enrichedQueue.reduce((sum, c) => sum + (c.duration || 0), 0) / enrichedQueue.length)
+            : 0,
+        }
+      });
+    } catch (error) {
+      console.error("Coaching queue error:", error);
+      res.status(500).json({ message: "Failed to fetch coaching queue" });
+    }
+  });
+
   registerLeadsRoutes(app, requireAuth);
   registerCoachRoutes(app, requireAuth);
   registerSalesforceRoutes(app, requireAuth);
