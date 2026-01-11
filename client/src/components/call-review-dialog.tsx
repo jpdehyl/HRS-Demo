@@ -23,9 +23,42 @@ import {
   Loader2,
   Star,
   Building2,
-  Mail
+  Mail,
+  TrendingUp,
+  AlertCircle,
+  CheckCircle,
+  MessageSquare,
+  Target
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CallSession, Lead } from "@shared/schema";
+
+interface ClaudeAnalysis {
+  overallScore: number;
+  callSummary: string;
+  strengths: string[];
+  areasForImprovement: string[];
+  keyMoments: Array<{ description: string; type: string }>;
+  recommendedActions: string[];
+  talkRatio: { rep: number; prospect: number };
+  questionQuality: { score: number; openEnded: number; closedEnded: number; notes: string };
+  objectionHandling: { score: number; objections: string[]; responses: string[]; notes: string };
+  nextSteps: string[];
+}
+
+function parseClaudeAnalysis(coachingNotes: string | null): ClaudeAnalysis | null {
+  if (!coachingNotes) return null;
+  try {
+    const parsed = JSON.parse(coachingNotes);
+    if (parsed.overallScore !== undefined) {
+      return parsed as ClaudeAnalysis;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 interface CallReviewData {
   callSession: CallSession;
@@ -86,11 +119,19 @@ export function CallReviewDialog({ callId, open, onOpenChange }: CallReviewDialo
 
   const saveNotesMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("PATCH", `/api/manager/call-review/${callId}/notes`, {
+      const hasClaudeAnalysis = reviewData?.callSession?.coachingNotes && 
+        parseClaudeAnalysis(reviewData.callSession.coachingNotes);
+      
+      const payload: Record<string, unknown> = {
         managerSummary,
-        coachingNotes,
         sentimentScore: sentimentScore[0],
-      });
+      };
+      
+      if (!hasClaudeAnalysis) {
+        payload.coachingNotes = coachingNotes;
+      }
+      
+      const res = await apiRequest("PATCH", `/api/manager/call-review/${callId}/notes`, payload);
       return res.json();
     },
     onSuccess: () => {
@@ -111,7 +152,10 @@ export function CallReviewDialog({ callId, open, onOpenChange }: CallReviewDialo
       setIsPlaying(false);
     } else if (reviewData?.callSession) {
       setManagerSummary(reviewData.callSession.managerSummary || "");
-      setCoachingNotes(reviewData.callSession.coachingNotes || "");
+      const hasClaudeAnalysis = parseClaudeAnalysis(reviewData.callSession.coachingNotes);
+      if (!hasClaudeAnalysis) {
+        setCoachingNotes(reviewData.callSession.coachingNotes || "");
+      }
       setSentimentScore([reviewData.callSession.sentimentScore || 3]);
     }
     onOpenChange(newOpen);
@@ -276,6 +320,175 @@ export function CallReviewDialog({ callId, open, onOpenChange }: CallReviewDialo
                 </Card>
               )}
 
+              {(() => {
+                const claudeAnalysis = parseClaudeAnalysis(reviewData.callSession.coachingNotes);
+                if (!claudeAnalysis) return null;
+                
+                return (
+                  <Card className="border-2 border-primary/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4" />
+                        AI Coaching Analysis
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium">Overall Score</span>
+                            <span className="text-2xl font-bold text-primary">{claudeAnalysis.overallScore}/100</span>
+                          </div>
+                          <Progress value={claudeAnalysis.overallScore} className="h-2" />
+                        </div>
+                      </div>
+
+                      {claudeAnalysis.callSummary && (
+                        <div className="p-3 bg-muted/50 rounded-md">
+                          <p className="text-sm">{claudeAnalysis.callSummary}</p>
+                        </div>
+                      )}
+
+                      <Tabs defaultValue="overview" className="w-full">
+                        <TabsList className="grid w-full grid-cols-4">
+                          <TabsTrigger value="overview">Overview</TabsTrigger>
+                          <TabsTrigger value="questions">Questions</TabsTrigger>
+                          <TabsTrigger value="objections">Objections</TabsTrigger>
+                          <TabsTrigger value="actions">Actions</TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="overview" className="space-y-3 mt-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
+                              <div className="flex items-center gap-2 mb-2">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <span className="text-xs font-semibold text-green-700 dark:text-green-400">Strengths</span>
+                              </div>
+                              <ul className="space-y-1">
+                                {claudeAnalysis.strengths.slice(0, 3).map((s, i) => (
+                                  <li key={i} className="text-xs text-green-800 dark:text-green-300">{s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-md border border-amber-200 dark:border-amber-800">
+                              <div className="flex items-center gap-2 mb-2">
+                                <AlertCircle className="h-4 w-4 text-amber-600" />
+                                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Improve</span>
+                              </div>
+                              <ul className="space-y-1">
+                                {claudeAnalysis.areasForImprovement.slice(0, 3).map((a, i) => (
+                                  <li key={i} className="text-xs text-amber-800 dark:text-amber-300">{a}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 bg-muted/50 rounded-md">
+                              <span className="text-xs text-muted-foreground">Talk Ratio</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-primary" 
+                                    style={{ width: `${claudeAnalysis.talkRatio.rep}%` }} 
+                                  />
+                                </div>
+                                <span className="text-xs font-medium">{claudeAnalysis.talkRatio.rep}% Rep</span>
+                              </div>
+                            </div>
+                            <div className="p-3 bg-muted/50 rounded-md">
+                              <span className="text-xs text-muted-foreground">Prospect Speaking</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-green-500" 
+                                    style={{ width: `${claudeAnalysis.talkRatio.prospect}%` }} 
+                                  />
+                                </div>
+                                <span className="text-xs font-medium">{claudeAnalysis.talkRatio.prospect}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </TabsContent>
+                        
+                        <TabsContent value="questions" className="space-y-3 mt-3">
+                          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+                            <div>
+                              <span className="text-xs text-muted-foreground">Question Quality Score</span>
+                              <p className="text-lg font-bold">{claudeAnalysis.questionQuality.score}/10</p>
+                            </div>
+                            <div className="text-right">
+                              <div className="flex gap-3">
+                                <div>
+                                  <span className="text-xs text-muted-foreground">Open-ended</span>
+                                  <p className="text-sm font-medium text-green-600">{claudeAnalysis.questionQuality.openEnded}</p>
+                                </div>
+                                <div>
+                                  <span className="text-xs text-muted-foreground">Closed</span>
+                                  <p className="text-sm font-medium text-amber-600">{claudeAnalysis.questionQuality.closedEnded}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          {claudeAnalysis.questionQuality.notes && (
+                            <p className="text-xs text-muted-foreground">{claudeAnalysis.questionQuality.notes}</p>
+                          )}
+                        </TabsContent>
+                        
+                        <TabsContent value="objections" className="space-y-3 mt-3">
+                          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+                            <span className="text-xs text-muted-foreground">Objection Handling Score</span>
+                            <p className="text-lg font-bold">{claudeAnalysis.objectionHandling.score}/10</p>
+                          </div>
+                          {claudeAnalysis.objectionHandling.objections.length > 0 && (
+                            <div>
+                              <span className="text-xs font-semibold">Objections Raised:</span>
+                              <ul className="mt-1 space-y-1">
+                                {claudeAnalysis.objectionHandling.objections.map((o, i) => (
+                                  <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                                    <MessageSquare className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                    {o}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {claudeAnalysis.objectionHandling.notes && (
+                            <p className="text-xs text-muted-foreground mt-2">{claudeAnalysis.objectionHandling.notes}</p>
+                          )}
+                        </TabsContent>
+                        
+                        <TabsContent value="actions" className="space-y-3 mt-3">
+                          {claudeAnalysis.recommendedActions.length > 0 && (
+                            <div>
+                              <span className="text-xs font-semibold">Recommended Actions:</span>
+                              <ul className="mt-2 space-y-2">
+                                {claudeAnalysis.recommendedActions.map((action, i) => (
+                                  <li key={i} className="flex items-start gap-2 p-2 bg-muted/50 rounded text-xs">
+                                    <Target className="h-3 w-3 mt-0.5 flex-shrink-0 text-primary" />
+                                    {action}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {claudeAnalysis.nextSteps.length > 0 && (
+                            <div className="mt-3">
+                              <span className="text-xs font-semibold">Next Steps:</span>
+                              <ul className="mt-1 space-y-1">
+                                {claudeAnalysis.nextSteps.map((step, i) => (
+                                  <li key={i} className="text-xs text-muted-foreground">• {step}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </TabsContent>
+                      </Tabs>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               <Separator />
 
               <div className="space-y-4">
@@ -321,17 +534,19 @@ export function CallReviewDialog({ callId, open, onOpenChange }: CallReviewDialo
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="coachingNotes">Coaching Notes</Label>
-                  <Textarea
-                    id="coachingNotes"
-                    placeholder="Specific feedback and areas for improvement..."
-                    value={coachingNotes}
-                    onChange={(e) => setCoachingNotes(e.target.value)}
-                    className="min-h-[80px]"
-                    data-testid="input-coaching-notes"
-                  />
-                </div>
+                {!parseClaudeAnalysis(reviewData.callSession.coachingNotes) && (
+                  <div className="space-y-2">
+                    <Label htmlFor="coachingNotes">Coaching Notes</Label>
+                    <Textarea
+                      id="coachingNotes"
+                      placeholder="Specific feedback and areas for improvement..."
+                      value={coachingNotes}
+                      onChange={(e) => setCoachingNotes(e.target.value)}
+                      className="min-h-[80px]"
+                      data-testid="input-coaching-notes"
+                    />
+                  </div>
+                )}
 
                 <Button 
                   onClick={() => saveNotesMutation.mutate()}

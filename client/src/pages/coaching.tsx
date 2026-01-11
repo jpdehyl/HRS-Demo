@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Softphone } from "@/components/softphone";
+import { ZoomPhoneEmbed, type ZoomCallEvent, type ZoomRecordingEvent, type ZoomAISummaryEvent } from "@/components/zoom-phone-embed";
 import { CallBrief } from "@/components/call-brief";
 import { PostCallSummaryForm, type CallOutcomeData } from "@/components/post-call-summary-form";
 import { BudgetingPanel } from "@/components/budgeting-panel";
@@ -124,19 +124,156 @@ export default function CoachingPage() {
     };
   }, [callStartTime]);
 
-  const handleCallStart = (phoneNumber: string) => {
-    setCurrentPhoneNumber(phoneNumber);
+  const [internalSessionId, setInternalSessionId] = useState<string | null>(null);
+
+  const [zoomCallMetadata, setZoomCallMetadata] = useState<{ direction: string; toNumber?: string; fromNumber?: string } | null>(null);
+
+  const handleZoomCallStart = async (event: ZoomCallEvent) => {
+    const phoneNumber = event.data.direction === "outbound" 
+      ? event.data.callee.phoneNumber 
+      : event.data.caller.phoneNumber;
+    setCurrentPhoneNumber(phoneNumber || null);
+    setCurrentCallSid(event.data.callId);
     setCallStartTime(new Date());
     clearTranscripts();
+
+    setZoomCallMetadata({
+      direction: event.data.direction,
+      toNumber: event.data.callee.phoneNumber,
+      fromNumber: event.data.caller.phoneNumber,
+    });
+
+    try {
+      const response = await apiRequest("POST", "/api/call-sessions/zoom", {
+        zoomCallId: event.data.callId,
+        direction: event.data.direction,
+        toNumber: event.data.callee.phoneNumber,
+        fromNumber: event.data.caller.phoneNumber,
+        leadId: leadIdParam || null,
+      });
+      const data = await response.json();
+      setInternalSessionId(data.sessionId);
+      console.log("[Coaching] Created session:", data.sessionId, "for Zoom call:", event.data.callId);
+    } catch (error) {
+      console.error("[Coaching] Failed to create call session (will retry on end):", error);
+    }
   };
 
-  const handleCallEnd = (callSessionId?: string) => {
-    if (callSessionId) {
-      setPendingOutcomeCallId(callSessionId);
+  const handleZoomCallConnected = async (event: ZoomCallEvent) => {
+    console.log("[Coaching] Call connected:", event.data.callId);
+    try {
+      await apiRequest("PATCH", `/api/call-sessions/zoom/${event.data.callId}`, {
+        status: "in-progress",
+      });
+    } catch (error) {
+      console.error("[Coaching] Failed to update call status:", error);
     }
+  };
+
+  const handleZoomCallEnd = async (event: ZoomCallEvent) => {
+    let sessionId = internalSessionId;
+    const zoomCallId = event.data.callId;
+    const savedStartTime = callStartTime;
+    
     setCurrentPhoneNumber(null);
     setCurrentCallSid(null);
     setCallStartTime(null);
+
+    try {
+      const duration = event.data.duration || Math.floor((Date.now() - (savedStartTime?.getTime() || Date.now())) / 1000);
+      const response = await apiRequest("PATCH", `/api/call-sessions/zoom/${zoomCallId}`, {
+        status: "completed",
+        duration,
+        direction: zoomCallMetadata?.direction,
+        toNumber: zoomCallMetadata?.toNumber,
+        fromNumber: zoomCallMetadata?.fromNumber,
+        leadId: leadIdParam || null,
+      });
+      if (response.ok) {
+        const session = await response.json();
+        sessionId = session.id;
+        console.log("[Coaching] Call ended, session:", sessionId);
+      }
+    } catch (error) {
+      console.error("[Coaching] Failed to update call end:", error);
+    }
+
+    if (!sessionId && zoomCallId) {
+      try {
+        const response = await apiRequest("GET", `/api/call-sessions/by-zoom-id/${zoomCallId}`);
+        if (response.ok) {
+          const session = await response.json();
+          sessionId = session.id;
+          console.log("[Coaching] Recovered session ID:", sessionId);
+        }
+      } catch (error) {
+        console.error("[Coaching] Failed to recover session:", error);
+      }
+    }
+
+    if (sessionId) {
+      setPendingOutcomeCallId(sessionId);
+    } else {
+      toast({
+        title: "Call Logged",
+        description: "Call completed but session could not be saved. Please try again.",
+        variant: "destructive",
+      });
+    }
+    setInternalSessionId(null);
+    setZoomCallMetadata(null);
+  };
+
+  const handleZoomRecordingComplete = async (event: ZoomRecordingEvent) => {
+    console.log("[Coaching] Recording completed:", event.data.recordingId);
+    try {
+      await apiRequest("PATCH", `/api/call-sessions/zoom/${event.data.callId}`, {
+        recordingUrl: event.data.downloadUrl,
+      });
+      
+      console.log("[Coaching] Triggering automatic analysis...");
+      toast({
+        title: "Analyzing Call",
+        description: "Running AI coaching analysis on your recording...",
+      });
+      
+      const analysisResponse = await apiRequest("POST", `/api/call-sessions/zoom/${event.data.callId}/auto-analyze`, {});
+      if (analysisResponse.ok) {
+        const result = await analysisResponse.json();
+        if (result.status === "completed") {
+          toast({
+            title: "Analysis Complete",
+            description: `Call scored ${result.analysis?.score || "N/A"}/100. Check your performance tab!`,
+          });
+          queryClient.invalidateQueries({ queryKey: ["/api/call-sessions"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/coach/performance-summary"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/manager/oversight"] });
+        } else if (result.status === "pending") {
+          toast({
+            title: "Analysis Pending",
+            description: "Recording is still processing. Analysis will run shortly.",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("[Coaching] Failed to save recording URL or analyze:", error);
+      toast({
+        title: "Analysis Issue",
+        description: "Recording saved but analysis may be delayed.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleZoomAISummary = async (event: ZoomAISummaryEvent) => {
+    console.log("[Coaching] Zoom AI Summary:", event.data.summary);
+    try {
+      await apiRequest("PATCH", `/api/call-sessions/zoom/${event.data.callId}`, {
+        zoomAiSummary: event.data.summary,
+      });
+    } catch (error) {
+      console.error("[Coaching] Failed to save AI summary:", error);
+    }
   };
 
   const { toast } = useToast();
@@ -203,6 +340,36 @@ export default function CoachingPage() {
     },
     onError: () => {
       toast({ title: "Analysis failed", description: "Could not analyze this call", variant: "destructive" });
+    },
+  });
+
+  const [recordingAnalysis, setRecordingAnalysis] = useState<{
+    transcript: string;
+    analysis: {
+      overallScore: number;
+      callSummary: string;
+      strengths: string[];
+      areasForImprovement: string[];
+      recommendedActions: string[];
+    };
+  } | null>(null);
+
+  const analyzeRecordingMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const res = await apiRequest("POST", `/api/call-sessions/${sessionId}/analyze-recording`, {});
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Analysis failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setRecordingAnalysis(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/call-sessions"] });
+      toast({ title: "Recording analyzed", description: `Call score: ${data.analysis?.overallScore || "N/A"}/100` });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Analysis failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -283,7 +450,15 @@ export default function CoachingPage() {
         <TabsContent value="live" className="mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-4">
-          <Softphone onCallStart={handleCallStart} onCallEnd={handleCallEnd} isAuthenticated={!!user} initialPhoneNumber={phoneParam || undefined} />
+          <ZoomPhoneEmbed 
+            onCallStart={handleZoomCallStart}
+            onCallConnected={handleZoomCallConnected}
+            onCallEnd={handleZoomCallEnd}
+            onRecordingComplete={handleZoomRecordingComplete}
+            onAISummary={handleZoomAISummary}
+            initialPhoneNumber={phoneParam || undefined}
+            leadId={leadIdParam || undefined}
+          />
           
           <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
             <CollapsibleTrigger asChild>
@@ -800,6 +975,7 @@ export default function CoachingPage() {
           setSelectedCall(null);
           setAnalysisResult(null);
           setManagerAnalysis(null);
+          setRecordingAnalysis(null);
         }
       }}>
         <DialogContent className="max-w-2xl">
@@ -833,21 +1009,29 @@ export default function CoachingPage() {
                   Play Recording
                 </Button>
               )}
-              {selectedCall?.status === "completed" && selectedCall?.transcriptText && (
+              {selectedCall?.status === "completed" && (selectedCall?.transcriptText || selectedCall?.recordingUrl || selectedCall?.callSid?.startsWith("zoom_")) && (
                 <>
                   <Button
                     variant="default"
                     size="sm"
-                    onClick={() => selectedCall.id && analyzeMutation.mutate(selectedCall.id)}
-                    disabled={analyzeMutation.isPending}
+                    onClick={() => {
+                      if (selectedCall.id) {
+                        if (selectedCall.transcriptText) {
+                          analyzeMutation.mutate(selectedCall.id);
+                        } else {
+                          analyzeRecordingMutation.mutate(selectedCall.id);
+                        }
+                      }
+                    }}
+                    disabled={analyzeMutation.isPending || analyzeRecordingMutation.isPending}
                     data-testid="button-analyze-call"
                   >
-                    {analyzeMutation.isPending ? (
+                    {analyzeMutation.isPending || analyzeRecordingMutation.isPending ? (
                       <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                     ) : (
                       <Sparkles className="h-4 w-4 mr-1" />
                     )}
-                    Analyze Call
+                    {selectedCall?.transcriptText ? "Analyze Call" : "Get Transcript & Analyze"}
                   </Button>
                   {(user?.role === "admin" || user?.role === "manager") && !managerAnalysis && (
                     <Button
@@ -1078,7 +1262,48 @@ export default function CoachingPage() {
               </div>
             )}
 
-            {selectedCall?.coachingNotes && (
+            {recordingAnalysis && (
+              <div className="space-y-3 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Call Analysis
+                  </h4>
+                  <Badge className={recordingAnalysis.analysis.overallScore >= 70 ? "bg-green-500" : recordingAnalysis.analysis.overallScore >= 50 ? "bg-yellow-500" : "bg-red-500"}>
+                    Score: {recordingAnalysis.analysis.overallScore}/100
+                  </Badge>
+                </div>
+                <p className="text-sm text-blue-800 dark:text-blue-200">{recordingAnalysis.analysis.callSummary}</p>
+                {recordingAnalysis.analysis.strengths?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">Strengths:</p>
+                    <ul className="text-xs text-green-600 dark:text-green-400 space-y-1">
+                      {recordingAnalysis.analysis.strengths.slice(0, 3).map((s, i) => (
+                        <li key={i} className="flex items-start gap-1">
+                          <CheckCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {recordingAnalysis.analysis.areasForImprovement?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">Areas for Improvement:</p>
+                    <ul className="text-xs text-amber-600 dark:text-amber-400 space-y-1">
+                      {recordingAnalysis.analysis.areasForImprovement.slice(0, 3).map((a, i) => (
+                        <li key={i} className="flex items-start gap-1">
+                          <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                          {a}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedCall?.coachingNotes && !recordingAnalysis && (
               <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
                 <p className="text-sm text-green-700 dark:text-green-300 flex items-center gap-2">
                   <CheckCircle className="h-4 w-4" />
@@ -1087,7 +1312,7 @@ export default function CoachingPage() {
               </div>
             )}
             
-            {selectedCall?.transcriptText ? (
+            {(selectedCall?.transcriptText || recordingAnalysis?.transcript) ? (
               <div>
                 <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                   <FileText className="h-4 w-4" />
@@ -1095,7 +1320,7 @@ export default function CoachingPage() {
                 </h4>
                 <ScrollArea className="h-[200px] border rounded-md p-3">
                   <div className="space-y-2 text-sm whitespace-pre-wrap">
-                    {selectedCall.transcriptText}
+                    {selectedCall?.transcriptText || recordingAnalysis?.transcript}
                   </div>
                 </ScrollArea>
               </div>
@@ -1103,6 +1328,22 @@ export default function CoachingPage() {
               <div className="text-center py-8 text-muted-foreground">
                 <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>No transcript available</p>
+                {selectedCall?.status === "completed" && (selectedCall?.recordingUrl || selectedCall?.callSid?.startsWith("zoom_")) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => selectedCall.id && analyzeRecordingMutation.mutate(selectedCall.id)}
+                    disabled={analyzeRecordingMutation.isPending}
+                  >
+                    {analyzeRecordingMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-1" />
+                    )}
+                    Get Transcript
+                  </Button>
+                )}
               </div>
             )}
           </div>

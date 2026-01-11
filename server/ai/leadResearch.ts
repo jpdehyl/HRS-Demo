@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import type { Lead, InsertResearchPacket } from "@shared/schema";
 import { researchLeadOnX, formatXIntel, type XIntelResult } from "./xResearch";
 import { gatherCompanyHardIntel, formatCompanyHardIntel, type CompanyHardIntel } from "./companyHardIntel";
@@ -12,26 +11,7 @@ import {
   type ContactLinkedInData
 } from "./websiteScraper";
 import { getKnowledgebaseContent, getLeadScoringParameters } from "../google/driveClient";
-
-function getAiClient(): GoogleGenAI {
-  const directKey = process.env.GEMINI_API_KEY;
-  if (directKey) {
-    console.log("[LeadResearch] Using direct GEMINI_API_KEY");
-    return new GoogleGenAI({ apiKey: directKey });
-  }
-  
-  const replitKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-  const replitBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
-  if (replitKey && replitBase) {
-    console.log("[LeadResearch] Using Replit AI Integration for Gemini");
-    return new GoogleGenAI({
-      apiKey: replitKey,
-      httpOptions: { apiVersion: "", baseUrl: replitBase },
-    });
-  }
-  
-  throw new Error("No Gemini API key configured");
-}
+import { callClaudeWithRetry, extractJsonFromResponse } from "./claudeClient";
 
 const HAWK_RIDGE_CONTEXT = `
 Hawk Ridge Systems is a leading provider of 3D design, manufacturing, and product data management solutions.
@@ -178,8 +158,19 @@ async function gatherAllIntelInParallel(lead: Lead): Promise<PreScrapedData> {
   ] = await Promise.all([
     gatherCompanyIntel(lead.companyName, lead.companyWebsite || null),
     scrapeContactLinkedIn(lead.contactName, lead.companyName, lead.contactEmail),
-    gatherCompanyHardIntel(lead),
-    researchLeadOnX(lead),
+    gatherCompanyHardIntel(lead).catch((err) => {
+      console.error(`[LeadResearch] CompanyHardIntel failed for ${lead.companyName}:`, err.message);
+      return { keyExecutives: [], competitors: [], recentNews: [], certifications: [], techStack: [], error: err.message } as CompanyHardIntel;
+    }),
+    researchLeadOnX(lead).catch((err) => {
+      console.error(`[LeadResearch] X research failed for ${lead.contactName}:`, err.message);
+      return {
+        xHandle: null, profileUrl: null, bio: null, followerCount: null,
+        recentPosts: [], conversationStarters: [], industryTrends: [], hashtags: [],
+        engagementStyle: "", professionalTone: "", topicsOfInterest: [],
+        companyMentions: [], recentNews: [], error: err.message
+      } as XIntelResult;
+    }),
     getKnowledgebaseContent().catch(() => ""),
     getLeadScoringParameters().catch(() => "")
   ]);
@@ -402,196 +393,117 @@ CONFIDENCE ASSESSMENT GUIDELINES:
 
 BE HONEST about uncertainty. It's better to flag potential issues than give false confidence.
 
-BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with web search for recent news.`;
+BE THOROUGH. Use the pre-scraped data as your primary source.`;
 
-  console.log(`[LeadResearch] Calling Gemini for dossier generation...`);
+  console.log(`[LeadResearch] Calling Claude for dossier generation...`);
   console.log(`[LeadResearch] Prompt length: ${prompt.length} chars`);
 
-  try {
-    const ai = getAiClient();
-    console.log(`[LeadResearch] AI client created, starting API call with gemini-2.0-flash + Google Search...`);
-    const startTime = Date.now();
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: {
-        tools: [{ googleSearch: {} }],
-        temperature: 0.7,
-        maxOutputTokens: 6000,
-      },
-    });
-
-    const elapsedTime = Date.now() - startTime;
-    console.log(`[LeadResearch] API call completed in ${elapsedTime}ms`);
-    console.log(`[LeadResearch] Response type: ${typeof response}, has text: ${!!response?.text}`);
-    
-    // New SDK: use response.text directly
-    let text = "";
-    if (response && typeof response.text === 'string') {
-      text = response.text;
-    } else if (response?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      // Fallback to candidates structure
-      text = response.candidates[0].content.parts[0].text;
-    }
-    
-    console.log(`[LeadResearch] Raw dossier response length: ${text.length}`);
-    
-    // Clean up markdown code blocks if present
-    let cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
-    const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
-    
-    if (!jsonMatch) {
-      console.log(`[LeadResearch] Dossier text (first 500 chars): ${cleanedText.substring(0, 500)}`);
-      throw new Error("No JSON found in response");
-    }
-
-    const raw = JSON.parse(jsonMatch[0]);
-    
-    let aiScore = typeof raw.fitScore === "number" ? raw.fitScore : 50;
-    const penaltyBreakdown: string[] = [];
-    
-    const emailDomain = lead.contactEmail.split("@")[1]?.toLowerCase() || "";
-    const genericDomains = ["gmail.com", "hotmail.com", "live.com", "outlook.com", "yahoo.com", "aol.com", "icloud.com", "mail.com", "protonmail.com", "zoho.com"];
-    const isGenericEmail = genericDomains.includes(emailDomain);
-    
-    if (isGenericEmail) {
-      aiScore -= 30;
-      penaltyBreakdown.push("-30: Gmail/personal email domain");
-    }
-    
-    if (!lead.companyWebsite && !scraped.scrapedIntel.website) {
-      aiScore -= 15;
-      penaltyBreakdown.push("-15: No company website found");
-    }
-    
-    if (!lead.contactTitle && !scraped.contactLinkedIn?.currentTitle) {
-      aiScore -= 10;
-      penaltyBreakdown.push("-10: Contact title unknown");
-    }
-    
-    if (!lead.companyIndustry) {
-      aiScore -= 10;
-      penaltyBreakdown.push("-10: No industry information");
-    }
-    
-    const companyNameLower = lead.companyName.toLowerCase();
-    const contactNameParts = lead.contactName.toLowerCase().split(" ");
-    const looksLikePersonName = contactNameParts.some(part => 
-      companyNameLower.includes(part) && part.length > 2
-    );
-    
-    if (looksLikePersonName) {
-      aiScore -= 25;
-      penaltyBreakdown.push("-25: Company name appears to be a person's name");
-    }
-    
-    const finalScore = Math.max(0, Math.min(100, aiScore));
-    
-    let adjustedPriority: "hot" | "warm" | "cool" | "cold";
-    if (finalScore >= 80) adjustedPriority = "hot";
-    else if (finalScore >= 60) adjustedPriority = "warm";
-    else if (finalScore >= 40) adjustedPriority = "cool";
-    else adjustedPriority = "cold";
-    
-    const fullBreakdown = penaltyBreakdown.length > 0 
-      ? `AI Score: ${raw.fitScore || 50}\nPenalties Applied:\n${penaltyBreakdown.join("\n")}\nFinal Score: ${finalScore}\n\n${raw.fitScoreBreakdown || ""}`
-      : raw.fitScoreBreakdown || "";
-    
-    const confidenceFromAI = raw.confidenceAssessment || {};
-    const confidenceAssessment: ConfidenceAssessment = {
-      overall: ["high", "medium", "low"].includes(confidenceFromAI.overall) ? confidenceFromAI.overall : "medium",
-      companyInfoConfidence: ["high", "medium", "low"].includes(confidenceFromAI.companyInfoConfidence) ? confidenceFromAI.companyInfoConfidence : "medium",
-      contactInfoConfidence: ["high", "medium", "low"].includes(confidenceFromAI.contactInfoConfidence) ? confidenceFromAI.contactInfoConfidence : "medium",
-      reasoning: confidenceFromAI.reasoning || "Confidence assessment not provided by AI",
-      warnings: Array.isArray(confidenceFromAI.warnings) ? confidenceFromAI.warnings.filter((w: string) => w && !w.startsWith("Examples:")) : []
-    };
-
-    const dossier: LeadDossier = {
-      companySummary: raw.companySummary || "",
-      companyNews: Array.isArray(raw.companyNews) ? raw.companyNews : [],
-      painPoints: Array.isArray(raw.painPoints) ? raw.painPoints : [],
-      productMatches: Array.isArray(raw.productMatches) ? raw.productMatches : [],
-      techStackIntel: Array.isArray(raw.techStackIntel) ? raw.techStackIntel : [],
-      buyingTriggers: Array.isArray(raw.buyingTriggers) ? raw.buyingTriggers : [],
-      
-      contactBackground: raw.contactBackground || "",
-      careerHistory: Array.isArray(raw.careerHistory) ? raw.careerHistory : [],
-      professionalInterests: Array.isArray(raw.professionalInterests) ? raw.professionalInterests : [],
-      decisionMakingStyle: raw.decisionMakingStyle || "",
-      
-      commonGround: Array.isArray(raw.commonGround) ? raw.commonGround : [],
-      openingLine: raw.openingLine || "",
-      talkTrack: Array.isArray(raw.talkTrack) ? raw.talkTrack : [],
-      discoveryQuestions: Array.isArray(raw.discoveryQuestions) ? raw.discoveryQuestions : [],
-      objectionHandles: Array.isArray(raw.objectionHandles) ? raw.objectionHandles : [],
-      theAsk: raw.theAsk || "",
-      
-      fitScore: finalScore,
-      fitScoreBreakdown: fullBreakdown,
-      priority: adjustedPriority,
-      
-      sources: scraped.scrapedIntel.sources.join(" | ") + " | Gemini AI with web grounding",
-      linkedInUrl: scraped.contactLinkedIn?.linkedInUrl || raw.linkedInUrl,
-      phoneNumber: phoneFromScrape || raw.phoneNumber,
-      jobTitle: scraped.contactLinkedIn?.currentTitle || raw.jobTitle,
-      companyWebsite: lead.companyWebsite || scraped.scrapedIntel.website?.url || raw.companyWebsite,
-      companyAddress: raw.companyAddress,
-      confidenceAssessment
-    };
-    
-    console.log(`[LeadResearch] Dossier generated. AI Score: ${raw.fitScore || 50}, Penalties: ${penaltyBreakdown.length}, Final: ${finalScore}, Priority: ${adjustedPriority}, Confidence: ${confidenceAssessment.overall}`);
-    
-    return dossier;
-  } catch (error) {
-    console.error("[LeadResearch] ERROR generating dossier:", error instanceof Error ? error.message : String(error));
-    console.error("[LeadResearch] Error stack:", error instanceof Error ? error.stack : "No stack");
-    console.error("[LeadResearch] Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error as object), 2));
-    
-    return {
-      companySummary: `${lead.companyName} - ${lead.companyIndustry || "Industry unknown"}. Research pending.`,
-      companyNews: [],
-      painPoints: [{ pain: "Manual research recommended", severity: "medium", hawkRidgeSolution: "Discovery call needed" }],
-      productMatches: [],
-      techStackIntel: ["Check company website and job postings"],
-      buyingTriggers: ["Needs discovery call to identify"],
-      
-      contactBackground: "Research pending - unable to generate at this time",
-      careerHistory: [],
-      professionalInterests: [],
-      decisionMakingStyle: "Unknown - needs discovery",
-      
-      commonGround: ["Research pending"],
-      openingLine: `Hi ${lead.contactName.split(" ")[0]}, I'm reaching out because we help companies like ${lead.companyName} streamline their design and manufacturing processes.`,
-      talkTrack: ["Focus on design efficiency, manufacturing integration, and data management."],
-      discoveryQuestions: [
-        "What CAD tools are you currently using?",
-        "What's your biggest challenge in product development?",
-        "Are you looking to bring any manufacturing in-house?",
-        "How do you currently manage design data and revisions?",
-        "What's your timeline for making improvements to your design process?"
-      ],
-      objectionHandles: [
-        { objection: "We're happy with our current tools", response: "Understood. Many of our customers felt the same before seeing a 30% improvement in design time. Would a quick comparison be valuable?" },
-        { objection: "Budget is tight", response: "We offer flexible licensing and financing. Plus, customers typically see ROI within 6 months through efficiency gains." },
-        { objection: "Too busy to switch", response: "We provide full migration support and training. Most teams are fully productive within 2 weeks." }
-      ],
-      theAsk: "I'd love to show you a quick demo tailored to your workflow. Do you have 20 minutes this week?",
-      
-      fitScore: 50,
-      fitScoreBreakdown: "Default score - research unavailable",
-      priority: "cool",
-      
-      sources: "Fallback template - AI research unavailable",
-      confidenceAssessment: {
-        overall: "low",
-        companyInfoConfidence: "low",
-        contactInfoConfidence: "low",
-        reasoning: "Research could not be completed - AI unavailable or encountered an error",
-        warnings: ["Research incomplete - manual verification recommended"]
-      }
-    };
+  const text = await callClaudeWithRetry({
+    prompt,
+    systemPrompt: "You are an expert B2B sales intelligence analyst preparing comprehensive dossiers for sales calls. Always respond with valid JSON only, no markdown code blocks.",
+    maxTokens: 8000,
+    temperature: 0.7
+  });
+  
+  console.log(`[LeadResearch] Raw dossier response length: ${text.length}`);
+  
+  const raw = extractJsonFromResponse(text) as Record<string, unknown>;
+  
+  let aiScore = typeof raw.fitScore === "number" ? raw.fitScore : 50;
+  const penaltyBreakdown: string[] = [];
+  
+  const emailDomain = lead.contactEmail.split("@")[1]?.toLowerCase() || "";
+  const genericDomains = ["gmail.com", "hotmail.com", "live.com", "outlook.com", "yahoo.com", "aol.com", "icloud.com", "mail.com", "protonmail.com", "zoho.com"];
+  const isGenericEmail = genericDomains.includes(emailDomain);
+  
+  if (isGenericEmail) {
+    aiScore -= 30;
+    penaltyBreakdown.push("-30: Gmail/personal email domain");
   }
+  
+  if (!lead.companyWebsite && !scraped.scrapedIntel.website) {
+    aiScore -= 15;
+    penaltyBreakdown.push("-15: No company website found");
+  }
+  
+  if (!lead.contactTitle && !scraped.contactLinkedIn?.currentTitle) {
+    aiScore -= 10;
+    penaltyBreakdown.push("-10: Contact title unknown");
+  }
+  
+  if (!lead.companyIndustry) {
+    aiScore -= 10;
+    penaltyBreakdown.push("-10: No industry information");
+  }
+  
+  const companyNameLower = lead.companyName.toLowerCase();
+  const contactNameParts = lead.contactName.toLowerCase().split(" ");
+  const looksLikePersonName = contactNameParts.some(part => 
+    companyNameLower.includes(part) && part.length > 2
+  );
+  
+  if (looksLikePersonName) {
+    aiScore -= 25;
+    penaltyBreakdown.push("-25: Company name appears to be a person's name");
+  }
+  
+  const finalScore = Math.max(0, Math.min(100, aiScore));
+  
+  let adjustedPriority: "hot" | "warm" | "cool" | "cold";
+  if (finalScore >= 80) adjustedPriority = "hot";
+  else if (finalScore >= 60) adjustedPriority = "warm";
+  else if (finalScore >= 40) adjustedPriority = "cool";
+  else adjustedPriority = "cold";
+  
+  const fullBreakdown = penaltyBreakdown.length > 0 
+    ? `AI Score: ${raw.fitScore || 50}\nPenalties Applied:\n${penaltyBreakdown.join("\n")}\nFinal Score: ${finalScore}\n\n${raw.fitScoreBreakdown || ""}`
+    : (raw.fitScoreBreakdown as string) || "";
+  
+  const confidenceFromAI = (raw.confidenceAssessment || {}) as Record<string, unknown>;
+  const confidenceAssessment: ConfidenceAssessment = {
+    overall: (["high", "medium", "low"].includes(confidenceFromAI.overall as string) ? confidenceFromAI.overall : "medium") as "high" | "medium" | "low",
+    companyInfoConfidence: (["high", "medium", "low"].includes(confidenceFromAI.companyInfoConfidence as string) ? confidenceFromAI.companyInfoConfidence : "medium") as "high" | "medium" | "low",
+    contactInfoConfidence: (["high", "medium", "low"].includes(confidenceFromAI.contactInfoConfidence as string) ? confidenceFromAI.contactInfoConfidence : "medium") as "high" | "medium" | "low",
+    reasoning: (confidenceFromAI.reasoning as string) || "Confidence assessment not provided by AI",
+    warnings: Array.isArray(confidenceFromAI.warnings) ? (confidenceFromAI.warnings as string[]).filter((w: string) => w && !w.startsWith("Examples:")) : []
+  };
+
+  const dossier: LeadDossier = {
+    companySummary: (raw.companySummary as string) || "",
+    companyNews: Array.isArray(raw.companyNews) ? raw.companyNews as string[] : [],
+    painPoints: Array.isArray(raw.painPoints) ? raw.painPoints as PainPoint[] : [],
+    productMatches: Array.isArray(raw.productMatches) ? raw.productMatches as ProductMatch[] : [],
+    techStackIntel: Array.isArray(raw.techStackIntel) ? raw.techStackIntel as string[] : [],
+    buyingTriggers: Array.isArray(raw.buyingTriggers) ? raw.buyingTriggers as string[] : [],
+    
+    contactBackground: (raw.contactBackground as string) || "",
+    careerHistory: Array.isArray(raw.careerHistory) ? raw.careerHistory as CareerHistoryItem[] : [],
+    professionalInterests: Array.isArray(raw.professionalInterests) ? raw.professionalInterests as string[] : [],
+    decisionMakingStyle: (raw.decisionMakingStyle as string) || "",
+    
+    commonGround: Array.isArray(raw.commonGround) ? raw.commonGround as string[] : [],
+    openingLine: (raw.openingLine as string) || "",
+    talkTrack: Array.isArray(raw.talkTrack) ? raw.talkTrack as string[] : [],
+    discoveryQuestions: Array.isArray(raw.discoveryQuestions) ? raw.discoveryQuestions as string[] : [],
+    objectionHandles: Array.isArray(raw.objectionHandles) ? raw.objectionHandles as Array<{ objection: string; response: string }> : [],
+    theAsk: (raw.theAsk as string) || "",
+    
+    fitScore: finalScore,
+    fitScoreBreakdown: fullBreakdown,
+    priority: adjustedPriority,
+    
+    sources: scraped.scrapedIntel.sources.join(" | ") + " | Claude AI",
+    linkedInUrl: scraped.contactLinkedIn?.linkedInUrl || (raw.linkedInUrl as string),
+    phoneNumber: phoneFromScrape || (raw.phoneNumber as string),
+    jobTitle: scraped.contactLinkedIn?.currentTitle || (raw.jobTitle as string),
+    companyWebsite: lead.companyWebsite || scraped.scrapedIntel.website?.url || (raw.companyWebsite as string),
+    companyAddress: raw.companyAddress as string,
+    confidenceAssessment
+  };
+  
+  console.log(`[LeadResearch] Dossier generated. AI Score: ${raw.fitScore || 50}, Penalties: ${penaltyBreakdown.length}, Final: ${finalScore}, Priority: ${adjustedPriority}, Confidence: ${confidenceAssessment.overall}`);
+  
+  return dossier;
 }
 
 export interface ResearchResult {

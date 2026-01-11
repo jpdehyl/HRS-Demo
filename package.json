@@ -17,6 +17,7 @@
     "ux:audit-all": "npm run playwright:accessibility http://localhost:5000 && npm run playwright:flows"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
     "@google/genai": "^1.34.0",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.10.0",

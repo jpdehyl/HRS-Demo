@@ -1,16 +1,26 @@
 import { GoogleGenAI } from "@google/genai";
 import pRetry from "p-retry";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-  },
-});
+function getGeminiClient(): GoogleGenAI {
+  if (process.env.AI_INTEGRATIONS_GEMINI_API_KEY && process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) {
+    return new GoogleGenAI({
+      apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+      httpOptions: {
+        apiVersion: "",
+        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+      },
+    });
+  } else if (process.env.GEMINI_API_KEY) {
+    return new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+    });
+  }
+  throw new Error("No Gemini API key configured (AI_INTEGRATIONS_GEMINI_API_KEY or GEMINI_API_KEY)");
+}
 
 export async function transcribeAudio(audioBuffer: Buffer, mimeType: string): Promise<string> {
   const transcribe = async () => {
+    const ai = getGeminiClient();
     const base64Audio = audioBuffer.toString("base64");
 
     const response = await ai.models.generateContent({

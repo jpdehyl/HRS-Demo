@@ -18,7 +18,10 @@ import {
   Play,
   ChevronRight,
   Loader2,
-  BarChart3
+  BarChart3,
+  FileSearch,
+  ArrowUpRight,
+  Zap
 } from "lucide-react";
 import type { CallSession } from "@shared/schema";
 
@@ -33,6 +36,19 @@ interface SdrPerformance {
   qualifiedLeads: number;
   connectRate: number;
   meetingsBooked: number;
+}
+
+interface ToolUsageAccountability {
+  callsWithPrep: number;
+  callsWithoutPrep: number;
+  meetingsWithPrep: number;
+  meetingsWithoutPrep: number;
+  connectRateWithPrep: number;
+  connectRateWithoutPrep: number;
+  meetingRateWithPrep: number;
+  meetingRateWithoutPrep: number;
+  connectRateImprovement: number;
+  meetingRateImprovement: number;
 }
 
 interface ManagerOversightData {
@@ -52,6 +68,7 @@ interface ManagerOversightData {
   };
   sdrPerformance: SdrPerformance[];
   dispositionBreakdown: Record<string, number>;
+  toolUsageAccountability: ToolUsageAccountability;
   recentCalls: CallSession[];
 }
 
@@ -315,6 +332,91 @@ export function ManagerOversightDashboard({ onCallReview }: ManagerOversightDash
           </CardContent>
         </Card>
       </div>
+
+      {/* Tool Usage Accountability - Shows ROI of using Lead Intel */}
+      {oversight?.toolUsageAccountability && (
+        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-green-600" />
+              Tool Usage Accountability
+            </CardTitle>
+            <CardDescription>
+              Correlation between Lead Intel usage and call outcomes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white dark:bg-slate-900 rounded-lg p-4 border-2 border-green-500">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileSearch className="h-4 w-4 text-green-600" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-green-600">
+                    With Intel
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-3xl font-bold text-green-600">
+                      {oversight.toolUsageAccountability.connectRateWithPrep}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">connect rate</p>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {oversight.toolUsageAccountability.callsWithPrep} calls | {oversight.toolUsageAccountability.meetingsWithPrep} meetings
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-lg p-4 border-2 border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2 mb-2">
+                  <Phone className="h-4 w-4 text-slate-500" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Without Intel
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-3xl font-bold text-slate-600 dark:text-slate-400">
+                      {oversight.toolUsageAccountability.connectRateWithoutPrep}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">connect rate</p>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {oversight.toolUsageAccountability.callsWithoutPrep} calls | {oversight.toolUsageAccountability.meetingsWithoutPrep} meetings
+                  </div>
+                </div>
+              </div>
+
+              {oversight.toolUsageAccountability.connectRateImprovement > 0 && (
+                <div className="bg-green-100 dark:bg-green-900/30 rounded-lg p-4 border-2 border-green-300 dark:border-green-700 col-span-1 md:col-span-2 lg:col-span-2 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <ArrowUpRight className="h-6 w-6 text-green-600" />
+                      <span className="text-4xl font-bold text-green-600">
+                        {oversight.toolUsageAccountability.connectRateImprovement}%
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                      Higher connect rate when using Lead Intel
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      SDRs who use the research tool before calls are more effective
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {oversight.toolUsageAccountability.callsWithPrep === 0 && oversight.toolUsageAccountability.callsWithoutPrep === 0 && (
+              <div className="text-center py-6 text-muted-foreground">
+                <FileSearch className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                <p className="font-medium">No call data yet this week</p>
+                <p className="text-sm">Tool usage metrics will appear as calls are made</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

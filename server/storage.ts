@@ -11,9 +11,10 @@ import {
   type ManagerCallAnalysis, type InsertManagerCallAnalysis,
   type AccountExecutive, type InsertAccountExecutive,
   type Notification, type InsertNotification,
+  type NavigationSetting,
   users, managers, sdrs, leads, 
   liveCoachingSessions, liveCoachingTips, liveTranscripts, researchPackets,
-  callSessions, managerCallAnalyses, accountExecutives, notifications
+  callSessions, managerCallAnalyses, accountExecutives, notifications, navigationSettings
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, isNull, desc, inArray, sql } from "drizzle-orm";
@@ -101,6 +102,10 @@ export interface IStorage {
   markNotificationRead(id: string): Promise<Notification | undefined>;
   markAllNotificationsRead(userId: string): Promise<void>;
   deleteNotification(id: string): Promise<boolean>;
+  
+  getAllNavigationSettings(): Promise<NavigationSetting[]>;
+  updateNavigationSetting(id: string, updates: { isEnabled?: boolean; sortOrder?: number }): Promise<NavigationSetting | undefined>;
+  initializeNavigationSettings(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -509,6 +514,38 @@ export class DatabaseStorage implements IStorage {
   async deleteNotification(id: string): Promise<boolean> {
     const result = await db.delete(notifications).where(eq(notifications.id, id)).returning();
     return result.length > 0;
+  }
+
+  async getAllNavigationSettings(): Promise<NavigationSetting[]> {
+    return db.select().from(navigationSettings).orderBy(navigationSettings.sortOrder);
+  }
+
+  async updateNavigationSetting(id: string, updates: { isEnabled?: boolean; sortOrder?: number }): Promise<NavigationSetting | undefined> {
+    const [result] = await db.update(navigationSettings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(navigationSettings.id, id))
+      .returning();
+    return result;
+  }
+
+  async initializeNavigationSettings(): Promise<void> {
+    const existing = await db.select().from(navigationSettings);
+    if (existing.length > 0) return;
+
+    const defaultSettings = [
+      { navKey: "dashboard", label: "Dashboard", isEnabled: true, sortOrder: 0 },
+      { navKey: "leads", label: "Leads", isEnabled: true, sortOrder: 1 },
+      { navKey: "live_coaching", label: "Live Coaching", isEnabled: true, sortOrder: 2 },
+      { navKey: "team", label: "Team", isEnabled: true, sortOrder: 3 },
+      { navKey: "reports", label: "Reports", isEnabled: true, sortOrder: 4 },
+      { navKey: "ae_pipeline", label: "AE Pipeline", isEnabled: true, sortOrder: 5 },
+      { navKey: "budgeting", label: "Budgeting", isEnabled: true, sortOrder: 6 },
+    ];
+
+    for (const setting of defaultSettings) {
+      await db.insert(navigationSettings).values(setting).onConflictDoNothing();
+    }
+    console.log("[Init] Navigation settings initialized");
   }
 }
 

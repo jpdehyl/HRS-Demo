@@ -1,7 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Phone, Building2, Target, Clock, Zap, Flame, TrendingUp } from "lucide-react";
+import { 
+  Phone, 
+  Building2, 
+  Target, 
+  Clock, 
+  Zap, 
+  Flame, 
+  TrendingUp, 
+  AlertCircle, 
+  CalendarClock, 
+  Activity,
+  Globe
+} from "lucide-react";
 import { useLocation } from "wouter";
 import type { Lead } from "@shared/schema";
 
@@ -11,6 +23,8 @@ interface QueueLead extends Lead {
   priority: string | null;
   bestTimeToCall?: string;
   nextFollowUpAt: Date | null;
+  lastContactedAt?: Date | null;
+  timezone?: string;
 }
 
 interface CallQueueProps {
@@ -21,10 +35,85 @@ interface CallQueueProps {
 export function CallQueue({ leads, onCall }: CallQueueProps) {
   const [, navigate] = useLocation();
 
+  const getBestCallTime = (lead: QueueLead): { isGoodTime: boolean; message: string; timezone?: string } | null => {
+    const now = new Date();
+    let leadHour = now.getHours();
+    
+    if (lead.timezone) {
+      try {
+        const leadTime = now.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          hour12: false, 
+          timeZone: lead.timezone 
+        });
+        leadHour = parseInt(leadTime, 10);
+      } catch {
+      }
+    }
+    
+    const tzLabel = lead.timezone ? ` (${lead.timezone.split('/').pop()})` : '';
+    
+    if (lead.bestTimeToCall) {
+      const bestTime = lead.bestTimeToCall.toLowerCase();
+      if (bestTime.includes('morning') && leadHour >= 9 && leadHour < 12) {
+        return { isGoodTime: true, message: `Best: ${lead.bestTimeToCall}${tzLabel}`, timezone: lead.timezone };
+      }
+      if (bestTime.includes('afternoon') && leadHour >= 13 && leadHour < 17) {
+        return { isGoodTime: true, message: `Best: ${lead.bestTimeToCall}${tzLabel}`, timezone: lead.timezone };
+      }
+      if (bestTime.includes('evening') && leadHour >= 17 && leadHour < 20) {
+        return { isGoodTime: true, message: `Best: ${lead.bestTimeToCall}${tzLabel}`, timezone: lead.timezone };
+      }
+      return { isGoodTime: false, message: `Best: ${lead.bestTimeToCall}${tzLabel}`, timezone: lead.timezone };
+    }
+    
+    if (leadHour >= 9 && leadHour < 11) {
+      return { isGoodTime: true, message: `Good time (morning)${tzLabel}`, timezone: lead.timezone };
+    }
+    if (leadHour >= 14 && leadHour < 17) {
+      return { isGoodTime: true, message: `Good time (afternoon)${tzLabel}`, timezone: lead.timezone };
+    }
+    if (leadHour < 9) {
+      return { isGoodTime: false, message: `Too early${tzLabel}`, timezone: lead.timezone };
+    }
+    if (leadHour >= 11 && leadHour < 14) {
+      return { isGoodTime: false, message: `Lunch hours${tzLabel}`, timezone: lead.timezone };
+    }
+    if (leadHour >= 17) {
+      return { isGoodTime: false, message: `After hours${tzLabel}`, timezone: lead.timezone };
+    }
+    return null;
+  };
+
+  const getRecentActivity = (lead: QueueLead): string | null => {
+    if (!lead.lastContactedAt) return null;
+    const daysSinceContact = Math.floor(
+      (Date.now() - new Date(lead.lastContactedAt).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (daysSinceContact === 0) return "Contacted today";
+    if (daysSinceContact === 1) return "Contacted yesterday";
+    if (daysSinceContact <= 3) return `${daysSinceContact} days ago`;
+    return null;
+  };
+
+  const isExpiringOpportunity = (lead: QueueLead): boolean => {
+    if (!lead.nextFollowUpAt) return false;
+    const followUpDate = new Date(lead.nextFollowUpAt);
+    const now = new Date();
+    const daysUntilFollowUp = Math.floor((followUpDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return daysUntilFollowUp <= 1 && daysUntilFollowUp >= 0;
+  };
+
   // Auto-prioritize leads
   const prioritizedLeads = [...leads]
-    .filter(lead => lead.contactPhone) // Only show leads with phone numbers
+    .filter(lead => lead.contactPhone)
     .sort((a, b) => {
+      // Priority 0: Expiring opportunities first
+      const aExpiring = isExpiringOpportunity(a);
+      const bExpiring = isExpiringOpportunity(b);
+      if (aExpiring && !bExpiring) return -1;
+      if (bExpiring && !aExpiring) return 1;
+
       // Priority 1: Hot leads
       if (a.priority === 'hot' && b.priority !== 'hot') return -1;
       if (b.priority === 'hot' && a.priority !== 'hot') return 1;
@@ -47,9 +136,14 @@ export function CallQueue({ leads, onCall }: CallQueueProps) {
       if (aIsToday && !bIsToday) return -1;
       if (bIsToday && !aIsToday) return 1;
 
+      // Priority 5: Recently contacted leads (strike while iron is hot)
+      const aRecent = a.lastContactedAt ? new Date(a.lastContactedAt).getTime() : 0;
+      const bRecent = b.lastContactedAt ? new Date(b.lastContactedAt).getTime() : 0;
+      if (aRecent !== bRecent) return bRecent - aRecent;
+
       return 0;
     })
-    .slice(0, 10); // Show top 10
+    .slice(0, 10);
 
   const getPriorityIcon = (priority: string | null) => {
     switch (priority) {
@@ -125,18 +219,38 @@ export function CallQueue({ leads, onCall }: CallQueueProps) {
 
               {/* Lead Info */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <p className="font-semibold text-sm truncate">{lead.contactName}</p>
                   {getPriorityBadge(lead.priority)}
+                  {isExpiringOpportunity(lead) && (
+                    <Badge variant="destructive" className="text-xs gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Follow up due
+                    </Badge>
+                  )}
                   {!lead.hasResearch && (
                     <Badge variant="outline" className="text-xs">
                       No intel
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Building2 className="h-3 w-3" />
-                  <span className="truncate">{lead.companyName}</span>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                  <span className="flex items-center gap-1.5">
+                    <Building2 className="h-3 w-3" />
+                    <span className="truncate">{lead.companyName}</span>
+                  </span>
+                  {getRecentActivity(lead) && (
+                    <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                      <Activity className="h-3 w-3" />
+                      {getRecentActivity(lead)}
+                    </span>
+                  )}
+                  {getBestCallTime(lead) && (
+                    <span className={`flex items-center gap-1 ${getBestCallTime(lead)?.isGoodTime ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                      {getBestCallTime(lead)?.timezone ? <Globe className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                      {getBestCallTime(lead)?.message}
+                    </span>
+                  )}
                 </div>
               </div>
 

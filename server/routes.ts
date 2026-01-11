@@ -13,6 +13,7 @@ import { registerTwilioVoiceRoutes } from "./twilio-voice";
 import { registerTranscriptionRoutes, setupTranscriptionWebSocket } from "./transcription";
 import { registerLeadsRoutes } from "./leads-routes";
 import { registerCoachRoutes } from "./coach-routes";
+import { registerSalesforceRoutes } from "./salesforce-routes";
 import { listFilesInProcessed } from "./google/driveClient";
 
 declare module "express-session" {
@@ -377,6 +378,40 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/navigation-settings", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getAllNavigationSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Get navigation settings error:", error);
+      res.status(500).json({ message: "Failed to fetch navigation settings" });
+    }
+  });
+
+  app.patch("/api/navigation-settings/:id", requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isEnabled, sortOrder } = req.body;
+      
+      const updates: { isEnabled?: boolean; sortOrder?: number } = {};
+      if (typeof isEnabled === "boolean") updates.isEnabled = isEnabled;
+      if (typeof sortOrder === "number") updates.sortOrder = sortOrder;
+      
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No valid updates provided" });
+      }
+      
+      const setting = await storage.updateNavigationSetting(id, updates);
+      if (!setting) {
+        return res.status(404).json({ message: "Navigation setting not found" });
+      }
+      res.json(setting);
+    } catch (error) {
+      console.error("Update navigation setting error:", error);
+      res.status(500).json({ message: "Failed to update navigation setting" });
+    }
+  });
+
   app.get("/api/learning/insights", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;
@@ -566,6 +601,27 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/managers", requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const { name, email } = req.body;
+      
+      if (!name || !email) {
+        return res.status(400).json({ message: "Name and email are required" });
+      }
+      
+      const manager = await storage.createManager({
+        name,
+        email,
+        isActive: true
+      });
+      
+      res.json(manager);
+    } catch (error) {
+      console.error("Create Manager error:", error);
+      res.status(500).json({ message: "Failed to create manager" });
+    }
+  });
+
   app.get("/api/team", requireAuth, async (req: Request, res: Response) => {
     try {
       const allManagers = await storage.getAllManagers();
@@ -726,6 +782,41 @@ export async function registerRoutes(
       );
       const leadsWithoutResearch = leadsWithResearchStatus.filter(l => !l.hasResearch).slice(0, 5);
 
+      const roiTracking = await (async () => {
+        let callsWithPrep = 0;
+        let callsWithoutPrep = 0;
+        let meetingsWithPrep = 0;
+        let meetingsWithoutPrep = 0;
+        
+        for (const session of weekSessions) {
+          if (!session.leadId) {
+            callsWithoutPrep++;
+            if (session.disposition === "meeting-booked") {
+              meetingsWithoutPrep++;
+            }
+            continue;
+          }
+          
+          const researchPacket = await storage.getResearchPacketByLead(session.leadId);
+          const hadResearch = researchPacket && researchPacket.createdAt && session.startedAt &&
+            new Date(researchPacket.createdAt) < new Date(session.startedAt);
+          
+          if (hadResearch) {
+            callsWithPrep++;
+            if (session.disposition === "meeting-booked") {
+              meetingsWithPrep++;
+            }
+          } else {
+            callsWithoutPrep++;
+            if (session.disposition === "meeting-booked") {
+              meetingsWithoutPrep++;
+            }
+          }
+        }
+        
+        return { callsWithPrep, callsWithoutPrep, meetingsWithPrep, meetingsWithoutPrep };
+      })();
+
       res.json({
         hero: {
           pipelineValue,
@@ -768,6 +859,7 @@ export async function registerRoutes(
           aes: allAEs.length,
           leads: allLeads.length,
         },
+        roiTracking,
         isPrivileged,
         currentUserId: req.session.userId,
       });
@@ -827,6 +919,71 @@ export async function registerRoutes(
         return acc;
       }, {} as Record<string, number>);
 
+      const toolUsageAccountability = await (async () => {
+        let callsWithPrep = 0;
+        let callsWithoutPrep = 0;
+        let meetingsWithPrep = 0;
+        let meetingsWithoutPrep = 0;
+        let connectedWithPrep = 0;
+        let connectedWithoutPrep = 0;
+        
+        for (const session of weekSessions) {
+          const connected = session.disposition === "connected" || 
+            session.disposition === "qualified" || 
+            session.disposition === "meeting-booked" ||
+            session.disposition === "callback-scheduled";
+          const isMeeting = session.disposition === "meeting-booked";
+          
+          if (!session.leadId) {
+            callsWithoutPrep++;
+            if (isMeeting) meetingsWithoutPrep++;
+            if (connected) connectedWithoutPrep++;
+            continue;
+          }
+          
+          const researchPacket = await storage.getResearchPacketByLead(session.leadId);
+          const hadResearch = researchPacket && researchPacket.createdAt && session.startedAt &&
+            new Date(researchPacket.createdAt) < new Date(session.startedAt);
+          
+          if (hadResearch) {
+            callsWithPrep++;
+            if (isMeeting) meetingsWithPrep++;
+            if (connected) connectedWithPrep++;
+          } else {
+            callsWithoutPrep++;
+            if (isMeeting) meetingsWithoutPrep++;
+            if (connected) connectedWithoutPrep++;
+          }
+        }
+        
+        const connectRateWithPrep = callsWithPrep > 0 
+          ? Math.round((connectedWithPrep / callsWithPrep) * 100) : 0;
+        const connectRateWithoutPrep = callsWithoutPrep > 0 
+          ? Math.round((connectedWithoutPrep / callsWithoutPrep) * 100) : 0;
+        const meetingRateWithPrep = callsWithPrep > 0 
+          ? Math.round((meetingsWithPrep / callsWithPrep) * 100) : 0;
+        const meetingRateWithoutPrep = callsWithoutPrep > 0 
+          ? Math.round((meetingsWithoutPrep / callsWithoutPrep) * 100) : 0;
+        
+        const connectRateImprovement = connectRateWithoutPrep > 0 
+          ? Math.round(((connectRateWithPrep - connectRateWithoutPrep) / connectRateWithoutPrep) * 100) : 0;
+        const meetingRateImprovement = meetingRateWithoutPrep > 0 
+          ? Math.round(((meetingRateWithPrep - meetingRateWithoutPrep) / meetingRateWithoutPrep) * 100) : 0;
+        
+        return {
+          callsWithPrep,
+          callsWithoutPrep,
+          meetingsWithPrep,
+          meetingsWithoutPrep,
+          connectRateWithPrep,
+          connectRateWithoutPrep,
+          meetingRateWithPrep,
+          meetingRateWithoutPrep,
+          connectRateImprovement,
+          meetingRateImprovement,
+        };
+      })();
+
       res.json({
         weeklyStats: {
           totalCalls: weekSessions.length,
@@ -844,6 +1001,7 @@ export async function registerRoutes(
         },
         sdrPerformance,
         dispositionBreakdown,
+        toolUsageAccountability,
         recentCalls: callSessions.slice(0, 50),
       });
     } catch (error) {
@@ -1097,6 +1255,280 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/call-sessions/zoom", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const zoomSessionSchema = z.object({
+        zoomCallId: z.string().min(1, "Zoom call ID required"),
+        direction: z.enum(["inbound", "outbound"]),
+        toNumber: z.string().optional(),
+        fromNumber: z.string().optional(),
+        leadId: z.string().uuid().optional().nullable(),
+      });
+
+      const parsed = zoomSessionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.flatten() });
+      }
+
+      const { zoomCallId, direction, toNumber, fromNumber, leadId } = parsed.data;
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const session = await storage.createCallSession({
+        callSid: `zoom_${zoomCallId}`,
+        userId: req.session.userId!,
+        leadId: leadId || null,
+        direction,
+        fromNumber: fromNumber || user.email || "unknown",
+        toNumber: toNumber || "unknown",
+        status: "initiated",
+      });
+
+      console.log(`[ZoomPhone] Created call session ${session.id} for Zoom call ${zoomCallId}`);
+      res.json({ sessionId: session.id, zoomCallId });
+    } catch (error) {
+      console.error("Zoom call session creation error:", error);
+      res.status(500).json({ message: "Failed to create call session" });
+    }
+  });
+
+  app.get("/api/call-sessions/by-zoom-id/:zoomCallId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { zoomCallId } = req.params;
+      const callSid = `zoom_${zoomCallId}`;
+      const session = await storage.getCallSessionByCallSid(callSid);
+      if (!session) {
+        return res.status(404).json({ message: "Zoom call session not found" });
+      }
+      res.json(session);
+    } catch (error) {
+      console.error("Zoom call session lookup error:", error);
+      res.status(500).json({ message: "Failed to find call session" });
+    }
+  });
+
+  app.patch("/api/call-sessions/zoom/:zoomCallId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { zoomCallId } = req.params;
+      const updateSchema = z.object({
+        status: z.string().optional(),
+        duration: z.number().optional(),
+        recordingUrl: z.string().optional(),
+        transcriptText: z.string().optional(),
+        zoomAiSummary: z.string().optional(),
+        direction: z.string().optional(),
+        toNumber: z.string().optional(),
+        fromNumber: z.string().optional(),
+        leadId: z.string().uuid().optional().nullable(),
+      });
+
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.flatten() });
+      }
+
+      const callSid = `zoom_${zoomCallId}`;
+      let session = await storage.getCallSessionByCallSid(callSid);
+      
+      if (!session) {
+        const user = await storage.getUser(req.session.userId!);
+        session = await storage.createCallSession({
+          callSid,
+          userId: req.session.userId!,
+          leadId: parsed.data.leadId || null,
+          direction: parsed.data.direction || "outbound",
+          fromNumber: parsed.data.fromNumber || user?.email || "unknown",
+          toNumber: parsed.data.toNumber || "unknown",
+          status: parsed.data.status || "initiated",
+        });
+        console.log(`[ZoomPhone] Created session ${session.id} via PATCH for Zoom call ${zoomCallId}`);
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (parsed.data.status) updates.status = parsed.data.status;
+      if (parsed.data.duration) updates.duration = parsed.data.duration;
+      if (parsed.data.recordingUrl) updates.recordingUrl = parsed.data.recordingUrl;
+      if (parsed.data.transcriptText) updates.transcriptText = parsed.data.transcriptText;
+      if (parsed.data.zoomAiSummary) updates.coachingNotes = parsed.data.zoomAiSummary;
+
+      if (Object.keys(updates).length > 0) {
+        session = await storage.updateCallSession(session.id, updates) || session;
+      }
+      console.log(`[ZoomPhone] Updated call session ${session.id} for Zoom call ${zoomCallId}`);
+      res.json(session);
+    } catch (error) {
+      console.error("Zoom call session update error:", error);
+      res.status(500).json({ message: "Failed to update call session" });
+    }
+  });
+
+  app.post("/api/call-sessions/zoom/:zoomCallId/auto-analyze", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { zoomCallId } = req.params;
+      const callSid = `zoom_${zoomCallId}`;
+      
+      const session = await storage.getCallSessionByCallSid(callSid);
+      if (!session) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      if (session.userId !== req.session.userId) {
+        const requestingUser = await storage.getUser(req.session.userId!);
+        if (!requestingUser || (requestingUser.role !== "admin" && requestingUser.role !== "manager")) {
+          return res.status(403).json({ message: "You can only analyze your own calls" });
+        }
+      }
+
+      if (session.coachingNotes && session.transcriptText) {
+        console.log(`[AutoAnalysis] Session ${session.id} already analyzed, skipping`);
+        return res.json({ status: "already_analyzed", sessionId: session.id });
+      }
+
+      console.log(`[AutoAnalysis] Starting automatic analysis for session ${session.id}`);
+      
+      let transcript = session.transcriptText;
+      
+      if (!transcript) {
+        try {
+          const { downloadTranscript, findRecordingByCallId, downloadRecording } = await import("./ai/zoomClient");
+          const user = await storage.getUser(session.userId);
+          
+          if (user?.email) {
+            const recording = await findRecordingByCallId(user.email, zoomCallId);
+            if (recording?.id) {
+              console.log(`[AutoAnalysis] Found Zoom recording ${recording.id}`);
+              
+              transcript = await downloadTranscript(recording.id);
+              if (transcript) {
+                await storage.updateCallSession(session.id, { transcriptText: transcript });
+                console.log(`[AutoAnalysis] Got transcript from Zoom API`);
+              } else {
+                console.log(`[AutoAnalysis] No Zoom transcript, trying audio transcription`);
+                const audioBuffer = await downloadRecording(recording.id);
+                if (audioBuffer && audioBuffer.length > 0) {
+                  const { transcribeAudio } = await import("./ai/transcribe");
+                  transcript = await transcribeAudio(audioBuffer, "audio/mp3");
+                  if (transcript) {
+                    await storage.updateCallSession(session.id, { transcriptText: transcript });
+                    console.log(`[AutoAnalysis] Transcribed audio with Gemini`);
+                  }
+                }
+              }
+            }
+          }
+        } catch (zoomError) {
+          console.error("[AutoAnalysis] Zoom API error:", zoomError);
+        }
+      }
+
+      if (!transcript && session.recordingUrl) {
+        console.log(`[AutoAnalysis] Trying to transcribe from recording URL`);
+        try {
+          const { transcribeAudio } = await import("./ai/transcribe");
+          const audioResponse = await fetch(session.recordingUrl);
+          if (audioResponse.ok) {
+            const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+            transcript = await transcribeAudio(audioBuffer, "audio/mp3");
+            if (transcript) {
+              await storage.updateCallSession(session.id, { transcriptText: transcript });
+              console.log(`[AutoAnalysis] Transcribed from recording URL`);
+            }
+          }
+        } catch (transcribeError) {
+          console.error("[AutoAnalysis] Recording transcription error:", transcribeError);
+        }
+      }
+
+      if (!transcript || transcript.trim().length < 50) {
+        console.log(`[AutoAnalysis] No sufficient transcript for session ${session.id}`);
+        return res.json({ 
+          status: "pending", 
+          message: "Transcript not yet available. Recording may still be processing.",
+          sessionId: session.id 
+        });
+      }
+
+      let leadContext = undefined;
+      if (session.leadId) {
+        const lead = await storage.getLead(session.leadId);
+        if (lead) {
+          leadContext = {
+            companyName: lead.companyName,
+            contactName: lead.contactName,
+            industry: lead.companyIndustry || undefined,
+          };
+        }
+      }
+
+      console.log(`[AutoAnalysis] Running Claude coaching analysis...`);
+      const { analyzeCallTranscript } = await import("./ai/callCoachingAnalysis");
+      const claudeAnalysis = await analyzeCallTranscript(transcript, leadContext);
+      
+      await storage.updateCallSession(session.id, {
+        coachingNotes: JSON.stringify(claudeAnalysis),
+      });
+      console.log(`[AutoAnalysis] Claude analysis complete, score: ${claudeAnalysis.overallScore}`);
+
+      const user = await storage.getUser(session.userId);
+      let sdr = null;
+      if (user?.sdrId) {
+        sdr = await storage.getSdr(user.sdrId);
+      }
+      
+      const sdrInfo = sdr || {
+        id: user?.id || session.userId,
+        name: user?.name || "Unknown",
+        email: user?.email || "unknown@example.com",
+        phone: null,
+        managerId: null,
+        region: "Unknown",
+        createdAt: new Date(),
+        managerEmail: "",
+        gender: "neutral" as const,
+        timezone: null,
+        isActive: true,
+      };
+
+      console.log(`[AutoAnalysis] Running manager analysis...`);
+      const updatedSession = await storage.getCallSession(session.id);
+      if (updatedSession) {
+        try {
+          const { analyzeCallForManager, saveManagerAnalysis } = await import("./ai/managerAnalysis");
+          const managerAnalysis = await analyzeCallForManager(updatedSession, sdrInfo);
+          await saveManagerAnalysis(updatedSession, sdrInfo, managerAnalysis);
+          console.log(`[AutoAnalysis] Manager analysis complete, score: ${managerAnalysis.overallScore}`);
+        } catch (managerError) {
+          console.error("[AutoAnalysis] Manager analysis error:", managerError);
+        }
+      }
+
+      try {
+        const { processPostCallCoaching } = await import("./ai/coachingAnalysis");
+        const sessionWithTranscript = await storage.getCallSession(session.id);
+        if (sessionWithTranscript) {
+          await processPostCallCoaching(sessionWithTranscript);
+          console.log(`[AutoAnalysis] Coaching email processed`);
+        }
+      } catch (emailError) {
+        console.error("[AutoAnalysis] Coaching email error:", emailError);
+      }
+
+      res.json({
+        status: "completed",
+        sessionId: session.id,
+        analysis: {
+          score: claudeAnalysis.overallScore,
+          summary: claudeAnalysis.callSummary,
+        },
+      });
+    } catch (error) {
+      console.error("Auto-analysis error:", error);
+      res.status(500).json({ message: "Failed to run automatic analysis" });
+    }
+  });
+
   app.get("/api/call-sessions", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = await storage.getUser(req.session.userId!);
@@ -1139,6 +1571,118 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Call outcome update error:", error);
       res.status(500).json({ message: "Failed to update call outcome" });
+    }
+  });
+
+  app.post("/api/call-sessions/:id/analyze-recording", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      const callSession = await storage.getCallSession(id);
+      if (!callSession) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      if (callSession.coachingNotes && callSession.transcriptText) {
+        return res.json({
+          transcript: callSession.transcriptText,
+          analysis: JSON.parse(callSession.coachingNotes),
+          cached: true,
+        });
+      }
+
+      let transcript = callSession.transcriptText;
+      
+      let zoomRecordingId: string | null = null;
+      
+      if (!transcript && callSession.callSid?.startsWith("zoom_")) {
+        const zoomCallId = callSession.callSid.replace("zoom_", "");
+        console.log(`[Recording] Fetching Zoom transcript for call ${zoomCallId}`);
+        
+        try {
+          const { downloadTranscript, findRecordingByCallId, downloadRecording } = await import("./ai/zoomClient");
+          const user = await storage.getUser(callSession.userId);
+          if (user?.email) {
+            const recording = await findRecordingByCallId(user.email, zoomCallId);
+            if (recording?.id) {
+              zoomRecordingId = recording.id;
+              transcript = await downloadTranscript(recording.id);
+              if (transcript) {
+                await storage.updateCallSession(id, { transcriptText: transcript });
+                console.log(`[Recording] Saved Zoom transcript for session ${id}`);
+              } else {
+                console.log(`[Recording] No Zoom transcript, will try audio transcription`);
+                const audioBuffer = await downloadRecording(recording.id);
+                if (audioBuffer && audioBuffer.length > 0) {
+                  const { transcribeAudio } = await import("./ai/transcribe");
+                  transcript = await transcribeAudio(audioBuffer, "audio/mp3");
+                  if (transcript) {
+                    await storage.updateCallSession(id, { transcriptText: transcript });
+                    console.log(`[Recording] Transcribed Zoom audio for session ${id}`);
+                  }
+                }
+              }
+            } else {
+              console.log(`[Recording] No Zoom recording found for call ${zoomCallId}`);
+            }
+          }
+        } catch (zoomError) {
+          console.error("[Recording] Zoom API error (credentials may not be configured):", zoomError);
+        }
+      }
+
+      if (!transcript && callSession.recordingUrl) {
+        console.log(`[Recording] Transcribing audio from ${callSession.recordingUrl}`);
+        
+        try {
+          const { transcribeAudio } = await import("./ai/transcribe");
+          
+          const audioResponse = await fetch(callSession.recordingUrl);
+          if (audioResponse.ok) {
+            const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+            transcript = await transcribeAudio(audioBuffer, "audio/mp3");
+            
+            if (transcript) {
+              await storage.updateCallSession(id, { transcriptText: transcript });
+              console.log(`[Recording] Saved transcription for session ${id}`);
+            }
+          }
+        } catch (transcribeError) {
+          console.error("[Recording] Transcription error:", transcribeError);
+        }
+      }
+
+      if (!transcript) {
+        return res.status(400).json({ message: "No transcript available. Recording may still be processing." });
+      }
+
+      let leadContext = undefined;
+      if (callSession.leadId) {
+        const lead = await storage.getLead(callSession.leadId);
+        if (lead) {
+          leadContext = {
+            companyName: lead.companyName,
+            contactName: lead.contactName,
+            industry: lead.companyIndustry || undefined,
+          };
+        }
+      }
+
+      const { analyzeCallTranscript } = await import("./ai/callCoachingAnalysis");
+      const analysis = await analyzeCallTranscript(transcript, leadContext);
+
+      await storage.updateCallSession(id, {
+        coachingNotes: JSON.stringify(analysis),
+      });
+
+      res.json({
+        transcript,
+        analysis,
+        cached: false,
+      });
+    } catch (error) {
+      console.error("Recording analysis error:", error);
+      res.status(500).json({ message: "Failed to analyze recording" });
     }
   });
 
@@ -1451,6 +1995,7 @@ export async function registerRoutes(
 
   registerLeadsRoutes(app, requireAuth);
   registerCoachRoutes(app, requireAuth);
+  registerSalesforceRoutes(app, requireAuth);
   registerTwilioVoiceRoutes(app);
   registerTranscriptionRoutes(app);
   setupTranscriptionWebSocket(httpServer);

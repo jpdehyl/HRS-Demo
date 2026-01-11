@@ -23,6 +23,10 @@ export function formatCallDate(date: Date, format: "full" | "short" = "full", ov
   });
 }
 
+function isEmailConfigured(): boolean {
+  return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN);
+}
+
 function getAuth() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -45,6 +49,16 @@ export interface EmailOptions {
 }
 
 export async function sendFeedbackEmail(options: EmailOptions): Promise<void> {
+  if (!isEmailConfigured()) {
+    console.log("[Email] Gmail not configured - logging email for testing:");
+    console.log("[Email] To:", options.to);
+    if (options.cc) console.log("[Email] CC:", options.cc);
+    console.log("[Email] Subject:", options.subject);
+    console.log("[Email] Body preview:", options.body.substring(0, 500) + "...");
+    console.log("[Email] --- Email would be sent when Gmail is configured ---");
+    return;
+  }
+
   const auth = getAuth();
   const gmail = google.gmail({ version: "v1", auth });
 

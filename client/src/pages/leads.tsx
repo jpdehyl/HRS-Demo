@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -48,7 +48,6 @@ import {
   Plus,
   ArrowRight,
   LayoutList,
-  LayoutGrid,
   CheckCircle2,
   CheckCircle,
   AlertCircle,
@@ -58,7 +57,9 @@ import {
   X,
   Edit2,
   Check,
-  Link2
+  Link2,
+  FileText,
+  Copy
 } from "lucide-react";
 import {
   Select,
@@ -74,7 +75,6 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { LeadActivityTimeline } from "@/components/lead-activity-timeline";
-import { KanbanBoard } from "@/components/kanban-board";
 import type { Lead, ResearchPacket, CallSession } from "@shared/schema";
 
 interface LeadWithResearch extends Lead {
@@ -84,8 +84,6 @@ interface LeadWithResearch extends Lead {
 
 type SortField = "score" | "name" | "company";
 type SortDirection = "asc" | "desc";
-type ViewMode = "list" | "kanban";
-
 export default function LeadsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLead, setSelectedLead] = useState<LeadWithResearch | null>(null);
@@ -95,7 +93,6 @@ export default function LeadsPage() {
   const [sortField, setSortField] = useState<SortField>("score");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [hideGenericEmails, setHideGenericEmails] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [showQualifyDialog, setShowQualifyDialog] = useState(false);
   const [qualifyData, setQualifyData] = useState({
     qualificationNotes: "",
@@ -269,28 +266,6 @@ export default function LeadsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center bg-muted/50 rounded-md p-1 gap-1 mr-2">
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-              className="h-8 px-3"
-              data-testid="button-view-list"
-            >
-              <LayoutList className="h-4 w-4 mr-2" />
-              List
-            </Button>
-            <Button
-              variant={viewMode === "kanban" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("kanban")}
-              className="h-8 px-3"
-              data-testid="button-view-kanban"
-            >
-              <LayoutGrid className="h-4 w-4 mr-2" />
-              Pipeline
-            </Button>
-          </div>
           <Button variant="outline" size="sm" onClick={() => setShowAddLeadModal(true)} data-testid="button-add-lead">
             <Plus className="h-4 w-4 mr-2" />
             Add Lead
@@ -303,12 +278,6 @@ export default function LeadsPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {viewMode === "kanban" ? (
-          <div className="flex-1 overflow-hidden p-4">
-            <KanbanBoard leads={filteredLeads} onLeadClick={setSelectedLead} />
-          </div>
-        ) : (
-          <>
         <div className={`border-r flex flex-col bg-muted/30 transition-all duration-200 ${sidebarCollapsed ? "w-12" : "w-80"}`}>
           {sidebarCollapsed ? (
             <div className="flex flex-col items-center py-3">
@@ -475,8 +444,6 @@ export default function LeadsPage() {
             </div>
           )}
         </div>
-          </>
-        )}
       </div>
 
       <ImportModal open={showImportModal} onOpenChange={setShowImportModal} />
@@ -823,25 +790,26 @@ function LeadDetailPanel({
         ) : (
           <div className="flex flex-col items-center justify-center h-full p-8">
             <div className="p-4 rounded-full bg-muted/50 mb-4">
-              <Crosshair className="h-10 w-10 text-muted-foreground" />
-            </div>
-            <h3 className="font-semibold mb-2">No Intel Available</h3>
-            <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
-              Generate an AI-powered intelligence dossier with company research, contact analysis, and personalized talk tracks.
-            </p>
-            <Button onClick={onResearch} disabled={isResearching} data-testid="button-generate-intel">
               {isResearching ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Gathering Intel...
-                </>
+                <Loader2 className="h-10 w-10 text-primary animate-spin" />
               ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Generate Dossier
-                </>
+                <Crosshair className="h-10 w-10 text-muted-foreground" />
               )}
-            </Button>
+            </div>
+            <h3 className="font-semibold mb-2">
+              {isResearching ? "Generating Intel..." : "Intel Pending"}
+            </h3>
+            <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
+              {isResearching 
+                ? "AI is researching this lead. This typically takes 30-60 seconds."
+                : "Research is auto-generated when leads are added. Check back shortly or refresh."}
+            </p>
+            {!isResearching && (
+              <Button onClick={onResearch} variant="outline" size="sm" data-testid="button-generate-intel">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -922,6 +890,7 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
   const [editingScore, setEditingScore] = useState(false);
   const [scoreValue, setScoreValue] = useState<string>(packet.fitScore?.toString() || "");
   const [priorityValue, setPriorityValue] = useState<string>(packet.priority || "");
+  const [speedBriefMode, setSpeedBriefMode] = useState(false);
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -1223,6 +1192,121 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      {/* Speed Brief Toggle */}
+      <div className="flex items-center justify-between mb-4 p-3 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20">
+        <div className="flex items-center gap-2">
+          <Zap className="h-5 w-5 text-primary" />
+          <span className="font-medium">Speed Brief</span>
+          <span className="text-xs text-muted-foreground">(Opener + Pain + Ask only)</span>
+        </div>
+        <Button
+          size="sm"
+          variant={speedBriefMode ? "default" : "outline"}
+          onClick={() => setSpeedBriefMode(!speedBriefMode)}
+          className="gap-2"
+          data-testid="button-speed-brief-toggle"
+        >
+          {speedBriefMode ? (
+            <>
+              <FileText className="h-4 w-4" />
+              Show Full Dossier
+            </>
+          ) : (
+            <>
+              <Zap className="h-4 w-4" />
+              Speed Brief Mode
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Speed Brief View */}
+      {speedBriefMode ? (
+        <div className="space-y-4">
+          {/* Opening Line */}
+          <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-primary" />
+                <span className="font-bold text-lg">Opening Line</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg leading-relaxed">
+                {packet.talkTrack?.split('\n')[0] || "No opening line available"}
+              </p>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="mt-2"
+                onClick={() => {
+                  navigator.clipboard.writeText(packet.talkTrack?.split('\n')[0] || "");
+                  toast({ title: "Copied!", description: "Opening line copied to clipboard" });
+                }}
+              >
+                <Copy className="h-4 w-4 mr-1" />
+                Copy
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Top Pain Point */}
+          <Card className="border-2 border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50/50 to-transparent dark:from-red-950/20">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+                <span className="font-bold text-lg">Top Pain Point</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {painPoints.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-lg font-medium">{painPoints[0].pain}</p>
+                  {painPoints[0].hawkRidgeSolution && (
+                    <div className="flex items-start gap-2 text-green-600 dark:text-green-400">
+                      <ArrowRight className="h-4 w-4 mt-1 flex-shrink-0" />
+                      <span>{painPoints[0].hawkRidgeSolution}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No pain points identified</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* The Ask */}
+          <Card className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-950/20">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-green-600" />
+                <span className="font-bold text-lg">The Ask</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg leading-relaxed">
+                {packet.talkTrack?.split('\n').find((line: string) => line.toLowerCase().includes("ask") || line.toLowerCase().includes("meeting") || line.toLowerCase().includes("call")) ||
+                  "Would you be open to a brief call to discuss how we can help streamline your design and manufacturing processes?"}
+              </p>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="mt-2"
+                onClick={() => {
+                  const theAsk = packet.talkTrack?.split('\n').find((line: string) => line.toLowerCase().includes("ask") || line.toLowerCase().includes("meeting")) || 
+                    "Would you be open to a brief call to discuss how we can help streamline your design and manufacturing processes?";
+                  navigator.clipboard.writeText(theAsk);
+                  toast({ title: "Copied!", description: "Call to action copied to clipboard" });
+                }}
+              >
+                <Copy className="h-4 w-4 mr-1" />
+                Copy
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
 
       <Tabs defaultValue="company" className="w-full">
         <TabsList className="grid grid-cols-4 w-full max-w-lg">
@@ -1539,6 +1623,7 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
           <ActivityTabContent leadId={lead.id} />
         </TabsContent>
       </Tabs>
+      )}
     </div>
   );
 }
