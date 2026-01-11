@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { AlertCircle, Briefcase, Check, KeyRound, Loader2, Mail, Phone, MapPin, Shield, Trash2, User, UserCog, Users, Plus, Edit2, Menu, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
+import { AlertCircle, Briefcase, Check, KeyRound, Loader2, Mail, Phone, MapPin, Shield, Trash2, User, UserCog, Users, Plus, Edit2, Menu, GripVertical, ArrowUp, ArrowDown, Link2, RefreshCw, Cloud, CloudOff, ExternalLink } from "lucide-react";
 import type { User as UserType, AccountExecutive, NavigationSetting } from "@shared/schema";
 
 type UserWithoutPassword = Omit<UserType, "password">;
@@ -74,6 +74,29 @@ export default function SettingsPage() {
     enabled: isAdmin
   });
 
+  const { data: salesforceStatus, isLoading: sfStatusLoading, refetch: refetchSfStatus } = useQuery<{
+    connected: boolean;
+    instanceUrl?: string;
+    lastSyncAt?: string;
+  }>({
+    queryKey: ["/api/salesforce/status"],
+    enabled: isAdmin
+  });
+
+  const { data: syncLogs = [] } = useQuery<Array<{
+    id: string;
+    operation: string;
+    direction: string;
+    recordCount: number;
+    status: string;
+    errorMessage?: string;
+    startedAt: string;
+    completedAt?: string;
+  }>>({
+    queryKey: ["/api/salesforce/sync-logs"],
+    enabled: isAdmin && salesforceStatus?.connected
+  });
+
   const updateNavSettingMutation = useMutation({
     mutationFn: async ({ id, isEnabled, sortOrder }: { id: string; isEnabled?: boolean; sortOrder?: number }) => {
       const res = await apiRequest("PATCH", `/api/navigation-settings/${id}`, { isEnabled, sortOrder });
@@ -85,6 +108,53 @@ export default function SettingsPage() {
     },
     onError: (error: Error) => {
       toast({ title: "Update failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const connectSalesforceMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("GET", "/api/salesforce/connect");
+      return res.json();
+    },
+    onSuccess: (data: { authUrl: string }) => {
+      window.location.href = data.authUrl;
+    },
+    onError: (error: Error) => {
+      toast({ title: "Connection failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const disconnectSalesforceMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/salesforce/disconnect");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchSfStatus();
+      queryClient.invalidateQueries({ queryKey: ["/api/salesforce/sync-logs"] });
+      toast({ title: "Disconnected", description: "Salesforce has been disconnected" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Disconnect failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const importLeadsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/salesforce/import", { limit: 100 });
+      return res.json();
+    },
+    onSuccess: (data: { imported: number; updated: number; errors: string[] }) => {
+      refetchSfStatus();
+      queryClient.invalidateQueries({ queryKey: ["/api/salesforce/sync-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({
+        title: "Import complete",
+        description: `Imported ${data.imported} new leads, updated ${data.updated} existing leads${data.errors.length > 0 ? ` (${data.errors.length} errors)` : ""}`
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Import failed", description: error.message, variant: "destructive" });
     }
   });
 
@@ -257,7 +327,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : canManageUsers ? 'grid-cols-3' : 'grid-cols-2'}`} data-testid="tabs-settings">
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-5' : canManageUsers ? 'grid-cols-3' : 'grid-cols-2'}`} data-testid="tabs-settings">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="h-4 w-4 mr-2" />
             Profile
@@ -276,6 +346,12 @@ export default function SettingsPage() {
             <TabsTrigger value="navigation" data-testid="tab-navigation">
               <Menu className="h-4 w-4 mr-2" />
               Navigation
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="integrations" data-testid="tab-integrations">
+              <Link2 className="h-4 w-4 mr-2" />
+              Integrations
             </TabsTrigger>
           )}
         </TabsList>
@@ -630,6 +706,165 @@ export default function SettingsPage() {
                     {navigationSettings.length === 0 && (
                       <p className="text-center text-muted-foreground py-8">No navigation settings found</p>
                     )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="integrations" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Cloud className="h-5 w-5" />
+                  Salesforce Integration
+                </CardTitle>
+                <CardDescription>
+                  Connect your Salesforce CRM to import leads and sync handover data
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {sfStatusLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : salesforceStatus?.connected ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                          <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-green-800 dark:text-green-200">Connected to Salesforce</p>
+                          {salesforceStatus.instanceUrl && (
+                            <p className="text-sm text-green-600 dark:text-green-400">{salesforceStatus.instanceUrl}</p>
+                          )}
+                          {salesforceStatus.lastSyncAt && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Last sync: {new Date(salesforceStatus.lastSyncAt).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => disconnectSalesforceMutation.mutate()}
+                        disabled={disconnectSalesforceMutation.isPending}
+                      >
+                        {disconnectSalesforceMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CloudOff className="h-4 w-4 mr-2" />
+                        )}
+                        Disconnect
+                      </Button>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <h4 className="font-medium">Import Leads</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Pull leads from Salesforce into Lead Intel. Existing leads will be updated with the latest data.
+                      </p>
+                      <Button
+                        onClick={() => importLeadsMutation.mutate()}
+                        disabled={importLeadsMutation.isPending}
+                      >
+                        {importLeadsMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Importing...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Import Leads from Salesforce
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {syncLogs.length > 0 && (
+                      <>
+                        <Separator />
+                        <div className="space-y-4">
+                          <h4 className="font-medium">Recent Sync Activity</h4>
+                          <div className="space-y-2">
+                            {syncLogs.slice(0, 5).map((log) => (
+                              <div key={log.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                <div>
+                                  <p className="text-sm font-medium">
+                                    {log.operation === "import_leads" ? "Lead Import" : log.operation}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {new Date(log.startedAt).toLocaleString()}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={log.status === "completed" ? "default" : log.status === "failed" ? "destructive" : "secondary"}>
+                                    {log.status}
+                                  </Badge>
+                                  {log.recordCount > 0 && (
+                                    <span className="text-sm text-muted-foreground">
+                                      {log.recordCount} records
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                        <CloudOff className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Not Connected</p>
+                        <p className="text-sm text-muted-foreground">
+                          Connect your Salesforce account to sync leads
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={() => connectSalesforceMutation.mutate()}
+                      disabled={connectSalesforceMutation.isPending}
+                    >
+                      {connectSalesforceMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Cloud className="h-4 w-4 mr-2" />
+                          Connect Salesforce
+                        </>
+                      )}
+                    </Button>
+
+                    <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <div className="flex gap-2">
+                        <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-amber-800 dark:text-amber-200">
+                          <p className="font-medium">Setup Required</p>
+                          <p className="mt-1">
+                            Before connecting, ensure the Salesforce Connected App is configured with the correct OAuth credentials 
+                            (SALESFORCE_CLIENT_ID and SALESFORCE_CLIENT_SECRET environment variables).
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </CardContent>

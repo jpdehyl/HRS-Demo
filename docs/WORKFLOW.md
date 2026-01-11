@@ -27,9 +27,47 @@ The platform supports multiple lead ingestion methods:
 
 | Source | Method | Description |
 |--------|--------|-------------|
+| **Salesforce** | CRM Sync | Bi-directional sync with Salesforce CRM via OAuth 2.0 |
 | **Google Sheets** | Automated Import | Pulls from configured spreadsheet (`LEADS_SPREADSHEET_ID`) |
 | **Manual Entry** | UI Form | Users add leads directly through the dashboard |
 | **API** | REST Endpoint | Programmatic lead creation via `POST /api/leads` |
+
+### 1.1.1 Salesforce Integration
+
+The platform integrates directly with Salesforce CRM for seamless lead management:
+
+**Setup Requirements:**
+1. Create a Salesforce Connected App with OAuth 2.0
+2. Configure `SALESFORCE_CLIENT_ID` and `SALESFORCE_CLIENT_SECRET` secrets
+3. Admin connects via Settings > Integrations > Connect Salesforce
+
+**Import Flow:**
+```
+┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
+│  Salesforce     │────▶│  Lead Intel  │────▶│  Assign to SDR  │
+│  Lead Records   │     │  Import API  │     │  & Research     │
+└─────────────────┘     └──────────────┘     └─────────────────┘
+```
+
+**Field Mapping (Salesforce → Lead Intel):**
+| Salesforce Field | Lead Intel Field |
+|------------------|------------------|
+| `Name` / `FirstName` + `LastName` | `contactName` |
+| `Email` | `contactEmail` |
+| `Phone` | `contactPhone` |
+| `Company` | `companyName` |
+| `Industry` | `companyIndustry` |
+| `Title` | `contactTitle` |
+| `Website` | `companyWebsite` |
+| `Status` | `status` (mapped) |
+| `Id` | `salesforceId` (for sync) |
+
+**API Endpoints:**
+- `GET /api/salesforce/status` - Check connection status
+- `GET /api/salesforce/connect` - Initiate OAuth flow
+- `POST /api/salesforce/import` - Import leads from Salesforce
+- `POST /api/leads/:id/push-to-salesforce` - Push lead updates to Salesforce
+- `POST /api/leads/:id/handover-salesforce` - Handover with Salesforce sync
 
 ### 1.2 Lead Data Structure
 

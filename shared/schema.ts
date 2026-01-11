@@ -141,6 +141,8 @@ export const leads = pgTable("leads", {
   handedOffBy: varchar("handed_off_by"),
   nextFollowUpAt: timestamp("next_follow_up_at"),
   lastContactedAt: timestamp("last_contacted_at"),
+  salesforceId: varchar("salesforce_id"),
+  salesforceLastSync: timestamp("salesforce_last_sync"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -434,3 +436,48 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// Integration Settings - Store OAuth tokens and settings for external integrations
+export const integrationProviderEnum = ["salesforce", "hubspot", "pipedrive"] as const;
+export type IntegrationProvider = typeof integrationProviderEnum[number];
+
+export const integrationSettings = pgTable("integration_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: text("provider").notNull().unique(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  instanceUrl: text("instance_url"),
+  expiresAt: timestamp("expires_at"),
+  isConnected: boolean("is_connected").default(false).notNull(),
+  lastSyncAt: timestamp("last_sync_at"),
+  syncConfig: jsonb("sync_config"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertIntegrationSettingSchema = createInsertSchema(integrationSettings).omit({ 
+  id: true, 
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertIntegrationSetting = z.infer<typeof insertIntegrationSettingSchema>;
+export type IntegrationSetting = typeof integrationSettings.$inferSelect;
+
+// Salesforce Sync Log - Track sync operations
+export const salesforceSyncLog = pgTable("salesforce_sync_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  operation: text("operation").notNull(),
+  direction: text("direction").notNull(),
+  recordCount: integer("record_count").default(0),
+  status: text("status").notNull(),
+  errorMessage: text("error_message"),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertSalesforceSyncLogSchema = createInsertSchema(salesforceSyncLog).omit({ 
+  id: true, 
+  startedAt: true,
+});
+export type InsertSalesforceSyncLog = z.infer<typeof insertSalesforceSyncLogSchema>;
+export type SalesforceSyncLog = typeof salesforceSyncLog.$inferSelect;

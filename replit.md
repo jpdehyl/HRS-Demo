@@ -82,6 +82,20 @@ Preferred communication style: Simple, everyday language.
 - Required secret: `ANTHROPIC_API_KEY`
 - Provides: overall score, strengths, areas for improvement, question quality, objection handling analysis
 
+### Salesforce CRM Integration
+- OAuth 2.0 Web Server Flow for authentication
+- Client: `server/integrations/salesforceClient.ts` (OAuth token management, refresh, API requests)
+- Lead operations: `server/integrations/salesforceLeads.ts` (import, push, handover)
+- Routes: `server/salesforce-routes.ts`
+- Required secrets: `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`
+- Features:
+  - **Import Leads**: Pull leads from Salesforce into Lead Intel with field mapping
+  - **Push to Salesforce**: Sync lead updates, research, and qualification notes back to Salesforce
+  - **Handover to AE**: Update Salesforce lead status and optionally convert to Opportunity
+- Admin UI: Settings > Integrations tab for connection management and sync controls
+- Database tables: `integration_settings` (OAuth tokens), `salesforce_sync_log` (sync history)
+- Lead field: `salesforceId` links local leads to Salesforce Lead records
+
 ### Twilio Voice Integration (Legacy/Archived)
 - Browser-based softphone with real-time transcription via `<Transcription>` element
 - Recording with `record: "record-from-answer-dual"`
