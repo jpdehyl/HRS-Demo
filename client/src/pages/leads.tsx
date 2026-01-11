@@ -500,7 +500,83 @@ export default function LeadsPage() {
                 data-testid="input-buy-signals"
               />
             </div>
-            
+
+            <Separator className="my-4" />
+
+            {/* BANT Auto-Fill Section */}
+            <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-600" />
+                  <h4 className="text-sm font-semibold">Auto-Fill BANT from Call</h4>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    if (!selectedLead) return;
+
+                    // Find the most recent call with a transcript
+                    const callsQuery = await queryClient.fetchQuery({
+                      queryKey: ["/api/call-sessions"],
+                    });
+
+                    const recentCallWithTranscript = (callsQuery as any[])
+                      .filter((call: any) => call.leadId === selectedLead.id && call.transcriptText && call.transcriptText.trim().length >= 100)
+                      .sort((a: any, b: any) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime())[0];
+
+                    if (!recentCallWithTranscript) {
+                      toast({
+                        title: "No Call Found",
+                        description: "No recent call with transcript found for this lead",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    try {
+                      const res = await fetch(`/api/call-sessions/${recentCallWithTranscript.id}/extract-bant`, {
+                        method: 'POST',
+                        credentials: 'include',
+                      });
+
+                      if (!res.ok) throw new Error('Failed to extract BANT');
+
+                      const result = await res.json();
+                      const bant = result.data;
+
+                      // Auto-fill the BANT fields
+                      setQualifyData(prev => ({
+                        ...prev,
+                        budget: bant.budget || prev.budget,
+                        timeline: bant.timeline || prev.timeline,
+                        decisionMakers: bant.decisionMakers || prev.decisionMakers,
+                      }));
+
+                      toast({
+                        title: "BANT Extracted",
+                        description: bant.extractionSummary,
+                      });
+                    } catch (error) {
+                      toast({
+                        title: "Extraction Failed",
+                        description: "Could not extract BANT from call transcript",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  className="gap-1"
+                  data-testid="button-extract-bant"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Extract from Call
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Automatically extract Budget, Authority, Need, and Timeline from your most recent call transcript
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="budget">Budget Range</Label>

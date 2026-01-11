@@ -1688,6 +1688,35 @@ export async function registerRoutes(
     }
   });
 
+  // Extract BANT (Budget, Authority, Need, Timeline) from call transcript
+  app.post("/api/call-sessions/:id/extract-bant", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const callSession = await storage.getCallSession(id);
+      if (!callSession) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      // Import the extraction function
+      const { extractBANTFromTranscript } = await import("./ai/bantExtraction.js");
+
+      const bantData = await extractBANTFromTranscript(id);
+
+      res.json({
+        success: true,
+        data: bantData,
+        message: bantData.extractionSummary
+      });
+    } catch (error) {
+      console.error("BANT extraction error:", error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to extract BANT data"
+      });
+    }
+  });
+
   app.post("/api/call-sessions/:id/analyze-recording", requireAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
