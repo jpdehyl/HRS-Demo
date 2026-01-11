@@ -669,6 +669,39 @@ function LeadListItem({
     return "text-red-600 dark:text-red-400";
   };
 
+  const getLastContactInfo = (lastContactedAt: Date | null) => {
+    if (!lastContactedAt) return null;
+
+    const now = new Date();
+    const lastContact = new Date(lastContactedAt);
+    const daysSince = Math.floor((now.getTime() - lastContact.getTime()) / (1000 * 60 * 60 * 24));
+
+    let color = "text-muted-foreground";
+    let icon = Clock;
+
+    if (daysSince === 0) {
+      return { text: "Today", color: "text-green-600 dark:text-green-400", icon };
+    } else if (daysSince === 1) {
+      return { text: "Yesterday", color: "text-green-600 dark:text-green-400", icon };
+    } else if (daysSince <= 3) {
+      color = "text-green-600 dark:text-green-400";
+    } else if (daysSince <= 7) {
+      color = "text-yellow-600 dark:text-yellow-400";
+    } else if (daysSince <= 14) {
+      color = "text-orange-600 dark:text-orange-400";
+    } else {
+      color = "text-red-600 dark:text-red-400";
+    }
+
+    return {
+      text: `${daysSince}d ago`,
+      color,
+      icon
+    };
+  };
+
+  const lastContactInfo = getLastContactInfo(lead.lastContactedAt);
+
   return (
     <button
       onClick={onClick}
@@ -688,6 +721,12 @@ function LeadListItem({
           <p className="text-xs text-muted-foreground truncate mt-0.5">
             {lead.companyName}
           </p>
+          {lastContactInfo && (
+            <div className={`flex items-center gap-1 mt-1 text-xs ${lastContactInfo.color}`}>
+              <lastContactInfo.icon className="h-3 w-3" />
+              <span>{lastContactInfo.text}</span>
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end gap-1">
           {lead.fitScore !== null && lead.fitScore !== undefined && (
