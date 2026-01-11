@@ -9,6 +9,7 @@
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
     "db:push": "drizzle-kit push",
+    "seed:demo": "tsx scripts/seedDemoData.ts",
     "test:e2e": "playwright test",
     "test:ui": "playwright test --ui",
     "playwright:screenshot": "tsx scripts/playwright-ux/screenshot.ts",
