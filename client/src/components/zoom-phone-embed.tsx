@@ -232,11 +232,7 @@ export function ZoomPhoneEmbed({
       case "ended":
         return <Badge variant="secondary">Call Ended</Badge>;
       default:
-        return isReady ? (
-          <Badge variant="secondary">Ready</Badge>
-        ) : (
-          <Badge variant="outline">Loading...</Badge>
-        );
+        return <Badge variant="secondary">Ready</Badge>;
     }
   };
 
@@ -311,19 +307,6 @@ export function ZoomPhoneEmbed({
             }}
             title="Zoom Phone"
           />
-          {!isReady && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80">
-              <div className="text-center space-y-2">
-                <Volume2 className="h-8 w-8 animate-pulse mx-auto text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Loading Zoom Phone...
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Sign in with your Zoom credentials
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
