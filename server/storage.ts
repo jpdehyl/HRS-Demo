@@ -105,6 +105,7 @@ export interface IStorage {
   
   getAllNavigationSettings(): Promise<NavigationSetting[]>;
   updateNavigationSetting(id: string, updates: { isEnabled?: boolean; sortOrder?: number }): Promise<NavigationSetting | undefined>;
+  initializeNavigationSettings(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -525,6 +526,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(navigationSettings.id, id))
       .returning();
     return result;
+  }
+
+  async initializeNavigationSettings(): Promise<void> {
+    const existing = await db.select().from(navigationSettings);
+    if (existing.length > 0) return;
+
+    const defaultSettings = [
+      { navKey: "dashboard", label: "Dashboard", isEnabled: true, sortOrder: 0 },
+      { navKey: "leads", label: "Leads", isEnabled: true, sortOrder: 1 },
+      { navKey: "live_coaching", label: "Live Coaching", isEnabled: true, sortOrder: 2 },
+      { navKey: "team", label: "Team", isEnabled: true, sortOrder: 3 },
+      { navKey: "reports", label: "Reports", isEnabled: true, sortOrder: 4 },
+      { navKey: "ae_pipeline", label: "AE Pipeline", isEnabled: true, sortOrder: 5 },
+      { navKey: "budgeting", label: "Budgeting", isEnabled: true, sortOrder: 6 },
+    ];
+
+    for (const setting of defaultSettings) {
+      await db.insert(navigationSettings).values(setting).onConflictDoNothing();
+    }
+    console.log("[Init] Navigation settings initialized");
   }
 }
 
