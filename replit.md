@@ -119,6 +119,14 @@ Preferred communication style: Simple, everyday language.
 - Schema migrations in `./migrations` directory
 - Push schema with `npm run db:push`
 
+### Demo Data
+- Run `npm run seed:demo` to populate database with realistic sales demo data
+- Script: `scripts/seedDemoData.ts`
+- Creates: 3 managers, 20 SDRs, 5 AEs, 50 leads with research, 125 call sessions with coaching analysis
+- All demo accounts use password: `demo2024`
+- Demo emails follow pattern: `firstname.lastname@hawkridge.com`
+- Example logins: `carlos.martinez@hawkridge.com`, `roberto.hernandez@hawkridge.com` (manager)
+
 ### Additional Services
 - **SerpAPI**: LinkedIn profile searches for lead research (optional, via `SERP_API`)
 - **MediaPipe**: Hand gesture detection for landing page interactions (CDN-loaded)
