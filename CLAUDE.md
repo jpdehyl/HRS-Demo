@@ -1,6 +1,6 @@
 # CLAUDE.md - AI Assistant Guide for Lead Intel
 
-> **Last Updated:** January 9, 2026
+> **Last Updated:** January 11, 2026
 > **Repository:** hawkridgesales
 > **Type:** Full-stack TypeScript monorepo (React + Express.js)
 
@@ -46,7 +46,10 @@ This document provides comprehensive guidance for AI assistants working on the L
 **External Integrations:**
 - Google Workspace (Sheets, Drive, Gmail)
 - Google Gemini AI (via Replit AI Integrations)
+- Anthropic Claude AI (call coaching analysis)
+- Salesforce CRM (OAuth 2.0 lead sync)
 - Twilio Voice (browser-based calling)
+- Zoom Phone (call recording & transcription)
 - SerpAPI (LinkedIn profile discovery)
 - XAI API (Twitter/X research)
 
@@ -77,8 +80,10 @@ This document provides comprehensive guidance for AI assistants working on the L
 - **Validation:** Zod 3.25.76 (runtime validation)
 - **Date Handling:** date-fns 3.6.0
 - **HTTP Client:** fetch API (native)
-- **AI:** @google/generative-ai 0.24.1
+- **AI (Gemini):** @google/generative-ai 0.24.1
+- **AI (Claude):** @anthropic-ai/sdk 0.71.2
 - **Voice:** @twilio/voice-sdk 2.17.0
+- **Testing:** Playwright (E2E, accessibility)
 
 ---
 
@@ -86,26 +91,58 @@ This document provides comprehensive guidance for AI assistants working on the L
 
 ```
 hawkridgesales/
+├── .claude/                         # AI Agent & Development System
+│   ├── agents/                     # Multi-agent system
+│   │   ├── README.md               # Agent documentation
+│   │   ├── director.md             # Director agent prompt
+│   │   ├── researcher.md           # Researcher agent prompt
+│   │   ├── business-analyst.md     # Business analyst prompt
+│   │   └── ux-agent.md             # UX agent prompt
+│   ├── ralph/                      # Ralph iterative development
+│   │   ├── README.md               # Ralph methodology guide
+│   │   ├── QUICKSTART.md           # Quick start guide
+│   │   ├── AGENTS.md               # Project context for agents
+│   │   ├── progress.txt            # Append-only progress log
+│   │   ├── v2-production.json      # Active MVP PRD
+│   │   └── templates/
+│   │       └── prd-template.json   # PRD template
+│   └── discovery/                  # Discovery & planning docs
+│       ├── design-system-v2.md
+│       ├── hawk-ridge-requirements.md
+│       ├── migration-plan.md
+│       ├── ux-mockups.md
+│       └── v2-architecture.md
+│
 ├── client/                          # React frontend (Vite)
 │   ├── src/
-│   │   ├── pages/                  # Route components (13 pages)
+│   │   ├── pages/                  # Route components (14 pages)
 │   │   │   ├── landing.tsx         # Marketing homepage
 │   │   │   ├── login.tsx           # Authentication
+│   │   │   ├── signup.tsx          # User registration
 │   │   │   ├── dashboard.tsx       # Main KPI dashboard
-│   │   │   ├── leads.tsx           # Lead management (1937 lines)
+│   │   │   ├── leads.tsx           # Lead management
 │   │   │   ├── coaching.tsx        # Live call coaching
 │   │   │   ├── call-prep.tsx       # Pre-call research view
 │   │   │   ├── team.tsx            # Team management
 │   │   │   ├── reports.tsx         # Analytics
-│   │   │   └── settings.tsx        # User settings
-│   │   ├── components/             # React components (59+)
-│   │   │   ├── ui/                 # shadcn/ui library (30+ components)
+│   │   │   ├── settings.tsx        # User settings
+│   │   │   ├── ae-pipeline.tsx     # AE pipeline view
+│   │   │   ├── budgeting.tsx       # Territory budgeting
+│   │   │   ├── learning.tsx        # Learning resources
+│   │   │   └── not-found.tsx       # 404 page
+│   │   ├── components/             # React components (81+)
+│   │   │   ├── ui/                 # shadcn/ui library (64 components)
 │   │   │   ├── softphone.tsx       # Twilio voice integration
 │   │   │   ├── call-brief.tsx      # Pre-call intelligence display
+│   │   │   ├── call-review-dialog.tsx # Post-call review
+│   │   │   ├── call-queue.tsx      # Call queue management
+│   │   │   ├── kanban-board.tsx    # Lead pipeline board
+│   │   │   ├── zoom-phone-embed.tsx # Zoom Phone widget
 │   │   │   └── app-sidebar.tsx     # Main navigation
 │   │   ├── hooks/                  # Custom React hooks
 │   │   │   ├── use-transcription.ts # WebSocket transcription
-│   │   │   └── use-toast.ts
+│   │   │   ├── use-toast.ts
+│   │   │   └── use-mobile.tsx
 │   │   ├── lib/
 │   │   │   ├── auth.tsx            # Auth context & hooks
 │   │   │   ├── queryClient.ts      # React Query config
@@ -115,57 +152,84 @@ hawkridgesales/
 │   └── index.html
 │
 ├── server/                          # Express.js backend
-│   ├── ai/                         # AI modules (Google Gemini)
-│   │   ├── leadResearch.ts         # Main research orchestrator (29.7 KB)
+│   ├── ai/                         # AI modules (15 modules)
+│   │   ├── leadResearch.ts         # Main research orchestrator
 │   │   ├── websiteScraper.ts       # Website & LinkedIn scraping
 │   │   ├── xResearch.ts            # X/Twitter research
 │   │   ├── linkedInResearch.ts     # LinkedIn data extraction
 │   │   ├── companyHardIntel.ts     # Company intelligence
 │   │   ├── productCatalog.ts       # Product matching
 │   │   ├── analyze.ts              # Post-call analysis
-│   │   ├── coachingAnalysis.ts     # Live coaching tips
-│   │   └── managerAnalysis.ts      # Manager performance analysis
+│   │   ├── coachingAnalysis.ts     # Live coaching tips (Gemini)
+│   │   ├── callCoachingAnalysis.ts # Call coaching (Claude)
+│   │   ├── claudeClient.ts         # Claude SDK wrapper
+│   │   ├── qualificationExtractor.ts # BANT extraction
+│   │   ├── managerAnalysis.ts      # Manager performance analysis
+│   │   ├── transcribe.ts           # Audio transcription
+│   │   ├── serpApiClient.ts        # LinkedIn search API
+│   │   └── zoomClient.ts           # Zoom Phone integration
+│   │
+│   ├── integrations/               # External service integrations
+│   │   ├── salesforceClient.ts     # Salesforce OAuth & REST API
+│   │   └── salesforceLeads.ts      # Lead sync operations
 │   │
 │   ├── google/                     # Google Workspace integrations
+│   │   ├── config.ts               # Google API configuration
 │   │   ├── sheetsClient.ts         # Google Sheets API
 │   │   ├── driveClient.ts          # Google Drive operations
 │   │   └── gmailClient.ts          # Gmail sending
 │   │
 │   ├── replit_integrations/        # Replit AI services
-│   │   └── chat/                   # Gemini chat integration
+│   │   ├── batch/                  # Batch processing
+│   │   ├── chat/                   # Gemini chat integration
+│   │   └── image/                  # Image generation
 │   │
-│   ├── routes.ts                   # Main API routes (1459 lines, 42 endpoints)
+│   ├── routes.ts                   # Main API routes (42+ endpoints)
 │   ├── leads-routes.ts             # Leads-specific routes
 │   ├── coach-routes.ts             # Coaching routes
+│   ├── salesforce-routes.ts        # Salesforce API endpoints
 │   ├── twilio-voice.ts             # Twilio Voice integration
 │   ├── transcription.ts            # WebSocket transcription
 │   ├── notificationService.ts      # Real-time notifications
-│   ├── storage.ts                  # Database abstraction (21.3 KB)
+│   ├── storage.ts                  # Database abstraction
 │   ├── db.ts                       # Drizzle ORM connection
 │   └── index.ts                    # Express app initialization
 │
 ├── shared/                         # Shared code
-│   └── schema.ts                   # Database schema & Zod validators (16.4 KB)
+│   ├── schema.ts                   # Database schema & Zod validators
+│   └── models/
+│       └── chat.ts                 # Chat/conversation models
+│
+├── docs/                           # Documentation
+│   ├── SALESFORCE_INTEGRATION_GUIDE.md # Salesforce setup guide
+│   └── WORKFLOW.md                 # Platform workflow docs
+│
+├── scripts/                        # Build & test scripts
+│   ├── build.ts
+│   └── playwright-ux/              # UX testing
+│       ├── README.md
+│       ├── accessibility-audit.ts  # A11y compliance
+│       ├── screenshot.ts           # Visual regression
+│       └── user-flow.ts            # E2E user journeys
 │
 ├── migrations/                     # Drizzle migrations
-│
-├── script/
-│   └── build.ts                    # Build script
 │
 ├── package.json                    # Dependencies & scripts
 ├── tsconfig.json                   # TypeScript config
 ├── vite.config.ts                  # Vite config
 ├── drizzle.config.ts               # Drizzle ORM config
 ├── tailwind.config.ts              # Tailwind CSS config
+├── playwright.config.ts            # Playwright test config
 └── .replit                         # Replit environment config
 ```
 
 ### Key Metrics
-- **Total API Endpoints:** 65+
-- **Frontend Pages:** 13 (8,369 lines)
-- **UI Components:** 59+
-- **Database Tables:** 14 primary tables
-- **AI Modules:** 12 specialized modules
+- **Total TypeScript Files:** 137
+- **Total API Endpoints:** 70+
+- **Frontend Pages:** 14
+- **UI Components:** 81+ (17 custom + 64 shadcn/ui)
+- **Database Tables:** 17 primary tables
+- **AI Modules:** 15 specialized modules
 
 ---
 
@@ -282,8 +346,11 @@ npx drizzle-kit generate
 
 External Services:
 ├── Google Gemini AI (via Replit AI Integrations)
+├── Anthropic Claude AI (call coaching analysis)
 ├── Google Workspace (Sheets, Drive, Gmail)
+├── Salesforce CRM (OAuth 2.0 lead sync)
 ├── Twilio Voice (VOIP)
+├── Zoom Phone (call recording)
 ├── SerpAPI (LinkedIn search)
 └── XAI API (X/Twitter)
 ```
@@ -662,6 +729,37 @@ Call metadata and recordings.
 }
 ```
 
+#### integration_settings
+External CRM integration configuration (Salesforce OAuth tokens).
+
+```typescript
+{
+  id: number (primary key)
+  provider: 'salesforce' | 'hubspot' | 'pipedrive'
+  instanceUrl: string (Salesforce instance URL)
+  accessToken: string (encrypted OAuth token)
+  refreshToken: string (encrypted refresh token)
+  expiresAt: timestamp
+  metadata: jsonb (provider-specific config)
+  createdAt: Date
+  updatedAt: Date
+}
+```
+
+#### salesforce_sync_log
+Audit trail for Salesforce lead synchronization.
+
+```typescript
+{
+  id: number (primary key)
+  action: 'import' | 'push' | 'handover'
+  leadId: number (foreign key -> leads)
+  status: 'pending' | 'success' | 'failed'
+  errorMessage: string (nullable)
+  syncedAt: timestamp
+}
+```
+
 ### Relationships
 
 ```
@@ -671,6 +769,7 @@ managers ←→ sdrs (one-to-many)
 sdrs ←→ leads (one-to-many via assignedSdrId)
 leads ←→ research_packets (one-to-many)
 leads ←→ call_sessions (one-to-many)
+leads ←→ salesforce_sync_log (one-to-many)
 call_sessions ←→ manager_call_analyses (one-to-one)
 ```
 
@@ -733,6 +832,15 @@ Examples:
 - `PUT /api/leads/:id` - Update lead
 - `DELETE /api/leads/:id` - Delete lead
 - `POST /api/leads/:id/research` - Trigger research for lead
+
+**Salesforce Integration Endpoints:**
+- `GET /api/salesforce/status` - Check connection status
+- `GET /api/salesforce/connect` - Get OAuth authorization URL
+- `GET /api/salesforce/callback` - OAuth callback handler
+- `POST /api/salesforce/disconnect` - Disconnect integration
+- `POST /api/salesforce/import` - Import leads from Salesforce
+- `POST /api/salesforce/push/:leadId` - Push lead updates to Salesforce
+- `POST /api/salesforce/handover/:leadId` - Hand off lead to AE in Salesforce
 
 ### Request/Response Format
 
@@ -1206,6 +1314,7 @@ try {
 
 #### 5. Use Appropriate Models
 
+**Google Gemini (via @google/generative-ai):**
 ```typescript
 // Fast, cheap tasks (coaching tips, extraction)
 const model = genAI.getGenerativeModel({
@@ -1225,6 +1334,34 @@ const model = genAI.getGenerativeModel({
   },
 });
 ```
+
+**Anthropic Claude (via @anthropic-ai/sdk):**
+```typescript
+// server/ai/claudeClient.ts
+import Anthropic from '@anthropic-ai/sdk';
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+// Call coaching analysis (high-quality reasoning)
+const response = await anthropic.messages.create({
+  model: 'claude-opus-4-20250514',
+  max_tokens: 4000,
+  messages: [{ role: 'user', content: prompt }],
+});
+
+// Extract text from response
+const text = response.content
+  .filter(block => block.type === 'text')
+  .map(block => block.text)
+  .join('');
+```
+
+**When to use which AI:**
+- **Gemini Flash**: Fast tasks, coaching tips, simple extraction
+- **Gemini Pro**: Complex research, multi-source analysis
+- **Claude Opus**: High-stakes analysis, call coaching, nuanced reasoning
 
 ### AI Module Structure
 
@@ -1531,6 +1668,14 @@ npm start
 
 # Type check
 npm run check
+
+# E2E & UX Testing (Playwright)
+npm run test:e2e                    # Run all E2E tests
+npm run test:ui                     # Interactive test UI
+npm run playwright:screenshot       # Screenshot audit
+npm run playwright:accessibility    # Accessibility audit
+npm run playwright:flows            # User flow tests
+npm run ux:audit-all               # Complete UX audit
 ```
 
 ### Common Issues
@@ -1611,6 +1756,9 @@ All environment variables must be set in Replit Secrets:
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, etc.
 - `SERP_API`, `XAI_API`
+- `ANTHROPIC_API_KEY` (Claude AI)
+- `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REDIRECT_URI`
+- `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET`
 
 ### Production Checklist
 
@@ -1630,10 +1778,11 @@ All environment variables must be set in Replit Secrets:
 ### Backend Entry Points
 
 - **`server/index.ts`** - Express app initialization, middleware setup
-- **`server/routes.ts`** - Main API routes (42 endpoints, 1459 lines)
+- **`server/routes.ts`** - Main API routes (42+ endpoints)
 - **`server/leads-routes.ts`** - Leads-specific routes
 - **`server/coach-routes.ts`** - Coaching routes
-- **`server/storage.ts`** - Database abstraction layer (21.3 KB)
+- **`server/salesforce-routes.ts`** - Salesforce integration routes
+- **`server/storage.ts`** - Database abstraction layer
 - **`server/db.ts`** - Drizzle ORM connection
 
 ### Frontend Entry Points
@@ -1645,14 +1794,23 @@ All environment variables must be set in Replit Secrets:
 
 ### Schema & Types
 
-- **`shared/schema.ts`** - Database schema, Zod validators, TypeScript types (16.4 KB)
+- **`shared/schema.ts`** - Database schema, Zod validators, TypeScript types
 
 ### AI Modules
 
-- **`server/ai/leadResearch.ts`** - Main lead research orchestrator (29.7 KB)
+- **`server/ai/leadResearch.ts`** - Main lead research orchestrator
 - **`server/ai/analyze.ts`** - Post-call analysis
-- **`server/ai/coachingAnalysis.ts`** - Live coaching tips
+- **`server/ai/coachingAnalysis.ts`** - Live coaching tips (Gemini)
+- **`server/ai/callCoachingAnalysis.ts`** - Call coaching analysis (Claude)
+- **`server/ai/claudeClient.ts`** - Anthropic Claude SDK wrapper
+- **`server/ai/qualificationExtractor.ts`** - BANT extraction from transcripts
 - **`server/ai/managerAnalysis.ts`** - Manager performance analysis
+- **`server/ai/zoomClient.ts`** - Zoom Phone integration
+
+### Integrations
+
+- **`server/integrations/salesforceClient.ts`** - Salesforce OAuth & REST API
+- **`server/integrations/salesforceLeads.ts`** - Lead sync operations
 
 ### Configuration Files
 
@@ -1661,14 +1819,18 @@ All environment variables must be set in Replit Secrets:
 - **`vite.config.ts`** - Vite build configuration
 - **`drizzle.config.ts`** - Drizzle ORM configuration
 - **`tailwind.config.ts`** - Tailwind CSS configuration
+- **`playwright.config.ts`** - Playwright test configuration
 - **`.replit`** - Replit environment configuration
 
 ### Documentation
 
 - **`LEAD_INTEL_TECHNICAL_DOCUMENTATION.md`** - Comprehensive technical documentation
+- **`docs/SALESFORCE_INTEGRATION_GUIDE.md`** - Salesforce setup guide
+- **`docs/WORKFLOW.md`** - Platform workflow documentation
 - **`design_guidelines.md`** - Design system documentation
 - **`replit.md`** - Replit setup guide
 - **`.claude/agents/README.md`** - Multi-agent system documentation
+- **`.claude/ralph/README.md`** - Ralph methodology documentation
 
 ---
 
@@ -1955,16 +2117,24 @@ git push -u origin claude/branch-name-sessionId
 
 ## Support & Resources
 
+### Internal Documentation
 - **Technical Documentation:** `LEAD_INTEL_TECHNICAL_DOCUMENTATION.md`
+- **Salesforce Integration:** `docs/SALESFORCE_INTEGRATION_GUIDE.md`
+- **Platform Workflow:** `docs/WORKFLOW.md`
 - **Design Guidelines:** `design_guidelines.md`
 - **Replit Setup:** `replit.md`
 - **Multi-Agent System:** `.claude/agents/README.md`
 - **Ralph Methodology:** `.claude/ralph/README.md`
 - **Ralph Quick Start:** `.claude/ralph/QUICKSTART.md`
+
+### External Documentation
 - **Drizzle ORM Docs:** https://orm.drizzle.team/
 - **React Query Docs:** https://tanstack.com/query/latest
 - **Tailwind CSS Docs:** https://tailwindcss.com/
 - **shadcn/ui Docs:** https://ui.shadcn.com/
+- **Anthropic Claude API:** https://docs.anthropic.com/
+- **Salesforce REST API:** https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/
+- **Playwright Docs:** https://playwright.dev/
 
 ---
 
