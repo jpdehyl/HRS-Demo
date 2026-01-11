@@ -13,6 +13,10 @@ import {
   Send,
   Loader2,
   Bot,
+  Sparkles,
+  AlertCircle,
+  Search,
+  Mic,
   User,
   Minimize2,
   Building2,
@@ -427,6 +431,24 @@ export function SupportChat() {
     }
   }, [state.isOpen]);
 
+  // Keyboard shortcut: Cmd/Ctrl + J to toggle chat
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Cmd+J (Mac) or Ctrl+J (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
+        e.preventDefault();
+        setState((prev) => ({ ...prev, isOpen: !prev.isOpen, error: null }));
+      }
+      // Also support Escape to close
+      if (e.key === 'Escape' && state.isOpen) {
+        setState((prev) => ({ ...prev, isOpen: false }));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state.isOpen]);
+
   const toggleChat = useCallback(() => {
     setState((prev) => ({ ...prev, isOpen: !prev.isOpen, error: null }));
   }, []);
@@ -560,10 +582,13 @@ export function SupportChat() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 px-4 border-b shrink-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
-              <CardTitle className="text-base font-semibold">Support</CardTitle>
+              <CardTitle className="text-base font-semibold">Copilot</CardTitle>
+              <Badge variant="secondary" className="text-[10px] px-1.5 font-mono">
+                ⌘J
+              </Badge>
               {isManager && (
                 <Badge variant="outline" className="text-[10px] px-1.5">
-                  Manager View
+                  Manager
                 </Badge>
               )}
             </div>
@@ -596,39 +621,73 @@ export function SupportChat() {
                 {/* Welcome message if no messages */}
                 {state.messages.length === 0 && !state.isLoading && (
                   <div className="text-center py-6 px-4">
-                    <Bot className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                    <div className="relative inline-block mb-3">
+                      <Bot className="h-10 w-10 mx-auto text-primary" />
+                      <Sparkles className="h-4 w-4 absolute -top-1 -right-1 text-yellow-500" />
+                    </div>
                     <p className="text-sm text-muted-foreground mb-4">
                       {isManager
-                        ? "Hi! I can help you with team performance, coaching tips, and platform features."
-                        : "Hi! I'm your Lead Intel assistant. How can I help you today?"}
+                        ? "Hey! I'm your AI copilot. Ask me about team performance, coaching insights, or search your call transcripts."
+                        : "Hey! I'm your AI copilot. Ask me about your leads, search past calls, or get coaching tips."}
                     </p>
 
-                    {/* Quick Action Buttons */}
+                    {/* Copilot Quick Actions */}
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium">Quick Actions:</p>
+                      <p className="text-xs text-muted-foreground font-medium">Try asking:</p>
                       <div className="flex flex-wrap gap-2 justify-center">
                         <Button
                           variant="outline"
                           size="sm"
                           className="text-xs h-8"
+                          onClick={() => handleQuickAction("What objections came up in my calls this week?")}
+                        >
+                          <Search className="h-3 w-3 mr-1.5" />
+                          Search Calls
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-8"
+                          onClick={() => handleQuickAction("Show me my alerts - any leads going cold?")}
+                        >
+                          <AlertCircle className="h-3 w-3 mr-1.5" />
+                          My Alerts
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-8"
+                          onClick={() => handleQuickAction("What patterns do you see in my calls? What's working?")}
+                        >
+                          <TrendingUp className="h-3 w-3 mr-1.5" />
+                          Call Patterns
+                        </Button>
+                      </div>
+
+                      {/* Standard quick actions */}
+                      <div className="flex flex-wrap gap-2 justify-center mt-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7"
                           onClick={() => handleQuickAction("Show my leads")}
                         >
                           <Users className="h-3 w-3 mr-1.5" />
                           My Leads
                         </Button>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="text-xs h-8"
+                          className="text-xs h-7"
                           onClick={() => handleQuickAction("Show my recent calls")}
                         >
                           <Phone className="h-3 w-3 mr-1.5" />
                           My Calls
                         </Button>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="text-xs h-8"
+                          className="text-xs h-7"
                           onClick={() => handleQuickAction("How am I doing? Show my performance")}
                         >
                           <BarChart3 className="h-3 w-3 mr-1.5" />
@@ -638,7 +697,7 @@ export function SupportChat() {
 
                       {/* Manager-specific quick actions */}
                       {isManager && (
-                        <div className="flex flex-wrap gap-2 justify-center mt-2">
+                        <div className="flex flex-wrap gap-2 justify-center mt-2 pt-2 border-t">
                           <Button
                             variant="outline"
                             size="sm"

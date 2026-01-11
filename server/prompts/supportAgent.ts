@@ -1,4 +1,54 @@
 import { HAWK_RIDGE_PRODUCTS, getProductCatalogPrompt } from "../ai/productCatalog.js";
+import { getPersonaContent } from "../google/driveClient.js";
+
+// Cached persona from Google Doc
+let cachedCopilotPersona: { content: string; fetchedAt: number } | null = null;
+const PERSONA_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+export async function getCopilotPersona(): Promise<string> {
+  // Return cached if fresh
+  if (cachedCopilotPersona && (Date.now() - cachedCopilotPersona.fetchedAt) < PERSONA_CACHE_TTL) {
+    return cachedCopilotPersona.content;
+  }
+
+  try {
+    console.log("[CopilotPersona] Fetching persona from Google Doc...");
+    const personaContent = await getPersonaContent();
+    cachedCopilotPersona = { content: personaContent, fetchedAt: Date.now() };
+    console.log("[CopilotPersona] Persona loaded successfully");
+    return personaContent;
+  } catch (error) {
+    console.error("[CopilotPersona] Failed to fetch persona:", error);
+    // Return default persona if fetch fails
+    return getDefaultPersona();
+  }
+}
+
+function getDefaultPersona(): string {
+  return `
+## Copilot Persona: Sage
+You are Sage, an experienced sales coach and AI assistant for the Lead Intel platform.
+
+### Personality Traits:
+- **Supportive but direct** - You give honest feedback while being encouraging
+- **Data-driven** - You back up suggestions with metrics and patterns
+- **Proactive** - You anticipate needs and surface relevant information
+- **Conversational** - You speak like a helpful colleague, not a robotic assistant
+
+### Communication Style:
+- Keep responses concise and actionable
+- Use "you" and "your" to make it personal
+- Celebrate wins: "Nice work on that call!"
+- Be direct about improvements: "Try asking more discovery questions"
+- Use occasional emojis sparingly for warmth 👍
+
+### Example Phrases:
+- "Before your call with [Name], here's what you should know..."
+- "I noticed you've been crushing it this week - 3 qualified leads!"
+- "Quick tip: leads in manufacturing respond well to ROI framing"
+- "Heads up - [Lead] hasn't been contacted in 5 days"
+`;
+}
 
 // Base knowledge that all users can access
 const BASE_KNOWLEDGE = `
@@ -148,11 +198,44 @@ ${MANAGER_KNOWLEDGE}
 | AE | Handed | - | - | Pipeline | - |
 `;
 
+// Synchronous version for backwards compatibility (uses default persona)
 export function buildSystemPrompt(userContext?: {
   userId?: number;
   currentPage?: string;
   userRole?: string;
 }): string {
+  return buildSystemPromptWithPersona(userContext, getDefaultPersona());
+}
+
+// Async version that fetches persona from Google Docs
+export async function buildSystemPromptAsync(userContext?: {
+  userId?: number;
+  currentPage?: string;
+  userRole?: string;
+  userName?: string;
+  leadContext?: {
+    leadId?: number;
+    leadName?: string;
+    companyName?: string;
+  };
+  transcriptContext?: string;
+}): Promise<string> {
+  const persona = await getCopilotPersona();
+  return buildSystemPromptWithPersona(userContext, persona);
+}
+
+function buildSystemPromptWithPersona(userContext?: {
+  userId?: number;
+  currentPage?: string;
+  userRole?: string;
+  userName?: string;
+  leadContext?: {
+    leadId?: number;
+    leadName?: string;
+    companyName?: string;
+  };
+  transcriptContext?: string;
+}, persona?: string): string {
   const role = userContext?.userRole || "sdr";
 
   // Select knowledge base based on role
@@ -192,14 +275,28 @@ export function buildSystemPrompt(userContext?: {
   if (userContext) {
     const parts: string[] = [];
     if (userContext.userId) parts.push(`User ID: ${userContext.userId}`);
+    if (userContext.userName) parts.push(`User Name: ${userContext.userName}`);
     if (userContext.currentPage) parts.push(`Current page: ${userContext.currentPage}`);
     if (userContext.userRole) parts.push(`Role: ${userContext.userRole}`);
+    if (userContext.leadContext) {
+      parts.push(`\nCurrently viewing lead: ${userContext.leadContext.companyName || 'Unknown'} (${userContext.leadContext.leadName || 'Unknown contact'})`);
+    }
     if (parts.length > 0) {
       contextString = parts.join("\n");
     }
   }
 
-  return `You are a helpful support assistant for Lead Intel, an AI-powered sales intelligence platform by Hawk Ridge Systems.
+  // Build transcript context section if available
+  let transcriptSection = "";
+  if (userContext?.transcriptContext) {
+    transcriptSection = `
+## Recent Call Transcript Context
+The user is asking about or has context from recent calls. Here's relevant transcript information:
+${userContext.transcriptContext}
+`;
+  }
+
+  return `${persona || getDefaultPersona()}
 
 ## Your Role
 ${roleDescription}
@@ -208,6 +305,8 @@ Help users with:
 - Platform features and how to use them
 - Performance metrics and what they mean
 - Hawk Ridge products and which ones match different pain points
+- Answering questions about past calls and transcripts
+- Providing proactive insights and coaching tips
 - Troubleshooting issues
 - Best practices for their role
 
@@ -215,16 +314,20 @@ ${BASE_KNOWLEDGE}
 
 ${roleKnowledge}
 
+${transcriptSection}
+
 ## Response Guidelines
 - Be concise and helpful - users are busy
+- Be conversational and supportive, like a knowledgeable colleague
+- Proactively offer relevant insights when you notice patterns
 - If asked about data you don't have access to, explain what you can help with instead
 - For technical issues, suggest refreshing first, then contact support@hawkridge.com
 - Never make up features, metrics, or data that don't exist
 - Keep responses under 150 words unless a detailed explanation is needed
 - Use bullet points for step-by-step instructions
-- Be encouraging and professional
 - When discussing products, match them to the prospect's specific pain points
 - For performance questions, reference the relevant benchmarks for their role
+- When discussing call transcripts, provide specific quotes and timestamps when available
 
 ## Important Access Rules
 ${role === "sdr" ? "- You can only see the user's OWN leads, calls, and metrics\n- You cannot access team-wide data or other SDRs' information" : ""}

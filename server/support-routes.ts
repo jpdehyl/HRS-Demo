@@ -1,6 +1,6 @@
 import { Express, Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
-import { buildSystemPrompt } from "./prompts/supportAgent.js";
+import { buildSystemPrompt, buildSystemPromptAsync, getCopilotPersona } from "./prompts/supportAgent.js";
 import { storage } from "./storage.js";
 import { HAWK_RIDGE_PRODUCTS, matchProductsToLead } from "./ai/productCatalog.js";
 
@@ -475,8 +475,8 @@ export function registerSupportRoutes(app: Express): void {
         }
       }
 
-      // Build the system prompt with user context (includes role-based knowledge)
-      const systemPrompt = buildSystemPrompt({
+      // Build the system prompt with user context (includes role-based knowledge + persona from Google Doc)
+      const systemPrompt = await buildSystemPromptAsync({
         ...userContext,
         userRole,
       });
@@ -550,4 +550,527 @@ export function registerSupportRoutes(app: Express): void {
       timestamp: new Date().toISOString(),
     });
   });
+
+  // ==========================================
+  // COPILOT INTELLIGENCE ENDPOINTS
+  // ==========================================
+
+  // Search transcripts - semantic search over call transcripts
+  app.post("/api/copilot/search-transcripts", async (req: Request, res: Response) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { query, limit = 10 } = req.body;
+      if (!query || typeof query !== "string") {
+        return res.status(400).json({ error: "Search query is required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Get user's call sessions with transcripts
+      const callSessions = await storage.getCallSessionsByUser(userId);
+
+      // Filter to calls with transcripts and search
+      const callsWithTranscripts = callSessions.filter(call =>
+        call.transcriptText && call.transcriptText.length > 0
+      );
+
+      // Simple keyword search (can be upgraded to vector search later)
+      const searchTerms = query.toLowerCase().split(/\s+/);
+      const searchResults = callsWithTranscripts
+        .map(call => {
+          const transcript = call.transcriptText?.toLowerCase() || "";
+          const matchScore = searchTerms.reduce((score, term) => {
+            const matches = (transcript.match(new RegExp(term, 'g')) || []).length;
+            return score + matches;
+          }, 0);
+
+          return {
+            callId: call.id,
+            callSid: call.callSid,
+            date: call.startedAt,
+            duration: call.duration,
+            disposition: call.disposition,
+            matchScore,
+            // Extract relevant snippet around first match
+            snippet: extractTranscriptSnippet(call.transcriptText || "", searchTerms[0]),
+            transcriptPreview: call.transcriptText?.substring(0, 200) + "...",
+          };
+        })
+        .filter(result => result.matchScore > 0)
+        .sort((a, b) => b.matchScore - a.matchScore)
+        .slice(0, limit);
+
+      res.json({
+        query,
+        totalResults: searchResults.length,
+        results: searchResults,
+      });
+    } catch (error) {
+      console.error("[Copilot] Transcript search error:", error);
+      res.status(500).json({ error: "Failed to search transcripts" });
+    }
+  });
+
+  // Pre-call brief - get intelligence before a call
+  app.get("/api/copilot/pre-call-brief/:leadId", async (req: Request, res: Response) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const leadId = req.params.leadId;
+      const lead = await storage.getLead(leadId);
+
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      // Get previous calls with this lead
+      const allCalls = await storage.getCallSessionsByUser(userId);
+      const leadCalls = allCalls.filter(call => call.leadId === leadId);
+
+      // Get the lead's research packet
+      const researchPackets = await storage.getResearchPacketsByLead(leadId);
+      const latestResearch = researchPackets[0];
+
+      // Analyze previous calls for patterns
+      const previousCallSummaries = leadCalls.slice(0, 5).map(call => ({
+        date: call.startedAt,
+        duration: call.duration,
+        disposition: call.disposition,
+        summary: call.coachingNotes || call.keyTakeaways || "No notes",
+        transcriptPreview: call.transcriptText?.substring(0, 300),
+      }));
+
+      // Extract objections and commitments from transcripts
+      const objections: string[] = [];
+      const commitments: string[] = [];
+
+      for (const call of leadCalls) {
+        if (call.transcriptText) {
+          // Simple extraction - look for objection patterns
+          const objectionPatterns = [
+            /(?:too expensive|price is|budget|can't afford|costly)/gi,
+            /(?:not interested|don't need|already have|happy with current)/gi,
+            /(?:not the right time|busy|later|not now)/gi,
+          ];
+
+          for (const pattern of objectionPatterns) {
+            const matches = call.transcriptText.match(pattern);
+            if (matches) {
+              objections.push(...matches.map(m => m.toLowerCase()));
+            }
+          }
+
+          // Look for commitment patterns
+          const commitmentPatterns = [
+            /(?:send (?:me|you|them) (?:the |a )?(?:pricing|info|details|proposal))/gi,
+            /(?:schedule|book|set up) (?:a )?(?:demo|meeting|call)/gi,
+            /(?:follow up|get back|reach out) (?:on|by|next)/gi,
+          ];
+
+          for (const pattern of commitmentPatterns) {
+            const matches = call.transcriptText.match(pattern);
+            if (matches) {
+              commitments.push(...matches);
+            }
+          }
+        }
+      }
+
+      // Calculate days since last contact
+      const lastCall = leadCalls[0];
+      const daysSinceLastContact = lastCall
+        ? Math.floor((Date.now() - new Date(lastCall.startedAt).getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      // Build the brief
+      const brief = {
+        lead: {
+          id: lead.id,
+          companyName: lead.companyName,
+          contactName: lead.contactName,
+          status: lead.status,
+          fitScore: lead.fitScore,
+        },
+        previousCalls: {
+          count: leadCalls.length,
+          lastCallDate: lastCall?.startedAt || null,
+          daysSinceLastContact,
+          summaries: previousCallSummaries,
+        },
+        intelligence: {
+          objectionHistory: [...new Set(objections)].slice(0, 5),
+          openCommitments: [...new Set(commitments)].slice(0, 5),
+          painPoints: latestResearch?.painPointsJson || [],
+          productMatches: latestResearch?.productMatchesJson || [],
+          talkTrack: latestResearch?.talkTrack || null,
+          discoveryQuestions: latestResearch?.discoveryQuestions || null,
+        },
+        suggestions: generatePreCallSuggestions(lead, leadCalls, latestResearch, daysSinceLastContact),
+      };
+
+      res.json(brief);
+    } catch (error) {
+      console.error("[Copilot] Pre-call brief error:", error);
+      res.status(500).json({ error: "Failed to generate pre-call brief" });
+    }
+  });
+
+  // Risk alerts - proactive alerts for stale leads, missed follow-ups, etc.
+  app.get("/api/copilot/alerts", async (req: Request, res: Response) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const alerts: CopilotAlert[] = [];
+      const now = new Date();
+
+      // Get user's leads
+      let leads: any[] = [];
+      if (user.sdrId) {
+        leads = await storage.getLeadsBySdr(user.sdrId);
+      }
+
+      // Get recent calls
+      const recentCalls = await storage.getCallSessionsByUser(userId);
+
+      // Alert 1: Stale leads (not contacted in 5+ days)
+      for (const lead of leads) {
+        if (lead.status === "new" || lead.status === "contacted" || lead.status === "engaged") {
+          const lastContact = lead.lastContactedAt ? new Date(lead.lastContactedAt) : null;
+          const daysSinceContact = lastContact
+            ? Math.floor((now.getTime() - lastContact.getTime()) / (1000 * 60 * 60 * 24))
+            : null;
+
+          if (daysSinceContact === null && lead.status === "new") {
+            // Never contacted
+            alerts.push({
+              type: "stale_lead",
+              severity: "medium",
+              title: `New lead needs attention`,
+              message: `${lead.companyName} (${lead.contactName}) hasn't been contacted yet`,
+              leadId: lead.id,
+              leadName: lead.companyName,
+              actionText: "Call Now",
+              actionUrl: `/call-prep/${lead.id}`,
+            });
+          } else if (daysSinceContact && daysSinceContact >= 5) {
+            alerts.push({
+              type: "stale_lead",
+              severity: daysSinceContact >= 7 ? "high" : "medium",
+              title: `Lead going cold`,
+              message: `${lead.companyName} hasn't been contacted in ${daysSinceContact} days`,
+              leadId: lead.id,
+              leadName: lead.companyName,
+              actionText: "Follow Up",
+              actionUrl: `/call-prep/${lead.id}`,
+            });
+          }
+        }
+
+        // Alert 2: Missed follow-ups
+        if (lead.nextFollowUp) {
+          const followUpDate = new Date(lead.nextFollowUp);
+          if (followUpDate < now) {
+            const daysMissed = Math.floor((now.getTime() - followUpDate.getTime()) / (1000 * 60 * 60 * 24));
+            alerts.push({
+              type: "missed_followup",
+              severity: daysMissed >= 2 ? "high" : "medium",
+              title: `Missed follow-up`,
+              message: `Follow-up with ${lead.companyName} was scheduled ${daysMissed} day${daysMissed > 1 ? 's' : ''} ago`,
+              leadId: lead.id,
+              leadName: lead.companyName,
+              actionText: "Schedule",
+              actionUrl: `/call-prep/${lead.id}`,
+            });
+          }
+        }
+      }
+
+      // Alert 3: Hot leads that need attention
+      const hotLeads = leads.filter(lead =>
+        lead.fitScore && lead.fitScore >= 80 &&
+        (lead.status === "new" || lead.status === "contacted")
+      );
+
+      for (const lead of hotLeads) {
+        const existingAlert = alerts.find(a => a.leadId === lead.id);
+        if (!existingAlert) {
+          alerts.push({
+            type: "hot_lead",
+            severity: "medium",
+            title: `High-fit lead ready`,
+            message: `${lead.companyName} has a ${lead.fitScore}% fit score - prioritize this one!`,
+            leadId: lead.id,
+            leadName: lead.companyName,
+            actionText: "View Lead",
+            actionUrl: `/call-prep/${lead.id}`,
+          });
+        }
+      }
+
+      // Alert 4: Low activity today
+      const callsToday = recentCalls.filter(call => {
+        const callDate = new Date(call.startedAt);
+        return callDate.toDateString() === now.toDateString();
+      }).length;
+
+      const currentHour = now.getHours();
+      if (currentHour >= 10 && currentHour <= 16 && callsToday < 5) {
+        alerts.push({
+          type: "low_activity",
+          severity: "low",
+          title: `Low call volume today`,
+          message: `You've made ${callsToday} calls today. Aim for 50+ dials for best results.`,
+          actionText: "Start Calling",
+          actionUrl: "/leads",
+        });
+      }
+
+      // Sort by severity (high > medium > low)
+      const severityOrder = { high: 0, medium: 1, low: 2 };
+      alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+      res.json({
+        alerts: alerts.slice(0, 10), // Limit to top 10 alerts
+        totalAlerts: alerts.length,
+        generatedAt: now.toISOString(),
+      });
+    } catch (error) {
+      console.error("[Copilot] Alerts error:", error);
+      res.status(500).json({ error: "Failed to generate alerts" });
+    }
+  });
+
+  // Call patterns - analyze user's call patterns for insights
+  app.get("/api/copilot/patterns", async (req: Request, res: Response) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Get calls from last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const allCalls = await storage.getCallSessionsByUser(userId);
+      const recentCalls = allCalls.filter(call =>
+        new Date(call.startedAt) >= thirtyDaysAgo
+      );
+
+      if (recentCalls.length === 0) {
+        return res.json({
+          message: "Not enough call data yet. Make some calls to see patterns!",
+          patterns: null,
+        });
+      }
+
+      // Calculate patterns
+      const totalCalls = recentCalls.length;
+      const connectedCalls = recentCalls.filter(call =>
+        call.disposition && call.disposition !== "no_answer" && call.disposition !== "busy"
+      );
+      const connectionRate = Math.round((connectedCalls.length / totalCalls) * 100);
+
+      // Calculate average duration for connected calls
+      const callsWithDuration = connectedCalls.filter(call => call.duration && call.duration > 0);
+      const avgDuration = callsWithDuration.length > 0
+        ? Math.round(callsWithDuration.reduce((sum, call) => sum + (call.duration || 0), 0) / callsWithDuration.length / 60)
+        : 0;
+
+      // Analyze by day of week
+      const dayStats: { [key: string]: { calls: number; connected: number } } = {};
+      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+      for (const call of recentCalls) {
+        const day = days[new Date(call.startedAt).getDay()];
+        if (!dayStats[day]) {
+          dayStats[day] = { calls: 0, connected: 0 };
+        }
+        dayStats[day].calls++;
+        if (call.disposition && call.disposition !== "no_answer" && call.disposition !== "busy") {
+          dayStats[day].connected++;
+        }
+      }
+
+      // Find best day
+      let bestDay = { day: "", rate: 0 };
+      for (const [day, stats] of Object.entries(dayStats)) {
+        const rate = stats.calls > 0 ? (stats.connected / stats.calls) * 100 : 0;
+        if (rate > bestDay.rate && stats.calls >= 3) {
+          bestDay = { day, rate: Math.round(rate) };
+        }
+      }
+
+      // Analyze by hour
+      const hourStats: { [key: number]: { calls: number; connected: number } } = {};
+      for (const call of recentCalls) {
+        const hour = new Date(call.startedAt).getHours();
+        if (!hourStats[hour]) {
+          hourStats[hour] = { calls: 0, connected: 0 };
+        }
+        hourStats[hour].calls++;
+        if (call.disposition && call.disposition !== "no_answer" && call.disposition !== "busy") {
+          hourStats[hour].connected++;
+        }
+      }
+
+      // Find best time slots
+      let bestTimeSlot = { hour: 0, rate: 0 };
+      for (const [hour, stats] of Object.entries(hourStats)) {
+        const rate = stats.calls > 0 ? (stats.connected / stats.calls) * 100 : 0;
+        if (rate > bestTimeSlot.rate && stats.calls >= 3) {
+          bestTimeSlot = { hour: parseInt(hour), rate: Math.round(rate) };
+        }
+      }
+
+      // Generate insights
+      const insights: string[] = [];
+
+      if (connectionRate < 15) {
+        insights.push("Your connection rate is below benchmark (15%). Try varying your call times.");
+      } else if (connectionRate >= 25) {
+        insights.push(`Great connection rate of ${connectionRate}%! You're above the 25% benchmark.`);
+      }
+
+      if (avgDuration < 2) {
+        insights.push("Your calls average under 2 minutes. Try asking more discovery questions to extend conversations.");
+      } else if (avgDuration >= 5) {
+        insights.push(`Excellent average call duration of ${avgDuration} minutes. You're having quality conversations.`);
+      }
+
+      if (bestDay.day && bestDay.rate > 0) {
+        insights.push(`Your best day is ${bestDay.day} with ${bestDay.rate}% connection rate.`);
+      }
+
+      if (bestTimeSlot.hour > 0) {
+        const timeStr = bestTimeSlot.hour > 12 ? `${bestTimeSlot.hour - 12}pm` : `${bestTimeSlot.hour}am`;
+        insights.push(`Your best calling time is around ${timeStr} with ${bestTimeSlot.rate}% connection rate.`);
+      }
+
+      res.json({
+        period: "Last 30 days",
+        patterns: {
+          totalCalls,
+          connectedCalls: connectedCalls.length,
+          connectionRate,
+          avgDurationMinutes: avgDuration,
+          bestDay: bestDay.day || null,
+          bestDayRate: bestDay.rate || null,
+          bestHour: bestTimeSlot.hour || null,
+          bestHourRate: bestTimeSlot.rate || null,
+          callsByDay: dayStats,
+          callsByHour: hourStats,
+        },
+        insights,
+        benchmarks: {
+          targetConnectionRate: "15-25%",
+          targetCallDuration: "3-5 min",
+          targetDailyDials: "50-80",
+        },
+      });
+    } catch (error) {
+      console.error("[Copilot] Patterns error:", error);
+      res.status(500).json({ error: "Failed to analyze patterns" });
+    }
+  });
+}
+
+// ==========================================
+// HELPER FUNCTIONS
+// ==========================================
+
+interface CopilotAlert {
+  type: "stale_lead" | "missed_followup" | "hot_lead" | "low_activity" | "deal_risk";
+  severity: "high" | "medium" | "low";
+  title: string;
+  message: string;
+  leadId?: string;
+  leadName?: string;
+  actionText: string;
+  actionUrl: string;
+}
+
+function extractTranscriptSnippet(transcript: string, searchTerm: string, contextLength: number = 100): string {
+  const lowerTranscript = transcript.toLowerCase();
+  const lowerTerm = searchTerm.toLowerCase();
+  const index = lowerTranscript.indexOf(lowerTerm);
+
+  if (index === -1) return transcript.substring(0, 200) + "...";
+
+  const start = Math.max(0, index - contextLength);
+  const end = Math.min(transcript.length, index + searchTerm.length + contextLength);
+
+  let snippet = "";
+  if (start > 0) snippet += "...";
+  snippet += transcript.substring(start, end);
+  if (end < transcript.length) snippet += "...";
+
+  return snippet;
+}
+
+function generatePreCallSuggestions(
+  lead: any,
+  previousCalls: any[],
+  research: any,
+  daysSinceLastContact: number | null
+): string[] {
+  const suggestions: string[] = [];
+
+  // Suggestion based on time since last contact
+  if (daysSinceLastContact === null) {
+    suggestions.push("This is a new lead - review the research dossier and prepare 3 personalized discovery questions.");
+  } else if (daysSinceLastContact > 7) {
+    suggestions.push(`It's been ${daysSinceLastContact} days - re-establish rapport before diving into business.`);
+  } else if (daysSinceLastContact <= 2) {
+    suggestions.push("Recent contact - reference your last conversation and any commitments made.");
+  }
+
+  // Suggestion based on fit score
+  if (lead.fitScore >= 80) {
+    suggestions.push("High-fit lead! Focus on understanding their timeline and decision process.");
+  } else if (lead.fitScore < 50) {
+    suggestions.push("Lower fit score - qualify thoroughly to ensure this is worth pursuing.");
+  }
+
+  // Suggestion based on status
+  if (lead.status === "contacted") {
+    suggestions.push("Move toward qualification - try to uncover Budget, Authority, Need, and Timeline.");
+  } else if (lead.status === "engaged") {
+    suggestions.push("They're engaged! Focus on advancing to next steps - demo, proposal, or meeting.");
+  }
+
+  // Suggestion based on research
+  if (research?.painPointsJson && research.painPointsJson.length > 0) {
+    const topPain = research.painPointsJson[0];
+    if (typeof topPain === 'object' && topPain.title) {
+      suggestions.push(`Lead with their pain point: "${topPain.title}"`);
+    } else if (typeof topPain === 'string') {
+      suggestions.push(`Lead with their pain point: "${topPain}"`);
+    }
+  }
+
+  return suggestions.slice(0, 4); // Limit to 4 suggestions
 }
