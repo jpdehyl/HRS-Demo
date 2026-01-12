@@ -21,6 +21,14 @@ import reportRoutes from "./report-routes";
 import aiReportsRoutes from "./ai-reports-routes";
 import { listFilesInProcessed } from "./google/driveClient";
 import { notifyCallCompleted, notifyResearchComplete } from "./dashboardUpdates";
+import { 
+  hashPassword, 
+  verifyPassword, 
+  setUserSession, 
+  excludePassword, 
+  excludePasswordFromAll,
+  validatePasswordStrength
+} from "./helpers/authHelpers";
 
 declare module "express-session" {
   interface SessionData {
