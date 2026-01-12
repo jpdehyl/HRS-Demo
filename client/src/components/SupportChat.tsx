@@ -965,10 +965,14 @@ export function SupportChat() {
         onClick={toggleChat}
         className={cn(
           "fixed z-[9999] h-14 w-14 rounded-full shadow-lg",
-          "bottom-6 left-auto right-6",
-          "max-sm:bottom-4 max-sm:left-auto max-sm:right-4",
           state.isOpen && "max-sm:hidden"
         )}
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          left: 'auto'
+        }}
         size="icon"
       >
         {state.isOpen ? (
