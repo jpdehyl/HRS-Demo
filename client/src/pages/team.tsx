@@ -12,9 +12,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Users, 
-  User, 
+import {
+  Users,
+  User,
   ChevronDown,
   Mail,
   Building2,
@@ -25,8 +25,10 @@ import {
   Plus,
   Briefcase,
   Phone,
-  MapPin
+  MapPin,
+  TrendingUp
 } from "lucide-react";
+import { Link } from "wouter";
 import type { Manager, Sdr, AccountExecutive } from "@shared/schema";
 
 interface TeamData {
@@ -463,45 +465,51 @@ export default function TeamPage() {
   }
 
   const renderSdrCard = (sdr: Sdr) => (
-    <div 
+    <div
       key={sdr.id}
-      className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-md"
+      className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-md hover:bg-muted/80 transition-colors"
       data-testid={`sdr-card-${sdr.id}`}
     >
-      <div className="flex items-center gap-3">
+      <Link href={`/team/${sdr.id}`} className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer group">
         <Avatar className="h-8 w-8">
           <AvatarFallback className="text-xs">
             {getInitials(sdr.name)}
           </AvatarFallback>
         </Avatar>
-        <div>
-          <p className="text-sm font-medium">{sdr.name}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-medium group-hover:text-primary transition-colors">{sdr.name}</p>
           {sdr.email && (
-            <p className="text-xs text-muted-foreground" data-testid={`text-sdr-email-${sdr.id}`}>{sdr.email}</p>
+            <p className="text-xs text-muted-foreground truncate" data-testid={`text-sdr-email-${sdr.id}`}>{sdr.email}</p>
           )}
         </div>
-      </div>
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" onClick={() => setEditingSdr(sdr)} data-testid={`button-edit-sdr-${sdr.id}`}>
+      </Link>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <Button variant="ghost" size="icon" asChild title="View Performance">
+          <Link href={`/team/${sdr.id}`}>
+            <TrendingUp className="h-4 w-4" />
+          </Link>
+        </Button>
+        <Button variant="ghost" size="icon" onClick={() => setEditingSdr(sdr)} data-testid={`button-edit-sdr-${sdr.id}`} title="Edit">
           <Pencil className="h-4 w-4" />
         </Button>
         {sdr.email && (
-          <Button variant="ghost" size="icon" asChild>
+          <Button variant="ghost" size="icon" asChild title="Send Email">
             <a href={`mailto:${sdr.email}`}>
               <Mail className="h-4 w-4" />
             </a>
           </Button>
         )}
         {user?.role === "admin" && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => {
               if (confirm(`Are you sure you want to delete ${sdr.name}?`)) {
                 deleteMutation.mutate(sdr.id);
               }
             }}
             data-testid={`button-delete-sdr-${sdr.id}`}
+            title="Delete"
           >
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>

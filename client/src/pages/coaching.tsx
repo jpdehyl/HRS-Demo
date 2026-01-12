@@ -13,7 +13,7 @@ import { useTranscription } from "@/hooks/use-transcription";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch } from "wouter";
-import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator, BarChart3, CheckCircle, XCircle, AlertCircle, TrendingUp, Send, Trophy, Zap, Award, Mail } from "lucide-react";
+import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator, BarChart3, CheckCircle, XCircle, AlertCircle, TrendingUp, Send, Mail } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AccountExecutive } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -21,34 +21,6 @@ import { useToast } from "@/hooks/use-toast";
 import type { CallSession, Lead, ResearchPacket, ManagerCallAnalysis } from "@shared/schema";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-interface PerformanceSummary {
-  stats: {
-    callsLast7Days: number;
-    completedCallsLast7Days: number;
-    talkTimeMinutes: number;
-    analyzedCalls: number;
-  };
-  latestCoaching: {
-    id: string;
-    callDate: string;
-    toNumber: string;
-    duration: number | null;
-    coachingNotes: string;
-    disposition: string | null;
-  } | null;
-  winHighlight: { text: string; callDate: string } | null;
-  focusArea: { skill: string; suggestion: string } | null;
-  weeklyTrend: { week: string; calls: number; talkTime: number }[];
-  recentCalls: {
-    id: string;
-    callDate: string;
-    toNumber: string;
-    duration: number | null;
-    coachingNotes: string;
-    disposition: string | null;
-  }[];
-}
 
 export default function CoachingPage() {
   const { user } = useAuth();
@@ -85,52 +57,6 @@ export default function CoachingPage() {
   const { data: callHistory = [], isLoading: historyLoading } = useQuery<CallSession[]>({
     queryKey: ["/api/call-sessions"],
     enabled: historyOpen,
-  });
-
-  const { data: performanceSummary, isLoading: performanceLoading } = useQuery<PerformanceSummary>({
-    queryKey: ["/api/coach/performance-summary"],
-    enabled: activeTab === "performance",
-    refetchOnWindowFocus: false,
-  });
-
-  interface ZoomStats {
-    totalCalls: number;
-    inboundCalls: number;
-    outboundCalls: number;
-    totalDurationMinutes: number;
-    averageDurationSeconds: number;
-    connectedCalls: number;
-    missedCalls: number;
-    callsByDay: { date: string; calls: number; duration: number }[];
-  }
-
-  const { data: zoomStats, isLoading: zoomStatsLoading, refetch: refetchZoomStats } = useQuery<ZoomStats>({
-    queryKey: ["/api/zoom/stats"],
-    enabled: activeTab === "performance",
-    refetchOnWindowFocus: false,
-  });
-
-  const syncZoomCallsMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/zoom/sync-calls", {});
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "Sync failed");
-      }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      toast({ 
-        title: "Zoom Calls Synced", 
-        description: `${data.stats.synced} calls synced, ${data.stats.skipped} skipped` 
-      });
-      refetchZoomStats();
-      queryClient.invalidateQueries({ queryKey: ["/api/call-sessions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/performance-summary"] });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Sync Failed", description: error.message, variant: "destructive" });
-    },
   });
 
   const {
@@ -817,265 +743,29 @@ export default function CoachingPage() {
         </TabsContent>
 
         <TabsContent value="performance" className="mt-6">
-          {performanceLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-md">
-                        <Phone className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-semibold" data-testid="text-calls-7days">
-                          {performanceSummary?.stats.callsLast7Days || 0}
-                        </p>
-                        <p className="text-sm text-muted-foreground">Calls (7 days)</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-md">
-                        <Clock className="h-5 w-5 text-green-600 dark:text-green-400" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-semibold" data-testid="text-talk-time-7days">
-                          {performanceSummary?.stats.talkTimeMinutes || 0}m
-                        </p>
-                        <p className="text-sm text-muted-foreground">Talk Time</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-md">
-                        <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-semibold" data-testid="text-analyzed-calls">
-                          {performanceSummary?.stats.analyzedCalls || 0}
-                        </p>
-                        <p className="text-sm text-muted-foreground">Analyzed Calls</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-md">
-                        <CheckCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-semibold" data-testid="text-completed-calls">
-                          {performanceSummary?.stats.completedCallsLast7Days || 0}
-                        </p>
-                        <p className="text-sm text-muted-foreground">Completed</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+          <Card className="border-2 border-primary/20">
+            <CardContent className="py-12 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <TrendingUp className="h-8 w-8 text-primary" />
               </div>
-
-              <Card className="border-2 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-md">
-                        <Phone className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                      </div>
-                      <CardTitle className="text-lg text-indigo-900 dark:text-indigo-100">Zoom Phone Stats</CardTitle>
-                    </div>
-                    {(user?.role === "admin" || user?.role === "manager") && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => syncZoomCallsMutation.mutate()}
-                        disabled={syncZoomCallsMutation.isPending}
-                        className="border-indigo-300 dark:border-indigo-700"
-                      >
-                        {syncZoomCallsMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        ) : null}
-                        Sync Zoom Calls
-                      </Button>
-                    )}
-                  </div>
-                  <CardDescription className="text-indigo-700 dark:text-indigo-300">
-                    Your Zoom Phone activity from the last 7 days
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {zoomStatsLoading ? (
-                    <div className="flex items-center justify-center py-6">
-                      <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
-                    </div>
-                  ) : zoomStats ? (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="p-3 bg-white dark:bg-indigo-950/50 rounded-md border border-indigo-200 dark:border-indigo-800">
-                        <p className="text-2xl font-semibold text-indigo-900 dark:text-indigo-100">
-                          {zoomStats.totalCalls}
-                        </p>
-                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Total Calls</p>
-                      </div>
-                      <div className="p-3 bg-white dark:bg-indigo-950/50 rounded-md border border-indigo-200 dark:border-indigo-800">
-                        <p className="text-2xl font-semibold text-indigo-900 dark:text-indigo-100">
-                          {zoomStats.outboundCalls}
-                        </p>
-                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Outbound</p>
-                      </div>
-                      <div className="p-3 bg-white dark:bg-indigo-950/50 rounded-md border border-indigo-200 dark:border-indigo-800">
-                        <p className="text-2xl font-semibold text-indigo-900 dark:text-indigo-100">
-                          {zoomStats.totalDurationMinutes}m
-                        </p>
-                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Talk Time</p>
-                      </div>
-                      <div className="p-3 bg-white dark:bg-indigo-950/50 rounded-md border border-indigo-200 dark:border-indigo-800">
-                        <p className="text-2xl font-semibold text-indigo-900 dark:text-indigo-100">
-                          {zoomStats.connectedCalls}
-                        </p>
-                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Connected</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 text-indigo-600 dark:text-indigo-400">
-                      <Phone className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No Zoom Phone data available</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="border-2 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-green-100 dark:bg-green-900 rounded-md">
-                        <Trophy className="h-5 w-5 text-green-600 dark:text-green-400" />
-                      </div>
-                      <CardTitle className="text-lg text-green-900 dark:text-green-100">Win Replay</CardTitle>
-                    </div>
-                    <CardDescription className="text-green-700 dark:text-green-300">
-                      Your latest coaching highlight
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {performanceSummary?.winHighlight ? (
-                      <div className="p-4 bg-white dark:bg-green-950/50 rounded-md border border-green-200 dark:border-green-800">
-                        <p className="text-sm text-green-900 dark:text-green-100 leading-relaxed">
-                          "{performanceSummary.winHighlight.text}"
-                        </p>
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-3">
-                          From call on {new Date(performanceSummary.winHighlight.callDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-green-600 dark:text-green-400">
-                        <Trophy className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">Complete some calls to see your wins!</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card className="border-2 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-amber-100 dark:bg-amber-900 rounded-md">
-                        <Zap className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                      </div>
-                      <CardTitle className="text-lg text-amber-900 dark:text-amber-100">Focus This Week</CardTitle>
-                    </div>
-                    <CardDescription className="text-amber-700 dark:text-amber-300">
-                      Your top skill to work on
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {performanceSummary?.focusArea ? (
-                      <div className="p-4 bg-white dark:bg-amber-950/50 rounded-md border border-amber-200 dark:border-amber-800">
-                        <Badge className="bg-amber-600 text-white mb-2">
-                          {performanceSummary.focusArea.skill}
-                        </Badge>
-                        <p className="text-sm text-amber-900 dark:text-amber-100 leading-relaxed">
-                          {performanceSummary.focusArea.suggestion}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-amber-600 dark:text-amber-400">
-                        <Zap className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">Complete some calls to get coaching tips!</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <Award className="h-5 w-5" />
-                    <CardTitle>Recent Coaching Insights</CardTitle>
-                  </div>
-                  <CardDescription>
-                    Your latest call analyses and personalized feedback
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {performanceSummary?.recentCalls && performanceSummary.recentCalls.length > 0 ? (
-                    <ScrollArea className="h-[300px]">
-                      <div className="space-y-4 pr-4">
-                        {performanceSummary.recentCalls.map((call) => (
-                          <div
-                            key={call.id}
-                            className="p-4 bg-muted/50 rounded-md border"
-                            data-testid={`performance-call-${call.id}`}
-                          >
-                            <div className="flex items-center justify-between gap-2 mb-3">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="secondary">
-                                  {call.toNumber}
-                                </Badge>
-                                {call.disposition && (
-                                  <Badge variant="outline">{call.disposition}</Badge>
-                                )}
-                              </div>
-                              <span className="text-xs text-muted-foreground">
-                                {call.callDate ? new Date(call.callDate).toLocaleDateString() : ""}
-                                {call.duration && ` - ${Math.round(call.duration / 60)}m`}
-                              </span>
-                            </div>
-                            <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                              {call.coachingNotes.split('\n').map((line, i) => (
-                                <p key={i} className="mb-2">{line}</p>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Lightbulb className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No analyzed calls yet.</p>
-                      <p className="text-sm mt-1">Complete calls and get AI analysis to see insights here.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+              <h3 className="text-xl font-semibold mb-2">View Your Full Performance Dashboard</h3>
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                Access your complete performance metrics, call history, coaching insights, and achievements in your dedicated profile page.
+              </p>
+              {user?.sdrId ? (
+                <Button asChild size="lg">
+                  <a href={`/team/${user.sdrId}`}>
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Open My Performance Dashboard
+                  </a>
+                </Button>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No SDR profile linked to your account. Contact your administrator.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

@@ -11,7 +11,8 @@ import {
   ChevronDown,
   Target,
   Calculator,
-  Activity
+  Activity,
+  TrendingUp
 } from "lucide-react";
 import {
   Sidebar,
@@ -136,6 +137,13 @@ export function AppSidebar() {
       return (settingA?.sortOrder ?? 99) - (settingB?.sortOrder ?? 99);
     });
 
+  // Dynamic "My Performance" item for users with SDR profile
+  const myPerformanceItem = user?.sdrId ? {
+    title: "My Performance",
+    url: `/team/${user.sdrId}`,
+    icon: TrendingUp,
+  } : null;
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -175,17 +183,30 @@ export function AppSidebar() {
             <SidebarMenu>
               {filteredAndSortedNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
+                  <SidebarMenuButton
+                    asChild
                     isActive={location === item.url || location.startsWith(item.url + "/")}
                   >
-                    <Link href={item.url} data-testid={`nav-${item.title.toLowerCase()}`}>
+                    <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {myPerformanceItem && (
+                <SidebarMenuItem key={myPerformanceItem.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === myPerformanceItem.url}
+                  >
+                    <Link href={myPerformanceItem.url} data-testid="nav-my-performance">
+                      <myPerformanceItem.icon className="h-4 w-4" />
+                      <span>{myPerformanceItem.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
