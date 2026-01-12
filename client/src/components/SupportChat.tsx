@@ -633,7 +633,7 @@ export function SupportChat() {
           className={cn(
             "fixed z-[9998] shadow-lg flex flex-col",
             // Desktop: bottom-right corner, fixed size
-            "bottom-20 right-4 w-[420px] h-[550px]",
+            "bottom-20 left-auto right-4 w-[420px] h-[550px]",
             // Mobile: full width, taller
             "max-sm:bottom-0 max-sm:right-0 max-sm:left-0 max-sm:w-full max-sm:h-[80vh] max-sm:rounded-b-none"
           )}
@@ -965,8 +965,8 @@ export function SupportChat() {
         onClick={toggleChat}
         className={cn(
           "fixed z-[9999] h-14 w-14 rounded-full shadow-lg",
-          "bottom-6 right-6",
-          "max-sm:bottom-4 max-sm:right-4",
+          "bottom-6 left-auto right-6",
+          "max-sm:bottom-4 max-sm:left-auto max-sm:right-4",
           state.isOpen && "max-sm:hidden"
         )}
         size="icon"
