@@ -17,7 +17,7 @@ import {
   callSessions, managerCallAnalyses, accountExecutives, notifications, navigationSettings
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, isNull, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, desc, inArray, sql } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -109,6 +109,10 @@ export interface IStorage {
   getAllNavigationSettings(): Promise<NavigationSetting[]>;
   updateNavigationSetting(id: string, updates: { isEnabled?: boolean; sortOrder?: number }): Promise<NavigationSetting | undefined>;
   initializeNavigationSettings(): Promise<void>;
+  
+  // Lead transcript search for Copilot
+  searchLeadsByName(searchName: string): Promise<Lead[]>;
+  getCallsWithTranscriptsByLead(leadId: string): Promise<Array<CallSession & { sdrName?: string; leadName?: string; companyName?: string }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -637,6 +641,58 @@ export class DatabaseStorage implements IStorage {
       await db.insert(navigationSettings).values(setting).onConflictDoNothing();
     }
     console.log("[Init] Navigation settings initialized");
+  }
+
+  async searchLeadsByName(searchName: string): Promise<Lead[]> {
+    const searchPattern = `%${searchName.toLowerCase()}%`;
+    return db.select().from(leads)
+      .where(sql`LOWER(${leads.contactName}) LIKE ${searchPattern} OR LOWER(${leads.companyName}) LIKE ${searchPattern}`)
+      .orderBy(desc(leads.lastContactedAt))
+      .limit(10);
+  }
+
+  async getCallsWithTranscriptsByLead(leadId: string): Promise<Array<CallSession & { sdrName?: string; leadName?: string; companyName?: string }>> {
+    const results = await db
+      .select({
+        id: callSessions.id,
+        callSid: callSessions.callSid,
+        userId: callSessions.userId,
+        leadId: callSessions.leadId,
+        direction: callSessions.direction,
+        fromNumber: callSessions.fromNumber,
+        toNumber: callSessions.toNumber,
+        status: callSessions.status,
+        duration: callSessions.duration,
+        recordingUrl: callSessions.recordingUrl,
+        driveFileId: callSessions.driveFileId,
+        transcriptText: callSessions.transcriptText,
+        coachingNotes: callSessions.coachingNotes,
+        managerSummary: callSessions.managerSummary,
+        startedAt: callSessions.startedAt,
+        endedAt: callSessions.endedAt,
+        disposition: callSessions.disposition,
+        keyTakeaways: callSessions.keyTakeaways,
+        nextSteps: callSessions.nextSteps,
+        sdrNotes: callSessions.sdrNotes,
+        callbackDate: callSessions.callbackDate,
+        sentimentScore: callSessions.sentimentScore,
+        sdrName: users.name,
+        leadName: leads.contactName,
+        companyName: leads.companyName,
+      })
+      .from(callSessions)
+      .leftJoin(users, eq(callSessions.userId, users.id))
+      .leftJoin(leads, eq(callSessions.leadId, leads.id))
+      .where(
+        and(
+          eq(callSessions.leadId, leadId),
+          isNotNull(callSessions.transcriptText)
+        )
+      )
+      .orderBy(desc(callSessions.startedAt))
+      .limit(10);
+    
+    return results as Array<CallSession & { sdrName?: string; leadName?: string; companyName?: string }>;
   }
 }
 

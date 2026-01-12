@@ -40,6 +40,23 @@ interface SdrPerformance {
   connectionRate: number;
 }
 
+interface LeadTranscriptData {
+  leadId: string;
+  leadName: string;
+  companyName: string;
+  calls: Array<{
+    callId: string;
+    callDate: Date;
+    duration: number | null;
+    disposition: string | null;
+    sdrName: string;
+    transcriptPreview: string;
+    objections: string[];
+    rebuttals: string[];
+    coachingNotes: string | null;
+  }>;
+}
+
 interface UserContextData {
   leads: LeadSummary[];
   recentCalls: CallSummary[];
@@ -60,6 +77,8 @@ interface UserContextData {
     teamQualifiedLeads: number;
     topPerformer?: string;
   };
+  // Lead transcript data (for manager queries about specific leads)
+  leadTranscripts?: LeadTranscriptData;
 }
 
 interface SupportChatRequest {
@@ -108,12 +127,42 @@ const DATA_INTENT_KEYWORDS = {
 
   // Manager-only intents
   team: ["team", "my sdrs", "sdr performance", "team metrics", "team stats", "who is", "leaderboard", "top performer", "coaching"],
+  
+  // Lead transcript search - manager/admin only
+  leadTranscripts: ["transcript", "rebuttal", "objection", "call with", "calls to", "last call", "their call", "'s call"],
 };
 
-type DataIntent = "leads" | "calls" | "stats" | "performance" | "products" | "team" | null;
+// Extract potential lead name from message for transcript queries
+function extractLeadName(message: string): string | null {
+  // Patterns to extract lead names
+  const patterns = [
+    /(?:tell me about|show me|get|find)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)(?:'s)?\s+(?:call|transcript|rebuttal)/i,
+    /([A-Z][a-z]+\s+[A-Z][a-z]+)(?:'s)?\s+(?:last|recent|previous)?\s*(?:call|transcript|rebuttal)/i,
+    /(?:call|transcript|rebuttal)s?\s+(?:for|with|to)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)/i,
+    /(?:how did)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)\s+(?:handle|do)/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
+}
+
+type DataIntent = "leads" | "calls" | "stats" | "performance" | "products" | "team" | "leadTranscripts" | null;
 
 function detectDataIntent(message: string, userRole: string): DataIntent {
   const lowerMessage = message.toLowerCase();
+  
+  // Check for lead transcript intent first (manager/admin only)
+  if ((userRole === "manager" || userRole === "admin")) {
+    const leadName = extractLeadName(message);
+    if (leadName && DATA_INTENT_KEYWORDS.leadTranscripts.some(keyword => lowerMessage.includes(keyword))) {
+      return "leadTranscripts";
+    }
+  }
 
   // Check for team intent first (manager/admin only)
   if ((userRole === "manager" || userRole === "admin") &&
@@ -414,6 +463,49 @@ function formatUserDataForPrompt(data: UserContextData, intent: DataIntent, user
     formatted += `The AI research dossier on each lead includes product recommendations based on their profile.\n`;
   }
 
+  // Lead transcript data for managers querying about specific leads
+  if (intent === "leadTranscripts" && data.leadTranscripts) {
+    const lt = data.leadTranscripts;
+    formatted += `\n**Call Transcripts for ${lt.leadName} at ${lt.companyName}:**\n`;
+    
+    if (lt.calls.length === 0) {
+      formatted += `_No calls with transcripts found for this lead._\n`;
+    } else {
+      formatted += `Total calls with transcripts: ${lt.calls.length}\n\n`;
+      
+      for (const call of lt.calls.slice(0, 3)) {
+        const duration = call.duration ? `${Math.round(call.duration / 60)} min` : "N/A";
+        const callDate = new Date(call.callDate).toLocaleDateString();
+        formatted += `**Call on ${callDate}** (${duration}, ${call.disposition || "unknown outcome"})\n`;
+        formatted += `Called by: ${call.sdrName}\n`;
+        
+        if (call.objections.length > 0) {
+          formatted += `\n**Objections raised:**\n`;
+          for (const obj of call.objections) {
+            formatted += `- "${obj}"\n`;
+          }
+        }
+        
+        if (call.rebuttals.length > 0) {
+          formatted += `\n**SDR Rebuttals:**\n`;
+          for (const reb of call.rebuttals) {
+            formatted += `- "${reb}"\n`;
+          }
+        }
+        
+        if (call.transcriptPreview) {
+          formatted += `\n**Transcript excerpt:**\n${call.transcriptPreview}\n`;
+        }
+        
+        if (call.coachingNotes) {
+          formatted += `\n**Coaching Analysis:**\n${call.coachingNotes.substring(0, 500)}...\n`;
+        }
+        
+        formatted += `\n---\n`;
+      }
+    }
+  }
+
   formatted += "---\n";
   return formatted;
 }
@@ -468,6 +560,76 @@ export function registerSupportRoutes(app: Express): void {
       // Fetch user data if they're asking for it or if explicitly requested
       if ((dataIntent || includeUserData) && userId) {
         userData = await fetchUserContextData(userId, userRole);
+
+        // Special handling for lead transcript queries
+        if (dataIntent === "leadTranscripts" && (userRole === "manager" || userRole === "admin")) {
+          const leadName = extractLeadName(message);
+          if (leadName) {
+            try {
+              const matchedLeads = await storage.searchLeadsByName(leadName);
+              if (matchedLeads.length > 0) {
+                const lead = matchedLeads[0];
+                const calls = await storage.getCallsWithTranscriptsByLead(lead.id);
+                
+                // Extract objections and rebuttals from transcripts
+                const callData = calls.map(call => {
+                  const transcript = call.transcriptText || "";
+                  const objections: string[] = [];
+                  const rebuttals: string[] = [];
+                  
+                  const objectionPatterns = [
+                    /(?:we're|we are)\s+(?:happy|satisfied|good)\s+(?:with|using)/gi,
+                    /(?:not\s+interested|no\s+interest|don't\s+need)/gi,
+                    /(?:budget|price|cost|expensive)/gi,
+                    /(?:locked\s+into|contract|agreement)/gi,
+                    /(?:check\s+with|ask|consult)\s+(?:my\s+)?(?:team|manager|boss)/gi,
+                  ];
+                  
+                  const lines = transcript.split('\n');
+                  for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (!line.startsWith('SDR:')) {
+                      for (const pattern of objectionPatterns) {
+                        if (pattern.test(line.toLowerCase())) {
+                          objections.push(line.trim());
+                          // Get SDR response as rebuttal
+                          if (i + 1 < lines.length && lines[i + 1].startsWith('SDR:')) {
+                            rebuttals.push(lines[i + 1].trim());
+                          }
+                          pattern.lastIndex = 0;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                  
+                  return {
+                    callId: call.id,
+                    callDate: call.startedAt,
+                    duration: call.duration,
+                    disposition: call.disposition,
+                    sdrName: call.sdrName || "Unknown",
+                    transcriptPreview: transcript.substring(0, 500) + (transcript.length > 500 ? "..." : ""),
+                    objections: objections.slice(0, 5),
+                    rebuttals: rebuttals.slice(0, 5),
+                    coachingNotes: call.coachingNotes,
+                  };
+                });
+                
+                if (userData) {
+                  userData.leadTranscripts = {
+                    leadId: lead.id,
+                    leadName: lead.contactName,
+                    companyName: lead.companyName,
+                    calls: callData,
+                  };
+                }
+              }
+            } catch (err) {
+              console.error("[SupportChat] Error fetching lead transcripts:", err);
+            }
+          }
+        }
 
         if (userData && dataIntent) {
           // Append user data to the message for AI context
@@ -618,6 +780,131 @@ export function registerSupportRoutes(app: Express): void {
     }
   });
 
+  // Search transcripts by lead name - for managers to review specific lead's call history
+  app.post("/api/copilot/lead-transcripts", async (req: Request, res: Response) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Only managers and admins can search all lead transcripts
+      if (user.role !== "manager" && user.role !== "admin") {
+        return res.status(403).json({ error: "Manager or admin access required" });
+      }
+
+      const { leadName, leadId, includeRebuttals = true } = req.body;
+      
+      let targetLeadId = leadId;
+      let matchedLeads: any[] = [];
+
+      // If leadName provided, search for leads by name
+      if (leadName && !leadId) {
+        matchedLeads = await storage.searchLeadsByName(leadName);
+        if (matchedLeads.length === 0) {
+          return res.json({
+            leadName,
+            found: false,
+            message: `No leads found matching "${leadName}"`,
+            results: [],
+          });
+        }
+        targetLeadId = matchedLeads[0].id;
+      }
+
+      if (!targetLeadId) {
+        return res.status(400).json({ error: "Either leadName or leadId is required" });
+      }
+
+      // Get calls with transcripts for this lead
+      const calls = await storage.getCallsWithTranscriptsByLead(targetLeadId);
+
+      // Extract objections and rebuttals from transcripts
+      const results = calls.map(call => {
+        const transcript = call.transcriptText || "";
+        const rebuttals: string[] = [];
+        const objections: string[] = [];
+
+        if (includeRebuttals && transcript) {
+          // Common objection patterns
+          const objectionPatterns = [
+            /(?:we're|we are)\s+(?:happy|satisfied|good)\s+(?:with|using)/gi,
+            /(?:not\s+interested|no\s+interest|don't\s+need)/gi,
+            /(?:budget|price|cost|expensive)/gi,
+            /(?:locked\s+into|contract|agreement)/gi,
+            /(?:check\s+with|ask|consult)\s+(?:my\s+)?(?:team|manager|boss)/gi,
+            /(?:not\s+a\s+good\s+time|busy|later)/gi,
+          ];
+
+          // Extract objections from prospect lines
+          const lines = transcript.split('\n');
+          for (const line of lines) {
+            const lowerLine = line.toLowerCase();
+            if (!line.startsWith('SDR:') && !line.includes('SDR:')) {
+              for (const pattern of objectionPatterns) {
+                if (pattern.test(lowerLine)) {
+                  objections.push(line.trim());
+                  pattern.lastIndex = 0; // Reset regex
+                  break;
+                }
+              }
+            }
+          }
+
+          // Extract SDR rebuttal responses (lines after objections)
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.startsWith('SDR:') && i > 0) {
+              const prevLine = lines[i - 1];
+              // Check if previous line was an objection
+              for (const pattern of objectionPatterns) {
+                if (pattern.test(prevLine.toLowerCase())) {
+                  rebuttals.push(line.trim());
+                  pattern.lastIndex = 0;
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        return {
+          callId: call.id,
+          callDate: call.startedAt,
+          duration: call.duration,
+          disposition: call.disposition,
+          sdrName: call.sdrName || "Unknown",
+          leadName: call.leadName || "Unknown",
+          companyName: call.companyName || "Unknown",
+          sentimentScore: call.sentimentScore,
+          transcriptPreview: transcript.substring(0, 500) + (transcript.length > 500 ? "..." : ""),
+          fullTranscript: transcript,
+          objections: objections.slice(0, 5),
+          rebuttals: rebuttals.slice(0, 5),
+          coachingNotes: call.coachingNotes,
+          keyTakeaways: call.keyTakeaways,
+        };
+      });
+
+      res.json({
+        leadName: matchedLeads[0]?.contactName || leadName,
+        companyName: matchedLeads[0]?.companyName,
+        leadId: targetLeadId,
+        found: true,
+        totalCalls: results.length,
+        results,
+      });
+    } catch (error) {
+      console.error("[Copilot] Lead transcript search error:", error);
+      res.status(500).json({ error: "Failed to search lead transcripts" });
+    }
+  });
+
   // Pre-call brief - get intelligence before a call
   app.get("/api/copilot/pre-call-brief/:leadId", async (req: Request, res: Response) => {
     try {
@@ -638,8 +925,7 @@ export function registerSupportRoutes(app: Express): void {
       const leadCalls = allCalls.filter(call => call.leadId === leadId);
 
       // Get the lead's research packet
-      const researchPackets = await storage.getResearchPacketsByLead(leadId);
-      const latestResearch = researchPackets[0];
+      const latestResearch = await storage.getResearchPacketByLead(leadId);
 
       // Analyze previous calls for patterns
       const previousCallSummaries = leadCalls.slice(0, 5).map(call => ({
@@ -708,8 +994,8 @@ export function registerSupportRoutes(app: Express): void {
           summaries: previousCallSummaries,
         },
         intelligence: {
-          objectionHistory: [...new Set(objections)].slice(0, 5),
-          openCommitments: [...new Set(commitments)].slice(0, 5),
+          objectionHistory: Array.from(new Set(objections)).slice(0, 5),
+          openCommitments: Array.from(new Set(commitments)).slice(0, 5),
           painPoints: latestResearch?.painPointsJson || [],
           productMatches: latestResearch?.productMatchesJson || [],
           talkTrack: latestResearch?.talkTrack || null,
