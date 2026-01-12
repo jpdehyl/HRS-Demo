@@ -9,40 +9,70 @@ import bcrypt from "bcrypt";
 const DEMO_PASSWORD = "demo2024";
 
 const MANAGER_DATA = [
-  { name: "Roberto Hernandez", email: "roberto.hernandez@hawkridge.com" },
-  { name: "Carmen Delgado", email: "carmen.delgado@hawkridge.com" },
-  { name: "Luis Morales", email: "luis.morales@hawkridge.com" },
+  { 
+    name: "Roberto Hernandez", 
+    email: "roberto.hernandez@hawkridge.com",
+    phone: "+1 (555) 234-5678",
+    title: "Senior Sales Manager",
+    bio: "15+ years in B2B software sales. Former top performer at PTC who transitioned to leadership. Passionate about developing SDRs into top closers through data-driven coaching and weekly call reviews.",
+    coachingStyle: "Collaborative and metrics-focused. Believes in celebrating wins publicly and coaching improvements privately. Known for detailed call breakdowns and role-playing exercises.",
+    specialties: "SOLIDWORKS Enterprise, Complex Deal Cycles, Objection Handling",
+    yearsExperience: 15,
+    certifications: "Sandler Sales Certification, SPIN Selling, Challenger Sale Methodology"
+  },
+  { 
+    name: "Carmen Delgado", 
+    email: "carmen.delgado@hawkridge.com",
+    phone: "+1 (555) 345-6789",
+    title: "Regional Sales Manager - West",
+    bio: "Started as an SDR at Hawk Ridge 8 years ago and worked her way up. Deep understanding of the manufacturing sector and aerospace verticals. Champions a growth mindset approach.",
+    coachingStyle: "Empathetic listener who focuses on building confidence. Uses real customer stories to illustrate best practices. Weekly 1:1s are sacred.",
+    specialties: "Manufacturing Vertical, Aerospace Clients, New Hire Onboarding",
+    yearsExperience: 8,
+    certifications: "Miller Heiman Strategic Selling, CAD/CAM Product Specialist"
+  },
+  { 
+    name: "Luis Morales", 
+    email: "luis.morales@hawkridge.com",
+    phone: "+1 (555) 456-7890",
+    title: "Director of Sales Development",
+    bio: "Former engineering background gives him technical credibility with prospects. Built the SDR program from scratch when he joined 5 years ago. Now oversees all SDR training and development.",
+    coachingStyle: "Technical mentor who helps SDRs understand the product deeply. Focuses on discovery questions and value-based selling. Runs monthly SDR bootcamps.",
+    specialties: "Technical Sales, Value Selling, PDM/PLM Solutions",
+    yearsExperience: 12,
+    certifications: "Mechanical Engineering Degree, MEDDIC Certified, Solution Selling"
+  },
 ];
 
 const SDR_DATA = [
-  { name: "Carlos Martinez", email: "carlos.martinez@hawkridge.com", gender: "male" },
-  { name: "Maria Rodriguez", email: "maria.rodriguez@hawkridge.com", gender: "female" },
-  { name: "Juan Gonzalez", email: "juan.gonzalez@hawkridge.com", gender: "male" },
-  { name: "Ana Torres", email: "ana.torres@hawkridge.com", gender: "female" },
-  { name: "Diego Ramirez", email: "diego.ramirez@hawkridge.com", gender: "male" },
-  { name: "Sofia Vargas", email: "sofia.vargas@hawkridge.com", gender: "female" },
-  { name: "Miguel Flores", email: "miguel.flores@hawkridge.com", gender: "male" },
-  { name: "Isabella Sanchez", email: "isabella.sanchez@hawkridge.com", gender: "female" },
-  { name: "Fernando Castro", email: "fernando.castro@hawkridge.com", gender: "male" },
-  { name: "Valentina Reyes", email: "valentina.reyes@hawkridge.com", gender: "female" },
-  { name: "Alejandro Mendoza", email: "alejandro.mendoza@hawkridge.com", gender: "male" },
-  { name: "Camila Ortiz", email: "camila.ortiz@hawkridge.com", gender: "female" },
-  { name: "Gabriel Jimenez", email: "gabriel.jimenez@hawkridge.com", gender: "male" },
-  { name: "Lucia Romero", email: "lucia.romero@hawkridge.com", gender: "female" },
-  { name: "Andres Navarro", email: "andres.navarro@hawkridge.com", gender: "male" },
-  { name: "Paula Gutierrez", email: "paula.gutierrez@hawkridge.com", gender: "female" },
-  { name: "Sebastian Ruiz", email: "sebastian.ruiz@hawkridge.com", gender: "male" },
-  { name: "Elena Diaz", email: "elena.diaz@hawkridge.com", gender: "female" },
-  { name: "Ricardo Herrera", email: "ricardo.herrera@hawkridge.com", gender: "male" },
-  { name: "Daniela Aguilar", email: "daniela.aguilar@hawkridge.com", gender: "female" },
+  { name: "Carlos Martinez", email: "carlos.martinez@hawkridge.com", gender: "male", bio: "Top performer who joined 2 years ago from SaaS sales. Natural relationship builder with strong discovery skills. Working on improving objection handling with technical decision-makers.", strengths: "Rapport building, Discovery questions, Follow-up discipline", developmentAreas: "Technical objections, C-level conversations", goals: "Move to AE role within 18 months", yearsExperience: 2, previousCompany: "HubSpot", specialties: "SMB Manufacturing" },
+  { name: "Maria Rodriguez", email: "maria.rodriguez@hawkridge.com", gender: "female", bio: "Highest connect rate on the team. Former teacher who brings exceptional communication skills. Excels at building trust quickly but working on being more assertive in closing.", strengths: "Communication, Active listening, Call prep", developmentAreas: "Assertiveness, Closing techniques", goals: "Consistently hit 120% of quota", yearsExperience: 1, previousCompany: "Education Sector", specialties: "Healthcare, Medical Devices" },
+  { name: "Juan Gonzalez", email: "juan.gonzalez@hawkridge.com", gender: "male", bio: "Engineering background makes him highly credible with technical buyers. Sometimes spends too long on technical discussions. Working on qualifying faster.", strengths: "Technical knowledge, Problem identification, Demo skills", developmentAreas: "Time management, Qualification speed", goals: "Become the technical SME for the team", yearsExperience: 3, previousCompany: "Siemens PLM", specialties: "Aerospace, Defense" },
+  { name: "Ana Torres", email: "ana.torres@hawkridge.com", gender: "female", bio: "Rising star who broke the monthly meeting record last quarter. Highly competitive and loves the leaderboard. Coaching her on sustainable pacing and work-life balance.", strengths: "Persistence, Competitive drive, Energy", developmentAreas: "Pacing, Account research depth", goals: "President's Club qualification", yearsExperience: 1, previousCompany: "Salesforce", specialties: "Technology, Startups" },
+  { name: "Diego Ramirez", email: "diego.ramirez@hawkridge.com", gender: "male", bio: "Steady performer who never misses quota. Great mentor to new hires. Working on pushing beyond comfort zone to achieve stretch goals.", strengths: "Consistency, Mentorship, Process discipline", developmentAreas: "Risk-taking, Enterprise pursuit", goals: "Team lead position", yearsExperience: 4, previousCompany: "Oracle", specialties: "Mid-Market, Industrial" },
+  { name: "Sofia Vargas", email: "sofia.vargas@hawkridge.com", gender: "female", bio: "Creative approach to prospecting with strong LinkedIn game. Sometimes over-relies on digital channels. Working on phone confidence.", strengths: "Social selling, Creative messaging, Research", developmentAreas: "Cold calling, Voice presence", goals: "Develop multi-channel mastery", yearsExperience: 1, previousCompany: "Marketing Agency", specialties: "Consumer Products, Retail" },
+  { name: "Miguel Flores", email: "miguel.flores@hawkridge.com", gender: "male", bio: "Recently promoted from BDR. Strong work ethic but still building product knowledge. Putting in extra time on training modules.", strengths: "Work ethic, Coachability, Positive attitude", developmentAreas: "Product knowledge, Industry expertise", goals: "Master the full SOLIDWORKS portfolio", yearsExperience: 1, previousCompany: "Inside Sales at Dell", specialties: "General Manufacturing" },
+  { name: "Isabella Sanchez", email: "isabella.sanchez@hawkridge.com", gender: "female", bio: "Data-driven approach to sales. Uses analytics to optimize call times and messaging. Sometimes over-analyzes instead of acting.", strengths: "Analytics, Strategy, A/B testing", developmentAreas: "Speed to action, Intuitive selling", goals: "Build the team's data playbook", yearsExperience: 2, previousCompany: "ZoomInfo", specialties: "Enterprise Accounts" },
+  { name: "Fernando Castro", email: "fernando.castro@hawkridge.com", gender: "male", bio: "Experienced rep who joined from a competitor. Deep industry knowledge but adapting to our sales methodology. Excellent at identifying pain points.", strengths: "Industry expertise, Pain discovery, Competitive positioning", developmentAreas: "Adopting new processes, CRM discipline", goals: "Top 3 performer by year end", yearsExperience: 5, previousCompany: "Autodesk", specialties: "Architecture, Construction" },
+  { name: "Valentina Reyes", email: "valentina.reyes@hawkridge.com", gender: "female", bio: "Excellent at handling objections with empathy. Strong emotional intelligence helps her navigate difficult conversations. Building more industry knowledge.", strengths: "Empathy, Objection handling, Relationship depth", developmentAreas: "Industry terminology, Technical credibility", goals: "Increase average deal size", yearsExperience: 2, previousCompany: "Insurance Sales", specialties: "Professional Services" },
+  { name: "Alejandro Mendoza", email: "alejandro.mendoza@hawkridge.com", gender: "male", bio: "High-volume caller who focuses on activity metrics. Working on quality over quantity - having deeper conversations instead of quick dials.", strengths: "Activity volume, Energy, Resilience", developmentAreas: "Conversation depth, Qualification rigor", goals: "Improve conversion rate by 20%", yearsExperience: 1, previousCompany: "Call Center", specialties: "SMB, Quick Wins" },
+  { name: "Camila Ortiz", email: "camila.ortiz@hawkridge.com", gender: "female", bio: "Strongest email writer on the team. Personalized sequences get high open rates. Phone skills improving with practice.", strengths: "Written communication, Personalization, Creativity", developmentAreas: "Phone presence, Live discovery", goals: "Develop phone confidence to match email strength", yearsExperience: 1, previousCompany: "Content Marketing", specialties: "Education, Research" },
+  { name: "Gabriel Jimenez", email: "gabriel.jimenez@hawkridge.com", gender: "male", bio: "Former CAD operator who knows the product inside and out. Can sometimes get too technical too fast. Learning to lead with business value.", strengths: "Product mastery, Technical demos, User empathy", developmentAreas: "Business case building, Executive messaging", goals: "Become certified pre-sales engineer", yearsExperience: 2, previousCompany: "Manufacturing Plant", specialties: "Simulation, Analysis" },
+  { name: "Lucia Romero", email: "lucia.romero@hawkridge.com", gender: "female", bio: "New hire showing tremendous promise. Fast learner who asks great questions. In ramp period but already booking meetings.", strengths: "Curiosity, Quick learning, Positive attitude", developmentAreas: "Building experience, Handling pressure", goals: "Complete ramp in record time", yearsExperience: 0, previousCompany: "Recent Graduate", specialties: "Learning all verticals" },
+  { name: "Andres Navarro", email: "andres.navarro@hawkridge.com", gender: "male", bio: "Consistent mid-performer working on breakthrough to top tier. Has the skills but needs more confidence. Focus on mindset coaching.", strengths: "Reliability, Follow-through, Preparation", developmentAreas: "Confidence, Asking for the meeting", goals: "Break into top 5 performers", yearsExperience: 2, previousCompany: "Telecommunications", specialties: "Utilities, Energy" },
+  { name: "Paula Gutierrez", email: "paula.gutierrez@hawkridge.com", gender: "female", bio: "Excellent at researching accounts and building targeted messaging. Sometimes spends too long preparing vs. calling. Balance in progress.", strengths: "Research depth, Account planning, Targeting", developmentAreas: "Execution speed, Call volume", goals: "Optimize research-to-call ratio", yearsExperience: 1, previousCompany: "Market Research", specialties: "Enterprise, Strategic Accounts" },
+  { name: "Sebastian Ruiz", email: "sebastian.ruiz@hawkridge.com", gender: "male", bio: "Strong closer who excels at getting meetings from qualified conversations. Working on earlier qualification to avoid wasted time on bad fits.", strengths: "Closing, Urgency creation, Confidence", developmentAreas: "Early qualification, Discovery discipline", goals: "Highest meeting-to-opportunity rate", yearsExperience: 3, previousCompany: "Real Estate Sales", specialties: "Fast-moving deals" },
+  { name: "Elena Diaz", email: "elena.diaz@hawkridge.com", gender: "female", bio: "Bilingual advantage helps with Latin American accounts. Building relationships across borders. Working on navigating longer sales cycles.", strengths: "Bilingual, Cultural intelligence, Patience", developmentAreas: "Urgency tactics, Shortening cycles", goals: "Expand LATAM territory success", yearsExperience: 2, previousCompany: "International Trade", specialties: "LATAM, Multinational" },
+  { name: "Ricardo Herrera", email: "ricardo.herrera@hawkridge.com", gender: "male", bio: "Struggled initially but has made remarkable improvement over past 6 months. Example of coachability and persistence paying off.", strengths: "Coachability, Persistence, Growth mindset", developmentAreas: "Consistency, Peak performance", goals: "Maintain top-half performance", yearsExperience: 1, previousCompany: "Retail Management", specialties: "Consumer Goods" },
+  { name: "Daniela Aguilar", email: "daniela.aguilar@hawkridge.com", gender: "female", bio: "Team collaborator who shares wins and learnings freely. Strong network within accounts. Building individual contributor strength.", strengths: "Collaboration, Account mapping, Team spirit", developmentAreas: "Solo performance, Competitive edge", goals: "Balance team contribution with personal results", yearsExperience: 2, previousCompany: "Account Management", specialties: "Existing Customer Expansion" },
 ];
 
 const AE_DATA = [
-  { name: "Patricia Vega", email: "patricia.vega@hawkridge.com", region: "West", specialty: "Enterprise" },
-  { name: "Eduardo Silva", email: "eduardo.silva@hawkridge.com", region: "East", specialty: "Mid-Market" },
-  { name: "Monica Cruz", email: "monica.cruz@hawkridge.com", region: "Central", specialty: "Manufacturing" },
-  { name: "Felipe Ramos", email: "felipe.ramos@hawkridge.com", region: "South", specialty: "Healthcare" },
-  { name: "Teresa Luna", email: "teresa.luna@hawkridge.com", region: "Northeast", specialty: "Technology" },
+  { name: "Patricia Vega", email: "patricia.vega@hawkridge.com", phone: "+1 (555) 567-8901", region: "West", specialty: "Enterprise", title: "Senior Account Executive", bio: "President's Club winner 3 years running. Expert at navigating complex enterprise sales with multiple stakeholders. Known for large strategic deals in aerospace and defense.", dealFocus: "Enterprise deals $500K+", yearsExperience: 12, quotaAttainment: 142, avgDealSize: 450000 },
+  { name: "Eduardo Silva", email: "eduardo.silva@hawkridge.com", phone: "+1 (555) 678-9012", region: "East", specialty: "Mid-Market", title: "Account Executive", bio: "High-volume closer who excels at mid-market manufacturing deals. Fast deal cycles and strong closing skills. Former SDR who knows how to work with the team.", dealFocus: "Mid-market $50K-$200K deals", yearsExperience: 6, quotaAttainment: 118, avgDealSize: 85000 },
+  { name: "Monica Cruz", email: "monica.cruz@hawkridge.com", phone: "+1 (555) 789-0123", region: "Central", specialty: "Manufacturing", title: "Account Executive - Manufacturing", bio: "Deep manufacturing expertise from previous role at a production plant. Understands shop floor challenges and speaks the customer's language. Growing enterprise skills.", dealFocus: "Discrete manufacturing, job shops", yearsExperience: 5, quotaAttainment: 105, avgDealSize: 120000 },
+  { name: "Felipe Ramos", email: "felipe.ramos@hawkridge.com", phone: "+1 (555) 890-1234", region: "South", specialty: "Healthcare", title: "Account Executive - Medical Devices", bio: "Specialized in medical device and life sciences accounts. Understands regulatory requirements and validation needs. Building pipeline in emerging biotech.", dealFocus: "Medical devices, FDA-regulated", yearsExperience: 8, quotaAttainment: 95, avgDealSize: 180000 },
+  { name: "Teresa Luna", email: "teresa.luna@hawkridge.com", phone: "+1 (555) 901-2345", region: "Northeast", specialty: "Technology", title: "Account Executive - Technology", bio: "Tech sector specialist who works with hardware companies, electronics, and semiconductor firms. Strong at competitive displacement from Autodesk and Siemens.", dealFocus: "High-tech, electronics, semiconductor", yearsExperience: 7, quotaAttainment: 112, avgDealSize: 95000 },
 ];
 
 const REAL_COMPANIES = [
@@ -432,6 +462,13 @@ async function seedDemoData() {
     const [created] = await db.insert(managers).values({
       name: manager.name,
       email: manager.email,
+      phone: manager.phone,
+      title: manager.title,
+      bio: manager.bio,
+      coachingStyle: manager.coachingStyle,
+      specialties: manager.specialties,
+      yearsExperience: manager.yearsExperience,
+      certifications: manager.certifications,
     }).onConflictDoNothing().returning();
     
     if (created) {
@@ -466,6 +503,13 @@ async function seedDemoData() {
       managerId: manager.id,
       gender: sdr.gender,
       timezone: "America/Los_Angeles",
+      bio: sdr.bio,
+      strengths: sdr.strengths,
+      developmentAreas: sdr.developmentAreas,
+      goals: sdr.goals,
+      yearsExperience: sdr.yearsExperience,
+      previousCompany: sdr.previousCompany,
+      specialties: sdr.specialties,
     }).onConflictDoNothing().returning();
     
     if (created) {
@@ -493,7 +537,13 @@ async function seedDemoData() {
       email: ae.email,
       region: ae.region,
       specialty: ae.specialty,
-      phone: `+1${randomInt(200, 999)}${randomInt(100, 999)}${randomInt(1000, 9999)}`,
+      phone: ae.phone,
+      title: ae.title,
+      bio: ae.bio,
+      dealFocus: ae.dealFocus,
+      yearsExperience: ae.yearsExperience,
+      quotaAttainment: ae.quotaAttainment,
+      avgDealSize: ae.avgDealSize,
     }).onConflictDoNothing().returning();
     
     if (created) {

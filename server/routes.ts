@@ -587,6 +587,170 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/managers/:id/profile", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const manager = await storage.getManager(req.params.id);
+      if (!manager) {
+        return res.status(404).json({ message: "Manager not found" });
+      }
+
+      const allSdrs = await storage.getSdrsByManager(manager.id);
+      const allUsers = await storage.getAllUsers();
+      const sdrUserMap = new Map<string, string>();
+      for (const u of allUsers) {
+        if (u.sdrId) sdrUserMap.set(u.sdrId, u.id);
+      }
+
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      const startOfLastWeek = new Date(startOfWeek);
+      startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+      const endOfLastWeek = new Date(startOfWeek);
+
+      let teamMetrics = {
+        totalSdrs: allSdrs.length,
+        totalCalls: 0,
+        totalQualified: 0,
+        totalMeetings: 0,
+        avgConnectRate: 0,
+        avgCoachingScore: 0,
+        coachingSessionsGiven: 0,
+        weekCalls: 0,
+        weekQualified: 0,
+        weekMeetings: 0,
+        lastWeekCalls: 0,
+        lastWeekQualified: 0,
+        lastWeekMeetings: 0,
+      };
+
+      const team: any[] = [];
+      const weeklyActivity: { date: string; calls: number; qualified: number; meetings: number }[] = [];
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        weeklyActivity.push({ date: days[d.getDay()], calls: 0, qualified: 0, meetings: 0 });
+      }
+
+      let totalConnectRates = 0;
+      let sdrWithCalls = 0;
+
+      for (const sdr of allSdrs) {
+        const userId = sdrUserMap.get(sdr.id);
+        let weekCalls = 0, weekQualified = 0, weekMeetings = 0, connectRate = 0, trend = 0;
+        let lastWeekCalls = 0;
+
+        if (userId) {
+          const calls = await storage.getCallSessionsByUser(userId);
+          const thisWeekCalls = calls.filter((c: any) => new Date(c.startedAt) >= startOfWeek);
+          const lastWeekCallsArr = calls.filter((c: any) => {
+            const d = new Date(c.startedAt);
+            return d >= startOfLastWeek && d < endOfLastWeek;
+          });
+
+          weekCalls = thisWeekCalls.length;
+          lastWeekCalls = lastWeekCallsArr.length;
+          teamMetrics.weekCalls += weekCalls;
+          teamMetrics.lastWeekCalls += lastWeekCalls;
+          teamMetrics.totalCalls += calls.length;
+
+          let connected = 0;
+          for (const call of thisWeekCalls) {
+            if (['connected', 'qualified', 'meeting-booked', 'callback-scheduled', 'not-interested'].includes(call.disposition || '')) connected++;
+            if (call.disposition === 'qualified') { weekQualified++; teamMetrics.weekQualified++; }
+            if (call.disposition === 'meeting-booked') { weekMeetings++; teamMetrics.weekMeetings++; }
+
+            const callDate = new Date(call.startedAt);
+            const daysAgo = Math.floor((now.getTime() - callDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (daysAgo >= 0 && daysAgo < 7) {
+              const idx = 6 - daysAgo;
+              if (idx >= 0 && idx < weeklyActivity.length) {
+                weeklyActivity[idx].calls++;
+                if (call.disposition === 'qualified') weeklyActivity[idx].qualified++;
+                if (call.disposition === 'meeting-booked') weeklyActivity[idx].meetings++;
+              }
+            }
+          }
+
+          for (const call of lastWeekCallsArr) {
+            if (call.disposition === 'qualified') teamMetrics.lastWeekQualified++;
+            if (call.disposition === 'meeting-booked') teamMetrics.lastWeekMeetings++;
+          }
+
+          connectRate = weekCalls > 0 ? Math.round((connected / weekCalls) * 100) : 0;
+          trend = lastWeekCalls > 0 ? Math.round(((weekCalls - lastWeekCalls) / lastWeekCalls) * 100) : 0;
+
+          if (weekCalls > 0) {
+            totalConnectRates += connectRate;
+            sdrWithCalls++;
+          }
+        }
+
+        team.push({
+          id: sdr.id,
+          name: sdr.name,
+          email: sdr.email,
+          performance: { weekCalls, weekQualified, weekMeetings, connectRate, trend },
+        });
+      }
+
+      teamMetrics.avgConnectRate = sdrWithCalls > 0 ? Math.round(totalConnectRates / sdrWithCalls) : 0;
+
+      const allAnalyses = await storage.getAllManagerCallAnalyses();
+      const teamAnalyses = allAnalyses.filter((a: any) => allSdrs.some((s: any) => s.id === a.sdrId));
+      teamMetrics.coachingSessionsGiven = teamAnalyses.length;
+      if (teamAnalyses.length > 0) {
+        teamMetrics.avgCoachingScore = Math.round(teamAnalyses.reduce((sum: number, a: any) => sum + (a.overallScore || 0), 0) / teamAnalyses.length);
+      }
+
+      const trends = {
+        callsTrend: teamMetrics.lastWeekCalls > 0 ? Math.round(((teamMetrics.weekCalls - teamMetrics.lastWeekCalls) / teamMetrics.lastWeekCalls) * 100) : 0,
+        qualifiedTrend: teamMetrics.lastWeekQualified > 0 ? Math.round(((teamMetrics.weekQualified - teamMetrics.lastWeekQualified) / teamMetrics.lastWeekQualified) * 100) : 0,
+        meetingsTrend: teamMetrics.lastWeekMeetings > 0 ? Math.round(((teamMetrics.weekMeetings - teamMetrics.lastWeekMeetings) / teamMetrics.lastWeekMeetings) * 100) : 0,
+      };
+
+      const topPerformers = [...team]
+        .sort((a, b) => b.performance.weekQualified - a.performance.weekQualified)
+        .slice(0, 5)
+        .map(s => ({ name: s.name, metric: 'qualified', value: s.performance.weekQualified }));
+
+      const recentCoachingSessions = teamAnalyses.slice(0, 10).map((a: any) => ({
+        id: a.id,
+        sdrName: a.sdrName || 'Unknown',
+        date: a.analyzedAt,
+        score: a.overallScore || 0,
+        summary: a.summary || 'No summary available',
+      }));
+
+      const achievements = [
+        { title: "Team Builder", description: `Managing ${allSdrs.length} SDRs`, icon: "users" },
+        { title: "Coach Excellence", description: `${teamMetrics.coachingSessionsGiven} coaching sessions given`, icon: "graduation" },
+      ];
+      if (teamMetrics.avgCoachingScore >= 80) {
+        achievements.push({ title: "High Performance Team", description: "Team average score above 80", icon: "star" });
+      }
+      if (teamMetrics.weekMeetings >= 5) {
+        achievements.push({ title: "Meeting Machine", description: `${teamMetrics.weekMeetings} meetings booked this week`, icon: "target" });
+      }
+
+      res.json({
+        manager,
+        team,
+        teamMetrics,
+        trends,
+        weeklyActivity,
+        topPerformers,
+        recentCoachingSessions,
+        achievements,
+      });
+    } catch (error) {
+      console.error("Get manager profile error:", error);
+      res.status(500).json({ message: "Failed to fetch manager profile" });
+    }
+  });
+
   app.get("/api/sdrs", requireAuth, async (req: Request, res: Response) => {
     try {
       const allSdrs = await storage.getAllSdrs();
@@ -2427,6 +2591,105 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Account executives fetch error:", error);
       res.status(500).json({ message: "Failed to fetch account executives" });
+    }
+  });
+
+  app.get("/api/account-executives/:id/profile", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const ae = await storage.getAccountExecutive(req.params.id);
+      if (!ae) {
+        return res.status(404).json({ message: "Account Executive not found" });
+      }
+
+      const allLeads = await storage.getAllLeads();
+      const aeLeads = allLeads.filter((l: any) => l.assignedAeId === ae.id);
+
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfQuarter = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+
+      const handedOff = aeLeads.filter((l: any) => l.handedOffAt);
+      const wonLeads = aeLeads.filter((l: any) => l.status === 'converted');
+      const wonThisMonth = wonLeads.filter((l: any) => l.handedOffAt && new Date(l.handedOffAt) >= startOfMonth);
+      const wonThisQuarter = wonLeads.filter((l: any) => l.handedOffAt && new Date(l.handedOffAt) >= startOfQuarter);
+
+      const estimatedDealValue = 50000;
+      const pipeline = {
+        totalDeals: aeLeads.filter((l: any) => l.status !== 'converted' && l.status !== 'lost').length,
+        totalValue: aeLeads.filter((l: any) => l.status !== 'converted' && l.status !== 'lost').length * estimatedDealValue,
+        avgDealSize: estimatedDealValue,
+        winRate: handedOff.length > 0 ? Math.round((wonLeads.length / handedOff.length) * 100) : 0,
+        dealsWonThisMonth: wonThisMonth.length,
+        dealsWonThisQuarter: wonThisQuarter.length,
+        quotaProgress: ae.quotaAttainment || 0,
+        byStage: [
+          { stage: 'New', count: aeLeads.filter((l: any) => l.status === 'handed_off').length, value: aeLeads.filter((l: any) => l.status === 'handed_off').length * estimatedDealValue },
+          { stage: 'Engaged', count: aeLeads.filter((l: any) => l.status === 'engaged').length, value: aeLeads.filter((l: any) => l.status === 'engaged').length * estimatedDealValue },
+          { stage: 'Qualified', count: aeLeads.filter((l: any) => l.status === 'qualified').length, value: aeLeads.filter((l: any) => l.status === 'qualified').length * estimatedDealValue },
+          { stage: 'Won', count: wonLeads.length, value: wonLeads.length * estimatedDealValue },
+        ],
+      };
+
+      const allSdrs = await storage.getAllSdrs();
+      const sdrMap = new Map<string, string>();
+      for (const s of allSdrs) {
+        sdrMap.set(s.id, s.name);
+      }
+
+      const recentHandoffs = handedOff
+        .sort((a: any, b: any) => new Date(b.handedOffAt).getTime() - new Date(a.handedOffAt).getTime())
+        .slice(0, 10)
+        .map((lead: any) => ({
+          id: lead.id,
+          leadName: lead.contactName,
+          companyName: lead.companyName,
+          sdrName: lead.assignedSdrId ? (sdrMap.get(lead.assignedSdrId) || 'Unknown') : 'Unknown',
+          handoffDate: lead.handedOffAt,
+          status: lead.status === 'converted' ? 'won' : lead.status === 'lost' ? 'lost' : 'active',
+          dealValue: lead.status === 'converted' ? estimatedDealValue : null,
+        }));
+
+      const monthlyActivity = [];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+        const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        const monthWins = wonLeads.filter((l: any) => {
+          const handoff = new Date(l.handedOffAt);
+          return handoff >= monthStart && handoff <= monthEnd;
+        });
+        monthlyActivity.push({
+          month: months[d.getMonth()],
+          deals: monthWins.length,
+          revenue: monthWins.length * estimatedDealValue,
+        });
+      }
+
+      const achievements = [
+        { title: "Pipeline Builder", description: `${pipeline.totalDeals} active opportunities`, icon: "target" },
+      ];
+      if (wonLeads.length >= 5) {
+        achievements.push({ title: "Closer", description: `${wonLeads.length} deals won`, icon: "trophy" });
+      }
+      if (pipeline.winRate >= 30) {
+        achievements.push({ title: "High Converter", description: `${pipeline.winRate}% win rate`, icon: "star" });
+      }
+      if (wonThisMonth.length >= 2) {
+        achievements.push({ title: "Hot Streak", description: `${wonThisMonth.length} deals this month`, icon: "handshake" });
+      }
+
+      res.json({
+        ae,
+        pipeline,
+        recentHandoffs,
+        monthlyActivity,
+        achievements,
+      });
+    } catch (error) {
+      console.error("Get AE profile error:", error);
+      res.status(500).json({ message: "Failed to fetch AE profile" });
     }
   });
 

@@ -578,13 +578,17 @@ export default function TeamPage() {
                 <CardHeader className="cursor-pointer">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarFallback className="bg-primary/10 text-primary">
-                          {getInitials(manager.name)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <Link href={`/team/manager/${manager.id}`}>
+                        <Avatar className="cursor-pointer hover:ring-2 hover:ring-primary transition-all">
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {getInitials(manager.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Link>
                       <div>
-                        <CardTitle className="text-base">{manager.name}</CardTitle>
+                        <Link href={`/team/manager/${manager.id}`}>
+                          <CardTitle className="text-base hover:text-primary cursor-pointer transition-colors">{manager.name}</CardTitle>
+                        </Link>
                         <CardDescription className="flex items-center gap-1">
                           <Building2 className="h-3 w-3" />
                           Sales Manager
@@ -687,16 +691,20 @@ export default function TeamPage() {
                   {accountExecutives.map((ae) => (
                     <div
                       key={ae.id}
-                      className="flex items-center gap-3 p-3 bg-muted/50 rounded-md"
+                      className="flex items-center gap-3 p-3 bg-muted/50 rounded-md hover:bg-muted transition-colors"
                       data-testid={`ae-card-${ae.id}`}
                     >
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                          {getInitials(ae.name)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <Link href={`/team/ae/${ae.id}`}>
+                        <Avatar className="h-10 w-10 cursor-pointer hover:ring-2 hover:ring-primary transition-all">
+                          <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                            {getInitials(ae.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Link>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{ae.name}</p>
+                        <Link href={`/team/ae/${ae.id}`}>
+                          <p className="font-medium truncate hover:text-primary cursor-pointer transition-colors">{ae.name}</p>
+                        </Link>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Mail className="h-3 w-3 flex-shrink-0" />
                           <span className="truncate">{ae.email}</span>
