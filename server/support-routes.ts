@@ -57,6 +57,23 @@ interface LeadTranscriptData {
   }>;
 }
 
+interface SdrCallsData {
+  sdrId: string;
+  sdrName: string;
+  userId: string;
+  calls: Array<{
+    callId: string;
+    callDate: Date;
+    duration: number | null;
+    disposition: string | null;
+    leadName: string;
+    companyName: string;
+    transcriptPreview: string;
+    coachingNotes: string | null;
+    sentimentScore: number | null;
+  }>;
+}
+
 interface UserContextData {
   leads: LeadSummary[];
   recentCalls: CallSummary[];
@@ -79,6 +96,8 @@ interface UserContextData {
   };
   // Lead transcript data (for manager queries about specific leads)
   leadTranscripts?: LeadTranscriptData;
+  // SDR calls data (for manager queries about specific SDR's calls)
+  sdrCalls?: SdrCallsData;
 }
 
 interface SupportChatRequest {
@@ -130,6 +149,9 @@ const DATA_INTENT_KEYWORDS = {
   
   // Lead transcript search - manager/admin only
   leadTranscripts: ["transcript", "rebuttal", "objection", "call with", "calls to", "last call", "their call", "'s call"],
+  
+  // SDR call queries - manager/admin only (for reviewing specific SDR's calls)
+  sdrCalls: ["'s calls", "'s last", "'s recent", "calls from", "how did", "tell me about", "show me"],
 };
 
 // Extract potential lead name from message for transcript queries
@@ -151,12 +173,41 @@ function extractLeadName(message: string): string | null {
   return null;
 }
 
-type DataIntent = "leads" | "calls" | "stats" | "performance" | "products" | "team" | "leadTranscripts" | null;
+// Extract SDR name from message for SDR call queries (e.g., "tell me about Gabriel's last few calls")
+function extractSDRName(message: string): string | null {
+  // Patterns to extract SDR names - works with first name or full name
+  // Updated to handle multi-word qualifiers like "last few", "most recent", etc.
+  const patterns = [
+    /(?:tell me about|show me|get|find)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)(?:'s)?\s+(?:last|recent|few|previous|most\s+recent|last\s+few|past)?\s*(?:few|several|couple)?\s*calls?/i,
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)(?:'s)\s+(?:last|recent|few|previous|most\s+recent|last\s+few|past)?\s*(?:few|several|couple)?\s*calls?/i,
+    /(?:how (?:is|did|are|has))\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:doing|perform|handle|been)/i,
+    /calls?\s+(?:from|by|made by)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i,
+    /review\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)(?:'s)?\s+(?:calls?|performance)/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
+}
+
+type DataIntent = "leads" | "calls" | "stats" | "performance" | "products" | "team" | "leadTranscripts" | "sdrCalls" | null;
 
 function detectDataIntent(message: string, userRole: string): DataIntent {
   const lowerMessage = message.toLowerCase();
   
-  // Check for lead transcript intent first (manager/admin only)
+  // Check for SDR call queries first (manager/admin only) - "Gabriel's calls", "tell me about Gabriel's last few calls"
+  if ((userRole === "manager" || userRole === "admin")) {
+    const sdrName = extractSDRName(message);
+    if (sdrName && DATA_INTENT_KEYWORDS.sdrCalls.some(keyword => lowerMessage.includes(keyword))) {
+      return "sdrCalls";
+    }
+  }
+  
+  // Check for lead transcript intent (manager/admin only)
   if ((userRole === "manager" || userRole === "admin")) {
     const leadName = extractLeadName(message);
     if (leadName && DATA_INTENT_KEYWORDS.leadTranscripts.some(keyword => lowerMessage.includes(keyword))) {
@@ -506,6 +557,37 @@ function formatUserDataForPrompt(data: UserContextData, intent: DataIntent, user
     }
   }
 
+  // SDR calls data for managers querying about specific SDR's calls
+  if (intent === "sdrCalls" && data.sdrCalls) {
+    const sc = data.sdrCalls;
+    formatted += `\n**Recent Calls for ${sc.sdrName}:**\n`;
+    
+    if (sc.calls.length === 0) {
+      formatted += `_No calls found for this SDR._\n`;
+    } else {
+      formatted += `Total recent calls: ${sc.calls.length}\n\n`;
+      
+      for (const call of sc.calls.slice(0, 5)) {
+        const duration = call.duration ? `${Math.round(call.duration / 60)} min` : "N/A";
+        const callDate = new Date(call.callDate).toLocaleDateString();
+        const score = call.sentimentScore ? `Score: ${call.sentimentScore}/10` : "";
+        
+        formatted += `**Call on ${callDate}** to ${call.leadName} at ${call.companyName}\n`;
+        formatted += `Duration: ${duration} | Outcome: ${call.disposition || "unknown"} ${score ? `| ${score}` : ""}\n`;
+        
+        if (call.transcriptPreview && call.transcriptPreview !== "No transcript available") {
+          formatted += `\n**Transcript excerpt:**\n${call.transcriptPreview}\n`;
+        }
+        
+        if (call.coachingNotes) {
+          formatted += `\n**Coaching Analysis:**\n${call.coachingNotes.substring(0, 400)}...\n`;
+        }
+        
+        formatted += `\n---\n`;
+      }
+    }
+  }
+
   formatted += "---\n";
   return formatted;
 }
@@ -627,6 +709,43 @@ export function registerSupportRoutes(app: Express): void {
               }
             } catch (err) {
               console.error("[SupportChat] Error fetching lead transcripts:", err);
+            }
+          }
+        }
+
+        // Special handling for SDR call queries (e.g., "tell me about Gabriel's last few calls")
+        if (dataIntent === "sdrCalls" && (userRole === "manager" || userRole === "admin")) {
+          const sdrName = extractSDRName(message);
+          if (sdrName) {
+            try {
+              const matchedSdrs = await storage.searchSdrsByName(sdrName);
+              if (matchedSdrs.length > 0) {
+                const { sdr, user } = matchedSdrs[0];
+                const calls = await storage.getCallsWithTranscriptsByUser(user.id, 10);
+                
+                const callData = calls.map(call => ({
+                  callId: call.id,
+                  callDate: call.startedAt,
+                  duration: call.duration,
+                  disposition: call.disposition,
+                  leadName: call.leadName || "Unknown Lead",
+                  companyName: call.companyName || "Unknown Company",
+                  transcriptPreview: call.transcriptText ? call.transcriptText.substring(0, 400) + (call.transcriptText.length > 400 ? "..." : "") : "No transcript available",
+                  coachingNotes: call.coachingNotes,
+                  sentimentScore: call.sentimentScore,
+                }));
+                
+                if (userData) {
+                  userData.sdrCalls = {
+                    sdrId: sdr.id,
+                    sdrName: sdr.name,
+                    userId: user.id,
+                    calls: callData,
+                  };
+                }
+              }
+            } catch (err) {
+              console.error("[SupportChat] Error fetching SDR calls:", err);
             }
           }
         }

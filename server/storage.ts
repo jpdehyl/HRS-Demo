@@ -113,6 +113,10 @@ export interface IStorage {
   // Lead transcript search for Copilot
   searchLeadsByName(searchName: string): Promise<Lead[]>;
   getCallsWithTranscriptsByLead(leadId: string): Promise<Array<CallSession & { sdrName?: string; leadName?: string; companyName?: string }>>;
+  
+  // SDR call search for Copilot
+  searchSdrsByName(searchName: string): Promise<Array<{ sdr: Sdr; user: User }>>;
+  getCallsWithTranscriptsByUser(userId: string, limit?: number): Promise<Array<CallSession & { sdrName?: string; leadName?: string; companyName?: string }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -691,6 +695,59 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(callSessions.startedAt))
       .limit(10);
+    
+    return results as Array<CallSession & { sdrName?: string; leadName?: string; companyName?: string }>;
+  }
+
+  async searchSdrsByName(searchName: string): Promise<Array<{ sdr: Sdr; user: User }>> {
+    const searchPattern = `%${searchName.toLowerCase()}%`;
+    const results = await db
+      .select({
+        sdr: sdrs,
+        user: users,
+      })
+      .from(sdrs)
+      .innerJoin(users, eq(users.sdrId, sdrs.id))
+      .where(sql`LOWER(${sdrs.name}) LIKE ${searchPattern} OR LOWER(${users.name}) LIKE ${searchPattern}`)
+      .limit(5);
+    return results;
+  }
+
+  async getCallsWithTranscriptsByUser(userId: string, limit: number = 10): Promise<Array<CallSession & { sdrName?: string; leadName?: string; companyName?: string }>> {
+    const results = await db
+      .select({
+        id: callSessions.id,
+        callSid: callSessions.callSid,
+        userId: callSessions.userId,
+        leadId: callSessions.leadId,
+        direction: callSessions.direction,
+        fromNumber: callSessions.fromNumber,
+        toNumber: callSessions.toNumber,
+        status: callSessions.status,
+        duration: callSessions.duration,
+        recordingUrl: callSessions.recordingUrl,
+        driveFileId: callSessions.driveFileId,
+        transcriptText: callSessions.transcriptText,
+        coachingNotes: callSessions.coachingNotes,
+        managerSummary: callSessions.managerSummary,
+        startedAt: callSessions.startedAt,
+        endedAt: callSessions.endedAt,
+        disposition: callSessions.disposition,
+        keyTakeaways: callSessions.keyTakeaways,
+        nextSteps: callSessions.nextSteps,
+        sdrNotes: callSessions.sdrNotes,
+        callbackDate: callSessions.callbackDate,
+        sentimentScore: callSessions.sentimentScore,
+        sdrName: users.name,
+        leadName: leads.contactName,
+        companyName: leads.companyName,
+      })
+      .from(callSessions)
+      .leftJoin(users, eq(callSessions.userId, users.id))
+      .leftJoin(leads, eq(callSessions.leadId, leads.id))
+      .where(eq(callSessions.userId, userId))
+      .orderBy(desc(callSessions.startedAt))
+      .limit(limit);
     
     return results as Array<CallSession & { sdrName?: string; leadName?: string; companyName?: string }>;
   }

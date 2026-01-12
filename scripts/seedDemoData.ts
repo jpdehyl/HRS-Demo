@@ -632,7 +632,8 @@ async function seedDemoData() {
                     disposition === "connected" ? randomInt(5, 8) :
                     randomInt(4, 7);
       
-      const transcript = duration > 30 ? generateTranscript(lead.contactName, lead.companyName, disposition, lead.painPoints) : null;
+      // Generate transcript for all answered calls including voicemails, but not for no-answer
+      const transcript = disposition !== "no-answer" ? generateTranscript(lead.contactName, lead.companyName, disposition, lead.painPoints) : null;
       const coachingNotes = duration > 120 ? generateCoachingAnalysis(score, disposition) : null;
       
       const [session] = await db.insert(callSessions).values({
