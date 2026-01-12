@@ -41,7 +41,8 @@ export interface IStorage {
   updateSdr(id: string, updates: Partial<InsertSdr>): Promise<Sdr | undefined>;
   deleteSdr(id: string): Promise<boolean>;
   getUsersBySdrIds(sdrIds: string[]): Promise<User[]>;
-  
+  getUserBySdrId(sdrId: string): Promise<User | undefined>;
+
   getAccountExecutive(id: string): Promise<AccountExecutive | undefined>;
   getAllAccountExecutives(): Promise<AccountExecutive[]>;
   createAccountExecutive(ae: InsertAccountExecutive): Promise<AccountExecutive>;
@@ -182,6 +183,11 @@ export class DatabaseStorage implements IStorage {
   async getUsersBySdrIds(sdrIds: string[]): Promise<User[]> {
     if (sdrIds.length === 0) return [];
     return db.select().from(users).where(inArray(users.sdrId, sdrIds));
+  }
+
+  async getUserBySdrId(sdrId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.sdrId, sdrId));
+    return user;
   }
 
   async createSdr(insertSdr: InsertSdr): Promise<Sdr> {

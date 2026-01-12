@@ -9,6 +9,8 @@ import { useState } from "react";
 import { CallQueue } from "@/components/call-queue";
 import { DialingModal } from "@/components/dialing-modal";
 import { ROIStats } from "@/components/roi-stats";
+import { SdrDetailModal } from "@/components/sdr-detail-modal";
+import { LeadDetailModal } from "@/components/lead-detail-modal";
 import { 
   Users, 
   Phone, 
@@ -208,7 +210,8 @@ function LeaderboardRow({
   qualified,
   meetings,
   calls,
-  connectRate
+  connectRate,
+  onClick
 }: {
   rank: number;
   name: string;
@@ -216,6 +219,7 @@ function LeaderboardRow({
   meetings: number;
   calls: number;
   connectRate: number;
+  onClick?: () => void;
 }) {
   const isTopThree = rank <= 3;
   const rankBg = rank === 1
@@ -228,8 +232,12 @@ function LeaderboardRow({
 
   return (
     <div
-      className="flex items-center gap-4 p-4 rounded-lg hover:bg-muted/30 transition-all duration-200 border-b border-border last:border-0"
+      className={`flex items-center gap-4 p-4 rounded-lg hover:bg-muted/30 transition-all duration-200 border-b border-border last:border-0 ${onClick ? 'cursor-pointer' : ''}`}
       data-testid={`leaderboard-row-${rank}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
     >
       <div className={`flex items-center justify-center w-10 h-10 rounded-full ${rankBg} ${isTopThree ? 'text-white' : ''} font-semibold`}>
         {rank}
@@ -250,22 +258,27 @@ function LeaderboardRow({
         <p className="text-2xl font-bold text-blue-600">{meetings}</p>
         <p className="text-xs text-muted-foreground uppercase tracking-wide">meetings</p>
       </div>
+      {onClick && (
+        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+      )}
     </div>
   );
 }
 
-function ActionItem({ 
-  icon, 
-  title, 
-  subtitle, 
-  href, 
-  variant = "default" 
-}: { 
-  icon: React.ReactNode; 
-  title: string; 
-  subtitle: string; 
-  href: string;
+function ActionItem({
+  icon,
+  title,
+  subtitle,
+  href,
+  variant = "default",
+  onClick
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  href?: string;
   variant?: "default" | "warning" | "success";
+  onClick?: () => void;
 }) {
   const variantClasses = {
     default: "bg-muted/50",
@@ -273,24 +286,60 @@ function ActionItem({
     success: "bg-green-50 dark:bg-green-950/30",
   };
 
-  return (
-    <Link href={href}>
-      <div className={`flex items-center gap-3 p-3 rounded-md hover-elevate cursor-pointer ${variantClasses[variant]}`}>
-        <div className="flex-shrink-0">{icon}</div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{title}</p>
-          <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
-        </div>
-        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+  const content = (
+    <div
+      className={`flex items-center gap-3 p-3 rounded-md hover-elevate cursor-pointer ${variantClasses[variant]}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+    >
+      <div className="flex-shrink-0">{icon}</div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm truncate">{title}</p>
+        <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
       </div>
-    </Link>
+      <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+    </div>
   );
+
+  if (href) {
+    return <Link href={href}>{content}</Link>;
+  }
+
+  return content;
+}
+
+// Types for modals
+interface SdrLeaderboardData {
+  sdrId: string;
+  sdrName: string;
+  userId: string | null;
+  calls: number;
+  qualified: number;
+  meetings: number;
+  connectRate: number;
+  talkTimeMinutes: number;
+}
+
+interface LeadSummary {
+  id: string;
+  companyName: string;
+  contactName: string;
+  contactTitle?: string | null;
+  contactEmail?: string;
+  contactPhone?: string | null;
+  status: string;
+  fitScore?: number | null;
+  priority?: string | null;
 }
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const [dialingLead, setDialingLead] = useState<any | null>(null);
+  const [selectedSdr, setSelectedSdr] = useState<SdrLeaderboardData | null>(null);
+  const [selectedLead, setSelectedLead] = useState<LeadSummary | null>(null);
 
   const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
     queryKey: ["/api/dashboard/metrics"],
@@ -335,7 +384,19 @@ export default function DashboardPage() {
       </div>
 
       {/* Call Queue - Priority #1 for SDRs */}
-      <CallQueue leads={leads} onCall={handleCall} />
+      <CallQueue
+        leads={leads}
+        onCall={handleCall}
+        onLeadClick={(lead) => setSelectedLead({
+          id: lead.id,
+          companyName: lead.companyName,
+          contactName: lead.contactName,
+          contactPhone: lead.contactPhone,
+          status: lead.status,
+          fitScore: lead.fitScore,
+          priority: lead.priority,
+        })}
+      />
 
       {/* ROI Stats - Show value of using the tool */}
       {!metrics?.isPrivileged && metrics?.roiTracking && (
@@ -665,6 +726,7 @@ export default function DashboardPage() {
                       meetings={sdr.meetings}
                       calls={sdr.calls}
                       connectRate={sdr.connectRate}
+                      onClick={() => setSelectedSdr(sdr)}
                     />
                   ))}
                 </div>
@@ -703,8 +765,14 @@ export default function DashboardPage() {
                     icon={<Target className="h-5 w-5 text-green-600" />}
                     title={lead.companyName}
                     subtitle={`${lead.contactName} - Qualified lead`}
-                    href={`/coaching?phone=${encodeURIComponent(lead.phone || '')}`}
                     variant="success"
+                    onClick={() => setSelectedLead({
+                      id: lead.id,
+                      companyName: lead.companyName,
+                      contactName: lead.contactName,
+                      contactPhone: lead.phone,
+                      status: 'qualified',
+                    })}
                   />
                 ))}
                 {metrics?.actionItems.leadsWithoutResearch.slice(0, 2).map((lead) => (
@@ -713,7 +781,12 @@ export default function DashboardPage() {
                     icon={<FileSearch className="h-5 w-5 text-muted-foreground" />}
                     title={lead.companyName}
                     subtitle={`${lead.contactName} - Needs research`}
-                    href="/leads"
+                    onClick={() => setSelectedLead({
+                      id: lead.id,
+                      companyName: lead.companyName,
+                      contactName: lead.contactName,
+                      status: 'new',
+                    })}
                   />
                 ))}
                 {(!metrics?.actionItems.callsNeedingAnalysis.length && 
@@ -772,6 +845,34 @@ export default function DashboardPage() {
         open={!!dialingLead}
         onOpenChange={(open) => !open && setDialingLead(null)}
         lead={dialingLead}
+      />
+
+      {/* SDR Detail Modal - shows performance when clicking on leaderboard row */}
+      <SdrDetailModal
+        open={!!selectedSdr}
+        onOpenChange={(open) => !open && setSelectedSdr(null)}
+        sdr={selectedSdr}
+        teamAverage={
+          metrics?.sdrLeaderboard && metrics.sdrLeaderboard.length > 0
+            ? {
+                calls: metrics.sdrLeaderboard.reduce((sum, s) => sum + s.calls, 0) / metrics.sdrLeaderboard.length,
+                qualified: metrics.sdrLeaderboard.reduce((sum, s) => sum + s.qualified, 0) / metrics.sdrLeaderboard.length,
+                meetings: metrics.sdrLeaderboard.reduce((sum, s) => sum + s.meetings, 0) / metrics.sdrLeaderboard.length,
+                connectRate: metrics.sdrLeaderboard.reduce((sum, s) => sum + s.connectRate, 0) / metrics.sdrLeaderboard.length,
+              }
+            : undefined
+        }
+      />
+
+      {/* Lead Detail Modal - shows full intel when clicking on leads */}
+      <LeadDetailModal
+        open={!!selectedLead}
+        onOpenChange={(open) => !open && setSelectedLead(null)}
+        lead={selectedLead}
+        onCall={(lead) => {
+          setSelectedLead(null);
+          setDialingLead(lead);
+        }}
       />
     </div>
   );

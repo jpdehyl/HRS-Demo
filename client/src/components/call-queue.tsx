@@ -30,9 +30,10 @@ interface QueueLead extends Lead {
 interface CallQueueProps {
   leads: QueueLead[];
   onCall: (lead: QueueLead) => void;
+  onLeadClick?: (lead: QueueLead) => void;
 }
 
-export function CallQueue({ leads, onCall }: CallQueueProps) {
+export function CallQueue({ leads, onCall, onLeadClick }: CallQueueProps) {
   const [, navigate] = useLocation();
 
   const getBestCallTime = (lead: QueueLead): { isGoodTime: boolean; message: string; timezone?: string } | null => {
@@ -220,7 +221,16 @@ export function CallQueue({ leads, onCall }: CallQueueProps) {
               {/* Lead Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <p className="font-semibold text-sm truncate">{lead.contactName}</p>
+                  <button
+                    className="font-semibold text-sm truncate hover:text-primary hover:underline text-left"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLeadClick?.(lead);
+                    }}
+                    title="View lead details"
+                  >
+                    {lead.contactName}
+                  </button>
                   {getPriorityBadge(lead.priority)}
                   {isExpiringOpportunity(lead) && (
                     <Badge variant="destructive" className="text-xs gap-1">
@@ -235,10 +245,17 @@ export function CallQueue({ leads, onCall }: CallQueueProps) {
                   )}
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                  <span className="flex items-center gap-1.5">
+                  <button
+                    className="flex items-center gap-1.5 hover:text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLeadClick?.(lead);
+                    }}
+                    title="View lead details"
+                  >
                     <Building2 className="h-3 w-3" />
-                    <span className="truncate">{lead.companyName}</span>
-                  </span>
+                    <span className="truncate hover:underline">{lead.companyName}</span>
+                  </button>
                   {getRecentActivity(lead) && (
                     <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
                       <Activity className="h-3 w-3" />

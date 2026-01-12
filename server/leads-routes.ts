@@ -509,6 +509,60 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
     }
   });
 
+  // Lead details for modal - aggregates lead, research, calls, and SDR info
+  app.get("/api/leads/:id/details", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      // Get research packet
+      const research = await storage.getResearchPacketByLead(lead.id);
+
+      // Get call history
+      const callHistory = await storage.getCallSessionsByLead(lead.id);
+
+      // Get assigned SDR info if exists
+      let assignedSdr = null;
+      if (lead.assignedSdrId) {
+        assignedSdr = await storage.getSdr(lead.assignedSdrId);
+      }
+
+      res.json({
+        lead,
+        research: research ? {
+          id: research.id,
+          companyIntel: research.companyIntel,
+          contactIntel: research.contactIntel,
+          painSignals: research.painSignals,
+          talkTrack: research.talkTrack,
+          discoveryQuestions: research.discoveryQuestions,
+          objectionHandles: research.objectionHandles,
+          confidence: research.confidence,
+          createdAt: research.createdAt,
+        } : null,
+        callHistory: callHistory.map(call => ({
+          id: call.id,
+          disposition: call.disposition,
+          duration: call.duration,
+          startedAt: call.startedAt,
+          keyTakeaways: call.keyTakeaways,
+          nextSteps: call.nextSteps,
+          sdrNotes: call.sdrNotes,
+        })),
+        assignedSdr: assignedSdr ? {
+          id: assignedSdr.id,
+          name: assignedSdr.name,
+          email: assignedSdr.email,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Lead details fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch lead details" });
+    }
+  });
+
   app.delete("/api/leads/:id/research", requireAuth, async (req: Request, res: Response) => {
     try {
       const researchPacket = await storage.getResearchPacketByLead(req.params.id);

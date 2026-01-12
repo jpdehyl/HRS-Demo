@@ -606,6 +606,110 @@ export async function registerRoutes(
     }
   });
 
+  // SDR details for modal - aggregates SDR info, stats, recent calls, and assigned leads
+  app.get("/api/sdrs/:id/details", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const sdr = await storage.getSdr(req.params.id);
+      if (!sdr) {
+        return res.status(404).json({ message: "SDR not found" });
+      }
+
+      // Get user associated with this SDR
+      const user = await storage.getUserBySdrId(sdr.id);
+      const userId = user?.id;
+
+      // Get call sessions for this SDR (via their user account)
+      let recentCalls: any[] = [];
+      let stats = {
+        totalCalls: 0,
+        totalQualified: 0,
+        totalMeetings: 0,
+        avgCallDuration: 0,
+        connectRate: 0,
+        conversionRate: 0,
+      };
+      let dispositionBreakdown: Record<string, number> = {};
+
+      if (userId) {
+        const allCalls = await storage.getCallSessionsByUser(userId);
+
+        // Calculate stats
+        stats.totalCalls = allCalls.length;
+        let connectedCalls = 0;
+        let totalDuration = 0;
+
+        for (const call of allCalls) {
+          if (call.disposition) {
+            dispositionBreakdown[call.disposition] = (dispositionBreakdown[call.disposition] || 0) + 1;
+
+            if (call.disposition === 'qualified') stats.totalQualified++;
+            if (call.disposition === 'meeting-booked') stats.totalMeetings++;
+            if (['connected', 'qualified', 'meeting-booked', 'callback-scheduled', 'not-interested'].includes(call.disposition)) {
+              connectedCalls++;
+            }
+          }
+          if (call.duration) totalDuration += call.duration;
+        }
+
+        stats.avgCallDuration = stats.totalCalls > 0 ? Math.round(totalDuration / stats.totalCalls) : 0;
+        stats.connectRate = stats.totalCalls > 0 ? Math.round((connectedCalls / stats.totalCalls) * 100) : 0;
+        stats.conversionRate = stats.totalCalls > 0 ? Math.round((stats.totalQualified / stats.totalCalls) * 100) : 0;
+
+        // Get recent calls with lead info
+        const recentCallData = allCalls.slice(0, 10);
+        for (const call of recentCallData) {
+          let leadName = "Unknown";
+          let companyName = "Unknown";
+          if (call.leadId) {
+            const lead = await storage.getLead(call.leadId);
+            if (lead) {
+              leadName = lead.contactName;
+              companyName = lead.companyName;
+            }
+          }
+          recentCalls.push({
+            id: call.id,
+            leadName,
+            companyName,
+            disposition: call.disposition || 'unknown',
+            duration: call.duration,
+            startedAt: call.startedAt,
+          });
+        }
+      }
+
+      // Get assigned leads for this SDR
+      const allLeads = await storage.getAllLeads();
+      const assignedLeads = allLeads
+        .filter(lead => lead.assignedSdrId === sdr.id)
+        .slice(0, 20)
+        .map(lead => ({
+          id: lead.id,
+          companyName: lead.companyName,
+          contactName: lead.contactName,
+          status: lead.status,
+          fitScore: lead.fitScore,
+        }));
+
+      res.json({
+        sdr: {
+          id: sdr.id,
+          name: sdr.name,
+          email: sdr.email,
+          timezone: sdr.timezone,
+          isActive: sdr.isActive,
+        },
+        stats,
+        recentCalls,
+        assignedLeads,
+        dispositionBreakdown,
+      });
+    } catch (error) {
+      console.error("Get SDR details error:", error);
+      res.status(500).json({ message: "Failed to fetch SDR details" });
+    }
+  });
+
   app.patch("/api/sdrs/:id", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
