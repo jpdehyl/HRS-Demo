@@ -30,7 +30,11 @@ import {
   Award,
   Package,
   HelpCircle,
+  Compass,
+  Brain,
+  Palette,
 } from "lucide-react";
+import { useAgents, AGENTS, AgentType, AgentResponse } from "@/hooks/use-agents";
 
 interface Message {
   id: string;
@@ -38,6 +42,8 @@ interface Message {
   content: string;
   timestamp: Date;
   userData?: UserContextData;
+  agentType?: AgentType;
+  subAgentsUsed?: AgentType[];
 }
 
 interface LeadSummary {
@@ -397,11 +403,15 @@ export function SupportChat() {
   });
   const [inputValue, setInputValue] = useState("");
   const [isListening, setIsListening] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<AgentType>("sage");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
 
+  const { detectAgentFromMessage, getQuickActions } = useAgents();
+
   const isManager = user?.role === "manager" || user?.role === "admin";
+  const agentQuickActions = getQuickActions(user?.role || "sdr");
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -513,15 +523,20 @@ export function SupportChat() {
     setState((prev) => ({ ...prev, isOpen: !prev.isOpen, error: null }));
   }, []);
 
-  const sendMessage = useCallback(async (messageText?: string) => {
+  const sendMessage = useCallback(async (messageText?: string, forceAgent?: AgentType) => {
     const trimmedInput = (messageText || inputValue).trim();
     if (!trimmedInput || state.isLoading) return;
+
+    // Detect if message contains @mention for agent routing
+    const mentionedAgent = detectAgentFromMessage(trimmedInput);
+    const agentToUse = forceAgent || mentionedAgent || selectedAgent;
 
     const userMessage: Message = {
       id: generateId(),
       role: "user",
       content: trimmedInput,
       timestamp: new Date(),
+      agentType: agentToUse,
     };
 
     setState((prev) => ({
@@ -539,7 +554,11 @@ export function SupportChat() {
         content: msg.content,
       }));
 
-      const response = await fetch("/api/support/chat", {
+      // Route to agents API for specialized agents, support API for Sage
+      const useAgentApi = agentToUse !== "sage" || mentionedAgent;
+      const apiEndpoint = useAgentApi ? "/api/agents/ask" : "/api/support/chat";
+
+      const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -547,18 +566,20 @@ export function SupportChat() {
         credentials: "include",
         body: JSON.stringify({
           message: trimmedInput,
+          agentType: useAgentApi ? agentToUse : undefined,
           conversationHistory,
           userContext: {
             userId: user?.id,
             currentPage: location,
             userRole: user?.role,
           },
+          includeUserData: true,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to send message");
+        throw new Error(errorData.error || errorData.message || "Failed to send message");
       }
 
       const data = await response.json();
@@ -567,8 +588,10 @@ export function SupportChat() {
         id: generateId(),
         role: "assistant",
         content: data.response,
-        timestamp: new Date(data.timestamp),
+        timestamp: new Date(data.timestamp || new Date()),
         userData: data.userData,
+        agentType: data.agentType || agentToUse,
+        subAgentsUsed: data.subAgentsUsed,
       };
 
       setState((prev) => ({
@@ -587,7 +610,7 @@ export function SupportChat() {
             : "Failed to send message. Please try again.",
       }));
     }
-  }, [inputValue, state.isLoading, state.messages, user, location]);
+  }, [inputValue, state.isLoading, state.messages, user, location, selectedAgent, detectAgentFromMessage]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -674,86 +697,94 @@ export function SupportChat() {
             </div>
           </CardHeader>
 
+          {/* Agent Selector */}
+          <div className="flex items-center gap-1 px-2 py-1.5 border-b bg-muted/30 shrink-0 overflow-x-auto">
+            {AGENTS.map((agent) => (
+              <Button
+                key={agent.type}
+                variant={selectedAgent === agent.type ? "secondary" : "ghost"}
+                size="sm"
+                className={cn(
+                  "h-7 px-2 text-xs whitespace-nowrap",
+                  selectedAgent === agent.type && "bg-primary/10 text-primary"
+                )}
+                onClick={() => setSelectedAgent(agent.type)}
+                title={agent.description}
+              >
+                <span className="mr-1">{agent.emoji}</span>
+                {agent.name}
+              </Button>
+            ))}
+          </div>
+
           {/* Messages Area */}
           <CardContent className="flex-1 overflow-hidden p-0">
             <ScrollArea className="h-full">
               <div ref={scrollRef} className="p-4 space-y-4">
                 {/* Welcome message if no messages */}
                 {state.messages.length === 0 && !state.isLoading && (
-                  <div className="text-center py-6 px-4">
+                  <div className="text-center py-4 px-4">
+                    {/* Agent-aware welcome */}
                     <div className="relative inline-block mb-3">
-                      <Bot className="h-10 w-10 mx-auto text-primary" />
+                      <span className="text-4xl">{AGENTS.find(a => a.type === selectedAgent)?.emoji || '🧙'}</span>
                       <Sparkles className="h-4 w-4 absolute -top-1 -right-1 text-yellow-500" />
                     </div>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {isManager
-                        ? "Hey! I'm your AI copilot. Ask me about team performance, coaching insights, or search your call transcripts."
-                        : "Hey! I'm your AI copilot. Ask me about your leads, search past calls, or get coaching tips."}
+                    <h3 className="text-sm font-semibold mb-1">
+                      {AGENTS.find(a => a.type === selectedAgent)?.name || 'Sage'}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      {AGENTS.find(a => a.type === selectedAgent)?.description}
                     </p>
 
-                    {/* Copilot Quick Actions */}
+                    {/* Agent-specific Quick Actions */}
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium">Try asking:</p>
+                      <p className="text-xs text-muted-foreground font-medium">Quick actions:</p>
                       <div className="flex flex-wrap gap-2 justify-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-8"
-                          onClick={() => handleQuickAction("What objections came up in my calls this week?")}
-                        >
-                          <Search className="h-3 w-3 mr-1.5" />
-                          Search Calls
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-8"
-                          onClick={() => handleQuickAction("Show me my alerts - any leads going cold?")}
-                        >
-                          <AlertCircle className="h-3 w-3 mr-1.5" />
-                          My Alerts
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-8"
-                          onClick={() => handleQuickAction("What patterns do you see in my calls? What's working?")}
-                        >
-                          <TrendingUp className="h-3 w-3 mr-1.5" />
-                          Call Patterns
-                        </Button>
+                        {agentQuickActions.slice(0, 4).map((action, index) => (
+                          <Button
+                            key={index}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-8"
+                            onClick={() => sendMessage(action.message, action.agent)}
+                          >
+                            {action.label}
+                          </Button>
+                        ))}
                       </div>
 
-                      {/* Standard quick actions */}
-                      <div className="flex flex-wrap gap-2 justify-center mt-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-7"
-                          onClick={() => handleQuickAction("Show my leads")}
-                        >
-                          <Users className="h-3 w-3 mr-1.5" />
-                          My Leads
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-7"
-                          onClick={() => handleQuickAction("Show my recent calls")}
-                        >
-                          <Phone className="h-3 w-3 mr-1.5" />
-                          My Calls
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-7"
-                          onClick={() => handleQuickAction("How am I doing? Show my performance")}
-                        >
-                          <BarChart3 className="h-3 w-3 mr-1.5" />
-                          My Stats
-                        </Button>
-                      </div>
+                      {/* Standard quick actions for Sage */}
+                      {selectedAgent === 'sage' && (
+                        <div className="flex flex-wrap gap-2 justify-center mt-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7"
+                            onClick={() => handleQuickAction("Show my leads")}
+                          >
+                            <Users className="h-3 w-3 mr-1.5" />
+                            My Leads
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7"
+                            onClick={() => handleQuickAction("Show my recent calls")}
+                          >
+                            <Phone className="h-3 w-3 mr-1.5" />
+                            My Calls
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7"
+                            onClick={() => handleQuickAction("How am I doing? Show my performance")}
+                          >
+                            <BarChart3 className="h-3 w-3 mr-1.5" />
+                            My Stats
+                          </Button>
+                        </div>
+                      )}
 
                       {/* Manager-specific quick actions */}
                       {isManager && (
@@ -825,7 +856,9 @@ export function SupportChat() {
                 )}
 
                 {/* Messages */}
-                {state.messages.map((message) => (
+                {state.messages.map((message) => {
+                  const agentInfo = message.agentType ? AGENTS.find(a => a.type === message.agentType) : null;
+                  return (
                   <div key={message.id} className="space-y-2">
                     <div
                       className={cn(
@@ -836,14 +869,17 @@ export function SupportChat() {
                       {/* Avatar */}
                       <div
                         className={cn(
-                          "shrink-0 h-7 w-7 rounded-full flex items-center justify-center",
+                          "shrink-0 h-7 w-7 rounded-full flex items-center justify-center text-sm",
                           message.role === "user"
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted"
                         )}
+                        title={agentInfo?.name}
                       >
                         {message.role === "user" ? (
                           <User className="h-4 w-4" />
+                        ) : agentInfo ? (
+                          <span>{agentInfo.emoji}</span>
                         ) : (
                           <Bot className="h-4 w-4" />
                         )}
@@ -858,6 +894,19 @@ export function SupportChat() {
                             : "bg-muted"
                         )}
                       >
+                        {/* Agent name badge for assistant messages */}
+                        {message.role === "assistant" && agentInfo && agentInfo.type !== 'sage' && (
+                          <div className="flex items-center gap-1 mb-1">
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                              {agentInfo.emoji} {agentInfo.name}
+                            </Badge>
+                            {message.subAgentsUsed && message.subAgentsUsed.length > 0 && (
+                              <span className="text-[10px] text-muted-foreground">
+                                + {message.subAgentsUsed.map(a => AGENTS.find(ag => ag.type === a)?.emoji).join(' ')}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <p className="whitespace-pre-wrap break-words">
                           {message.content}
                         </p>
@@ -885,19 +934,20 @@ export function SupportChat() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
 
                 {/* Loading indicator */}
                 {state.isLoading && (
                   <div className="flex gap-2">
-                    <div className="shrink-0 h-7 w-7 rounded-full bg-muted flex items-center justify-center">
-                      <Bot className="h-4 w-4" />
+                    <div className="shrink-0 h-7 w-7 rounded-full bg-muted flex items-center justify-center text-sm">
+                      {AGENTS.find(a => a.type === selectedAgent)?.emoji || <Bot className="h-4 w-4" />}
                     </div>
                     <div className="bg-muted rounded-lg px-3 py-2">
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span className="text-sm text-muted-foreground">
-                          Thinking...
+                          {AGENTS.find(a => a.type === selectedAgent)?.name || 'Agent'} is thinking...
                         </span>
                       </div>
                     </div>
