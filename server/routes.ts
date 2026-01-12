@@ -18,6 +18,7 @@ import { registerSalesforceRoutes } from "./salesforce-routes";
 import { registerSupportRoutes } from "./support-routes";
 import { registerZoomRoutes } from "./zoom-routes";
 import reportRoutes from "./report-routes";
+import aiReportsRoutes from "./ai-reports-routes";
 import { listFilesInProcessed } from "./google/driveClient";
 
 declare module "express-session" {
@@ -3273,6 +3274,7 @@ export async function registerRoutes(
   registerSupportRoutes(app);
   registerZoomRoutes(app);
   app.use("/api/reports/pdf", reportRoutes);
+  app.use("/api/ai-reports", aiReportsRoutes);
   registerTwilioVoiceRoutes(app);
   registerTranscriptionRoutes(app);
   setupTranscriptionWebSocket(httpServer);

@@ -62,6 +62,7 @@ export interface IStorage {
   getLiveCoachingSession(id: string): Promise<LiveCoachingSession | undefined>;
   getActiveSessionBySdr(sdrId: string): Promise<LiveCoachingSession | undefined>;
   getLiveCoachingSessionsByLead(leadId: string): Promise<LiveCoachingSession[]>;
+  getAllLiveCoachingSessions(): Promise<LiveCoachingSession[]>;
   createLiveCoachingSession(session: InsertLiveCoachingSession): Promise<LiveCoachingSession>;
   updateLiveCoachingSession(id: string, session: Partial<InsertLiveCoachingSession>): Promise<LiveCoachingSession | undefined>;
   
@@ -72,6 +73,7 @@ export interface IStorage {
   createLiveTranscript(transcript: InsertLiveTranscript): Promise<LiveTranscript>;
   
   getResearchPacketByLead(leadId: string): Promise<ResearchPacket | undefined>;
+  getAllResearchPackets(): Promise<ResearchPacket[]>;
   createResearchPacket(packet: InsertResearchPacket): Promise<ResearchPacket>;
   updateResearchPacket(id: string, packet: Partial<InsertResearchPacket>): Promise<ResearchPacket | undefined>;
   deleteResearchPacket(id: string): Promise<boolean>;
@@ -373,6 +375,12 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(liveCoachingSessions.startedAt));
   }
 
+  async getAllLiveCoachingSessions(): Promise<LiveCoachingSession[]> {
+    return db.select()
+      .from(liveCoachingSessions)
+      .orderBy(desc(liveCoachingSessions.startedAt));
+  }
+
   async createLiveCoachingSession(insertSession: InsertLiveCoachingSession): Promise<LiveCoachingSession> {
     const [session] = await db.insert(liveCoachingSessions).values(insertSession).returning();
     return session;
@@ -404,6 +412,12 @@ export class DatabaseStorage implements IStorage {
   async getResearchPacketByLead(leadId: string): Promise<ResearchPacket | undefined> {
     const [packet] = await db.select().from(researchPackets).where(eq(researchPackets.leadId, leadId));
     return packet;
+  }
+
+  async getAllResearchPackets(): Promise<ResearchPacket[]> {
+    return db.select()
+      .from(researchPackets)
+      .orderBy(desc(researchPackets.createdAt));
   }
 
   async createResearchPacket(insertPacket: InsertResearchPacket): Promise<ResearchPacket> {
