@@ -1626,6 +1626,36 @@ export async function registerRoutes(
         );
       }
 
+      // Anomaly detection helper function
+      function detectAnomaly(values: number[], currentValue: number): { isAnomaly: boolean; type: "spike" | "drop" | null; severity: number } {
+        if (values.length < 3) return { isAnomaly: false, type: null, severity: 0 };
+
+        const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+        const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+        const stdDev = Math.sqrt(variance);
+
+        // Avoid false positives when std dev is very small
+        if (stdDev < 1) return { isAnomaly: false, type: null, severity: 0 };
+
+        const zScore = (currentValue - mean) / stdDev;
+        const isAnomaly = Math.abs(zScore) > 1.5; // 1.5 standard deviations
+        const severity = Math.min(Math.abs(zScore) / 3, 1); // Normalize severity 0-1
+
+        return {
+          isAnomaly,
+          type: isAnomaly ? (zScore > 0 ? "spike" : "drop") : null,
+          severity: isAnomaly ? severity : 0,
+        };
+      }
+
+      // Detect anomalies for each metric
+      const anomalies = {
+        calls: detectAnomaly(sparklines.calls.slice(0, -1), rangeSessions.length),
+        qualified: detectAnomaly(sparklines.qualified.slice(0, -1), qualifiedInRange.length),
+        meetings: detectAnomaly(sparklines.meetings.slice(0, -1), meetingsInRange.length),
+        conversion: detectAnomaly(sparklines.conversion.slice(0, -1), conversionRate),
+      };
+
       res.json({
         hero: {
           pipelineValue,
@@ -1640,6 +1670,7 @@ export async function registerRoutes(
           meetingsBooked: meetingsInRange.length,
           qualifiedLeads: qualifiedInRange.length,
           sparklines,
+          anomalies,
         },
         timeRange,
         rangeDays,

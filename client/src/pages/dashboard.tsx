@@ -46,6 +46,12 @@ import {
   Tooltip
 } from "recharts";
 
+interface AnomalyData {
+  isAnomaly: boolean;
+  type: "spike" | "drop" | null;
+  severity: number;
+}
+
 interface DashboardMetrics {
   hero: {
     pipelineValue: number;
@@ -62,6 +68,12 @@ interface DashboardMetrics {
       qualified: number[];
       meetings: number[];
       conversion: number[];
+    };
+    anomalies: {
+      calls: AnomalyData;
+      qualified: AnomalyData;
+      meetings: AnomalyData;
+      conversion: AnomalyData;
     };
   };
   timeRange: string;
@@ -147,7 +159,8 @@ function HeroMetric({
   suffix = "",
   loading = false,
   accentColor = "primary",
-  sparklineData
+  sparklineData,
+  anomaly
 }: {
   label: string;
   value: number | string;
@@ -158,6 +171,7 @@ function HeroMetric({
   loading?: boolean;
   accentColor?: "primary" | "green" | "blue" | "purple";
   sparklineData?: number[];
+  anomaly?: AnomalyData;
 }) {
   const colorMap = {
     primary: "hsl(var(--primary))",
@@ -166,9 +180,18 @@ function HeroMetric({
     purple: "#8b5cf6",
   };
 
+  // Determine if we should show anomaly styling
+  const showAnomaly = anomaly?.isAnomaly && anomaly.severity > 0.3;
+  const anomalyColor = anomaly?.type === "spike" ? "ring-green-500 bg-green-50 dark:bg-green-950/20" : "ring-amber-500 bg-amber-50 dark:bg-amber-950/20";
+
   return (
-    <Card className="border-0 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-      <CardContent className="pt-6 pb-6 text-center">
+    <Card className={`border-0 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1 ${showAnomaly ? `ring-2 ${anomalyColor}` : ''}`}>
+      <CardContent className="pt-6 pb-6 text-center relative">
+        {showAnomaly && (
+          <div className={`absolute top-2 right-2 px-1.5 py-0.5 text-[10px] font-semibold rounded ${anomaly?.type === "spike" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"}`}>
+            {anomaly?.type === "spike" ? "HIGH" : "LOW"}
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center h-36">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -537,6 +560,7 @@ export default function DashboardPage() {
           loading={isLoading}
           accentColor="green"
           sparklineData={metrics?.hero.sparklines?.qualified}
+          anomaly={metrics?.hero.anomalies?.qualified}
         />
         <HeroMetric
           label="Conversion Rate"
@@ -547,6 +571,7 @@ export default function DashboardPage() {
           loading={isLoading}
           accentColor="blue"
           sparklineData={metrics?.hero.sparklines?.conversion}
+          anomaly={metrics?.hero.anomalies?.conversion}
         />
         <HeroMetric
           label={`Calls (${getTimeRangeLabel(timeRange)})`}
@@ -556,6 +581,7 @@ export default function DashboardPage() {
           loading={isLoading}
           accentColor="purple"
           sparklineData={metrics?.hero.sparklines?.calls}
+          anomaly={metrics?.hero.anomalies?.calls}
         />
         <HeroMetric
           label="Meetings Booked"
@@ -564,6 +590,7 @@ export default function DashboardPage() {
           loading={isLoading}
           accentColor="primary"
           sparklineData={metrics?.hero.sparklines?.meetings}
+          anomaly={metrics?.hero.anomalies?.meetings}
         />
       </div>
 
