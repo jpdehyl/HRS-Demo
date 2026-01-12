@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,31 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ZoomPhoneEmbed, type ZoomCallEvent, type ZoomRecordingEvent, type ZoomAISummaryEvent } from "@/components/zoom-phone-embed";
 import { CallBrief } from "@/components/call-brief";
 import { PostCallSummaryForm, type CallOutcomeData } from "@/components/post-call-summary-form";
-import { BudgetingPanel } from "@/components/budgeting-panel";
-import { useTranscription } from "@/hooks/use-transcription";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useSearch } from "wouter";
-import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator, BarChart3, CheckCircle, XCircle, AlertCircle, TrendingUp, Send, Mail } from "lucide-react";
+import { useSearch, useLocation } from "wouter";
+import {
+  Phone,
+  Clock,
+  History,
+  ChevronDown,
+  FileText,
+  Play,
+  Sparkles,
+  Loader2,
+  BarChart3,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Send,
+  Mail,
+  Search,
+  User,
+  Building2,
+  PhoneCall
+} from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import type { AccountExecutive } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -24,84 +42,66 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function CoachingPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const searchString = useSearch();
+  const [, setLocation] = useLocation();
   const params = new URLSearchParams(searchString);
   const leadIdParam = params.get("leadId");
   const phoneParam = params.get("phone");
-  
-  const [activeTab, setActiveTab] = useState<string>("live");
+
   const [currentCallSid, setCurrentCallSid] = useState<string | null>(null);
   const [currentPhoneNumber, setCurrentPhoneNumber] = useState<string | null>(null);
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
-  const [talkTime, setTalkTime] = useState("0:00");
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(true);
   const [selectedCall, setSelectedCall] = useState<CallSession | null>(null);
-  const [callPrepOpen, setCallPrepOpen] = useState(!!leadIdParam);
   const [pendingOutcomeCallId, setPendingOutcomeCallId] = useState<string | null>(null);
-  const [transcriptOpen, setTranscriptOpen] = useState(false);
-  const [budgetingOpen, setBudgetingOpen] = useState(false);
   const [selectedAeId, setSelectedAeId] = useState<string>("");
   const [showAeSelector, setShowAeSelector] = useState(false);
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const [leadSearchQuery, setLeadSearchQuery] = useState("");
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(leadIdParam);
 
   const { data: accountExecutives = [] } = useQuery<AccountExecutive[]>({
     queryKey: ["/api/account-executives"],
     enabled: showAeSelector,
   });
 
+  // Fetch all leads for the selector
+  const { data: allLeads = [] } = useQuery<Lead[]>({
+    queryKey: ["/api/leads"],
+  });
+
+  // Fetch selected lead details
   const { data: leadDetail } = useQuery<{ lead: Lead; researchPacket: ResearchPacket | null }>({
-    queryKey: ["/api/leads", leadIdParam],
-    enabled: !!leadIdParam,
+    queryKey: ["/api/leads", selectedLeadId],
+    enabled: !!selectedLeadId,
   });
 
   const { data: callHistory = [], isLoading: historyLoading } = useQuery<CallSession[]>({
     queryKey: ["/api/call-sessions"],
-    enabled: historyOpen,
   });
 
-  const {
-    transcripts,
-    coachingTips,
-    livePartial,
-    isConnected,
-    clearTranscripts,
-  } = useTranscription(user?.id, currentCallSid);
-
-  useEffect(() => {
-    if (transcriptEndRef.current) {
-      transcriptEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [transcripts, livePartial]);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    
-    if (callStartTime) {
-      interval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - callStartTime.getTime()) / 1000);
-        const mins = Math.floor(elapsed / 60);
-        const secs = elapsed % 60;
-        setTalkTime(`${mins}:${secs.toString().padStart(2, "0")}`);
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [callStartTime]);
+  // Filter leads based on search
+  const filteredLeads = allLeads.filter(lead => {
+    if (!leadSearchQuery) return true;
+    const query = leadSearchQuery.toLowerCase();
+    return (
+      lead.companyName?.toLowerCase().includes(query) ||
+      lead.contactName?.toLowerCase().includes(query) ||
+      lead.email?.toLowerCase().includes(query) ||
+      lead.phone?.includes(query)
+    );
+  }).slice(0, 10); // Limit to 10 results
 
   const [internalSessionId, setInternalSessionId] = useState<string | null>(null);
-
   const [zoomCallMetadata, setZoomCallMetadata] = useState<{ direction: string; toNumber?: string; fromNumber?: string } | null>(null);
 
   const handleZoomCallStart = async (event: ZoomCallEvent) => {
-    const phoneNumber = event.data.direction === "outbound" 
-      ? event.data.callee.phoneNumber 
+    const phoneNumber = event.data.direction === "outbound"
+      ? event.data.callee.phoneNumber
       : event.data.caller.phoneNumber;
     setCurrentPhoneNumber(phoneNumber || null);
     setCurrentCallSid(event.data.callId);
     setCallStartTime(new Date());
-    clearTranscripts();
 
     setZoomCallMetadata({
       direction: event.data.direction,
@@ -115,24 +115,24 @@ export default function CoachingPage() {
         direction: event.data.direction,
         toNumber: event.data.callee.phoneNumber,
         fromNumber: event.data.caller.phoneNumber,
-        leadId: leadIdParam || null,
+        leadId: selectedLeadId || null,
       });
       const data = await response.json();
       setInternalSessionId(data.sessionId);
-      console.log("[Coaching] Created session:", data.sessionId, "for Zoom call:", event.data.callId);
+      console.log("[CallCenter] Created session:", data.sessionId, "for Zoom call:", event.data.callId);
     } catch (error) {
-      console.error("[Coaching] Failed to create call session (will retry on end):", error);
+      console.error("[CallCenter] Failed to create call session (will retry on end):", error);
     }
   };
 
   const handleZoomCallConnected = async (event: ZoomCallEvent) => {
-    console.log("[Coaching] Call connected:", event.data.callId);
+    console.log("[CallCenter] Call connected:", event.data.callId);
     try {
       await apiRequest("PATCH", `/api/call-sessions/zoom/${event.data.callId}`, {
         status: "in-progress",
       });
     } catch (error) {
-      console.error("[Coaching] Failed to update call status:", error);
+      console.error("[CallCenter] Failed to update call status:", error);
     }
   };
 
@@ -140,7 +140,7 @@ export default function CoachingPage() {
     let sessionId = internalSessionId;
     const zoomCallId = event.data.callId;
     const savedStartTime = callStartTime;
-    
+
     setCurrentPhoneNumber(null);
     setCurrentCallSid(null);
     setCallStartTime(null);
@@ -153,15 +153,15 @@ export default function CoachingPage() {
         direction: zoomCallMetadata?.direction,
         toNumber: zoomCallMetadata?.toNumber,
         fromNumber: zoomCallMetadata?.fromNumber,
-        leadId: leadIdParam || null,
+        leadId: selectedLeadId || null,
       });
       if (response.ok) {
         const session = await response.json();
         sessionId = session.id;
-        console.log("[Coaching] Call ended, session:", sessionId);
+        console.log("[CallCenter] Call ended, session:", sessionId);
       }
     } catch (error) {
-      console.error("[Coaching] Failed to update call end:", error);
+      console.error("[CallCenter] Failed to update call end:", error);
     }
 
     if (!sessionId && zoomCallId) {
@@ -170,10 +170,10 @@ export default function CoachingPage() {
         if (response.ok) {
           const session = await response.json();
           sessionId = session.id;
-          console.log("[Coaching] Recovered session ID:", sessionId);
+          console.log("[CallCenter] Recovered session ID:", sessionId);
         }
       } catch (error) {
-        console.error("[Coaching] Failed to recover session:", error);
+        console.error("[CallCenter] Failed to recover session:", error);
       }
     }
 
@@ -188,28 +188,31 @@ export default function CoachingPage() {
     }
     setInternalSessionId(null);
     setZoomCallMetadata(null);
+
+    // Refresh call history
+    queryClient.invalidateQueries({ queryKey: ["/api/call-sessions"] });
   };
 
   const handleZoomRecordingComplete = async (event: ZoomRecordingEvent) => {
-    console.log("[Coaching] Recording completed:", event.data.recordingId);
+    console.log("[CallCenter] Recording completed:", event.data.recordingId);
     try {
       await apiRequest("PATCH", `/api/call-sessions/zoom/${event.data.callId}`, {
         recordingUrl: event.data.downloadUrl,
       });
-      
-      console.log("[Coaching] Triggering automatic analysis...");
+
+      console.log("[CallCenter] Triggering automatic analysis...");
       toast({
         title: "Analyzing Call",
         description: "Running AI coaching analysis on your recording...",
       });
-      
+
       const analysisResponse = await apiRequest("POST", `/api/call-sessions/zoom/${event.data.callId}/auto-analyze`, {});
       if (analysisResponse.ok) {
         const result = await analysisResponse.json();
         if (result.status === "completed") {
           toast({
             title: "Analysis Complete",
-            description: `Call scored ${result.analysis?.score || "N/A"}/100. Check your performance tab!`,
+            description: `Call scored ${result.analysis?.score || "N/A"}/100. View details in call history.`,
           });
           queryClient.invalidateQueries({ queryKey: ["/api/call-sessions"] });
           queryClient.invalidateQueries({ queryKey: ["/api/coach/performance-summary"] });
@@ -222,7 +225,7 @@ export default function CoachingPage() {
         }
       }
     } catch (error) {
-      console.error("[Coaching] Failed to save recording URL or analyze:", error);
+      console.error("[CallCenter] Failed to save recording URL or analyze:", error);
       toast({
         title: "Analysis Issue",
         description: "Recording saved but analysis may be delayed.",
@@ -232,17 +235,15 @@ export default function CoachingPage() {
   };
 
   const handleZoomAISummary = async (event: ZoomAISummaryEvent) => {
-    console.log("[Coaching] Zoom AI Summary:", event.data.summary);
+    console.log("[CallCenter] Zoom AI Summary:", event.data.summary);
     try {
       await apiRequest("PATCH", `/api/call-sessions/zoom/${event.data.callId}`, {
         zoomAiSummary: event.data.summary,
       });
     } catch (error) {
-      console.error("[Coaching] Failed to save AI summary:", error);
+      console.error("[CallCenter] Failed to save AI summary:", error);
     }
   };
-
-  const { toast } = useToast();
 
   const saveOutcomeMutation = useMutation({
     mutationFn: async ({ callId, data }: { callId: string; data: CallOutcomeData }) => {
@@ -252,8 +253,8 @@ export default function CoachingPage() {
     onSuccess: () => {
       setPendingOutcomeCallId(null);
       queryClient.invalidateQueries({ queryKey: ["/api/call-sessions"] });
-      if (leadIdParam) {
-        queryClient.invalidateQueries({ queryKey: ["/api/leads", leadIdParam, "calls"] });
+      if (selectedLeadId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/leads", selectedLeadId, "calls"] });
       }
       toast({ title: "Summary saved", description: "Call outcome logged successfully" });
     },
@@ -261,6 +262,7 @@ export default function CoachingPage() {
       toast({ title: "Save failed", description: "Could not save call summary", variant: "destructive" });
     },
   });
+
   const [analysisResult, setAnalysisResult] = useState<{ managerSummary: string[]; coachingMessage: string } | null>(null);
   const [managerAnalysis, setManagerAnalysis] = useState<ManagerCallAnalysis | null>(null);
   const [loadingExistingAnalysis, setLoadingExistingAnalysis] = useState(false);
@@ -373,142 +375,111 @@ export default function CoachingPage() {
     },
   });
 
+  // Handle lead selection
+  const handleLeadSelect = (leadId: string) => {
+    setSelectedLeadId(leadId);
+    setLeadSearchQuery("");
+    // Update URL without navigation
+    const lead = allLeads.find(l => l.id === leadId);
+    if (lead?.phone) {
+      setLocation(`/coaching?leadId=${leadId}&phone=${encodeURIComponent(lead.phone)}`, { replace: true });
+    } else {
+      setLocation(`/coaching?leadId=${leadId}`, { replace: true });
+    }
+  };
+
+  const clearLeadSelection = () => {
+    setSelectedLeadId(null);
+    setLocation("/coaching", { replace: true });
+  };
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold" data-testid="text-page-title">Coaching Center</h1>
-          <p className="text-muted-foreground">
-            Make calls, get AI coaching, and track your performance.
-          </p>
-        </div>
-        <Badge 
-          variant={isConnected ? "secondary" : "outline"} 
-          className="flex items-center gap-1"
-          data-testid="badge-connection-status"
-        >
-          {isConnected ? (
-            <>
-              <Wifi className="h-3 w-3" />
-              Connected
-            </>
-          ) : (
-            <>
-              <WifiOff className="h-3 w-3" />
-              Connecting...
-            </>
-          )}
-        </Badge>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-semibold" data-testid="text-page-title">Call Center</h1>
+        <p className="text-muted-foreground">
+          Select a lead, make calls, and log outcomes.
+        </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="live" className="flex items-center gap-2" data-testid="tab-live-coaching">
-            <Phone className="h-4 w-4" />
-            Live Coaching
-          </TabsTrigger>
-          <TabsTrigger value="performance" className="flex items-center gap-2" data-testid="tab-my-performance">
-            <TrendingUp className="h-4 w-4" />
-            My Performance
-          </TabsTrigger>
-        </TabsList>
+      {/* Lead Selector */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search leads by name, company, email, or phone..."
+                value={leadSearchQuery}
+                onChange={(e) => setLeadSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-lead-search"
+              />
+              {leadSearchQuery && filteredLeads.length > 0 && (
+                <Card className="absolute top-full left-0 right-0 mt-1 z-50 max-h-[300px] overflow-auto">
+                  <CardContent className="p-2">
+                    {filteredLeads.map((lead) => (
+                      <button
+                        key={lead.id}
+                        className="w-full text-left p-3 rounded-md hover:bg-muted transition-colors flex items-center gap-3"
+                        onClick={() => handleLeadSelect(lead.id)}
+                        data-testid={`lead-option-${lead.id}`}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{lead.contactName}</p>
+                          <p className="text-sm text-muted-foreground truncate">{lead.companyName}</p>
+                        </div>
+                        {lead.phone && (
+                          <Badge variant="outline" className="flex-shrink-0">
+                            <Phone className="h-3 w-3 mr-1" />
+                            {lead.phone}
+                          </Badge>
+                        )}
+                      </button>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+            {selectedLeadId && leadDetail && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 rounded-lg border">
+                <User className="h-4 w-4 text-primary" />
+                <span className="font-medium">{leadDetail.lead.contactName}</span>
+                <span className="text-muted-foreground">at</span>
+                <span>{leadDetail.lead.companyName}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearLeadSelection}
+                  className="ml-2 h-6 w-6 p-0"
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="live" className="mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main Content - Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Phone & Call Brief */}
         <div className="lg:col-span-1 space-y-4">
-          <ZoomPhoneEmbed 
+          <ZoomPhoneEmbed
             onCallStart={handleZoomCallStart}
             onCallConnected={handleZoomCallConnected}
             onCallEnd={handleZoomCallEnd}
             onRecordingComplete={handleZoomRecordingComplete}
             onAISummary={handleZoomAISummary}
-            initialPhoneNumber={phoneParam || undefined}
-            leadId={leadIdParam || undefined}
+            initialPhoneNumber={phoneParam || leadDetail?.lead?.phone || undefined}
+            leadId={selectedLeadId || undefined}
           />
-          
-          <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
-            <CollapsibleTrigger asChild>
-              <Button 
-                variant="outline" 
-                className="w-full justify-between"
-                data-testid="button-toggle-history"
-              >
-                <span className="flex items-center gap-2">
-                  <History className="h-4 w-4" />
-                  Call History
-                </span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${historyOpen ? "rotate-180" : ""}`} />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2">
-              <Card>
-                <CardContent className="pt-4">
-                  <ScrollArea className="h-[200px]">
-                    {historyLoading ? (
-                      <div className="flex items-center justify-center h-full text-muted-foreground">
-                        Loading...
-                      </div>
-                    ) : callHistory.length === 0 ? (
-                      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                        No calls yet
-                      </div>
-                    ) : (
-                      <div className="space-y-2 pr-2">
-                        {callHistory.slice(0, 10).map((call) => (
-                          <div
-                            key={call.id}
-                            className="p-2 rounded-md bg-muted/50 hover-elevate cursor-pointer"
-                            onClick={() => setSelectedCall(call)}
-                            data-testid={`call-history-item-${call.id}`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium truncate">
-                                {call.toNumber || call.fromNumber || "Unknown"}
-                              </span>
-                              <Badge variant="outline" className="text-xs">
-                                {call.status}
-                              </Badge>
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {call.startedAt ? new Date(call.startedAt).toLocaleDateString() : ""}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            </CollapsibleContent>
-          </Collapsible>
 
-          <Collapsible open={budgetingOpen} onOpenChange={setBudgetingOpen}>
-            <CollapsibleTrigger asChild>
-              <Button 
-                variant="outline" 
-                className="w-full justify-between border-green-200 dark:border-green-800 text-green-900 dark:text-green-100"
-                data-testid="button-toggle-budgeting"
-              >
-                <span className="flex items-center gap-2">
-                  <Calculator className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  Quick Budgeting
-                </span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${budgetingOpen ? "rotate-180" : ""}`} />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2">
-              <BudgetingPanel />
-            </CollapsibleContent>
-          </Collapsible>
-
-          {leadDetail && (
-            <CallBrief 
-              lead={leadDetail.lead} 
-              researchPacket={leadDetail.researchPacket} 
-              isOnCall={!!currentPhoneNumber}
-            />
-          )}
-
+          {/* Post-Call Summary Form */}
           {pendingOutcomeCallId && (
             <PostCallSummaryForm
               callSessionId={pendingOutcomeCallId}
@@ -519,257 +490,116 @@ export default function CoachingPage() {
               isSubmitting={saveOutcomeMutation.isPending}
             />
           )}
+
+          {/* Call Brief - Shows when lead is selected */}
+          {leadDetail && (
+            <CallBrief
+              lead={leadDetail.lead}
+              researchPacket={leadDetail.researchPacket}
+              isOnCall={!!currentPhoneNumber}
+            />
+          )}
         </div>
 
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border-2 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+        {/* Right Column - Call History */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-xl flex items-center gap-2 text-blue-900 dark:text-blue-100">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-md">
-                    <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  AI Coaching Tips
-                </CardTitle>
-                {currentPhoneNumber && coachingTips.length > 0 && (
-                  <Badge className="bg-blue-600 text-white" data-testid="badge-tips-count">
-                    {coachingTips.length} tips
-                  </Badge>
-                )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Recent Calls
+                  </CardTitle>
+                  <CardDescription>
+                    Click a call to view details, analyze, or send to AE
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary">
+                  {callHistory.length} calls
+                </Badge>
               </div>
-              <CardDescription className="text-blue-700 dark:text-blue-300">
-                Real-time suggestions to guide your conversation
-              </CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[220px]">
-                {coachingTips.length > 0 ? (
-                  <div className="space-y-3 pr-4">
-                    {coachingTips.map((tip, index) => (
-                      <div
-                        key={index}
-                        className="p-4 bg-white dark:bg-blue-950/50 rounded-md border border-blue-200 dark:border-blue-800 shadow-sm"
-                        data-testid={`coaching-tip-${index}`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded-full flex-shrink-0">
-                            <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-blue-900 dark:text-blue-100 leading-relaxed">
-                              {tip.tip}
-                            </p>
-                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                              {new Date(tip.timestamp).toLocaleTimeString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+              <ScrollArea className="h-[500px]">
+                {historyLoading ? (
+                  <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    Loading...
                   </div>
-                ) : currentPhoneNumber ? (
-                  <div className="h-full flex items-center justify-center py-8">
-                    <div className="p-6 bg-white dark:bg-blue-950/50 rounded-md border border-blue-200 dark:border-blue-800 text-center max-w-sm">
-                      <Activity className="h-8 w-8 text-blue-600 dark:text-blue-400 mx-auto mb-3 animate-pulse" />
-                      <p className="text-base font-medium text-blue-900 dark:text-blue-100">
-                        Listening for coaching opportunities...
-                      </p>
-                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
-                        AI tips will appear here as you speak with your prospect
-                      </p>
-                    </div>
+                ) : callHistory.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
+                    <Phone className="h-12 w-12 mb-3 opacity-30" />
+                    <p className="font-medium">No calls yet</p>
+                    <p className="text-sm">Select a lead and make your first call</p>
                   </div>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-blue-600 dark:text-blue-400 py-8">
-                    <div className="text-center">
-                      <Lightbulb className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>Start a call to receive coaching tips</p>
-                    </div>
+                  <div className="space-y-2 pr-4">
+                    {callHistory.slice(0, 20).map((call) => (
+                      <div
+                        key={call.id}
+                        className="p-4 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => setSelectedCall(call)}
+                        data-testid={`call-history-item-${call.id}`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              call.disposition === "qualified" || call.disposition === "meeting-booked"
+                                ? "bg-green-100 text-green-600"
+                                : call.disposition === "no-answer" || call.disposition === "not-interested"
+                                  ? "bg-red-100 text-red-600"
+                                  : "bg-muted text-muted-foreground"
+                            }`}>
+                              <PhoneCall className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="font-medium">
+                                {call.toNumber || call.fromNumber || "Unknown"}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {call.startedAt ? new Date(call.startedAt).toLocaleString() : ""}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {call.duration && (
+                              <Badge variant="outline" className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {Math.floor(call.duration / 60)}:{(call.duration % 60).toString().padStart(2, "0")}
+                              </Badge>
+                            )}
+                            <Badge variant={
+                              call.status === "completed" ? "secondary" :
+                              call.status === "in-progress" ? "default" : "outline"
+                            }>
+                              {call.disposition || call.status}
+                            </Badge>
+                            {(call.transcriptText || call.coachingNotes) && (
+                              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                <Sparkles className="h-3 w-3 mr-1" />
+                                Analyzed
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        {call.keyTakeaways && (
+                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                            {call.keyTakeaways}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </ScrollArea>
             </CardContent>
           </Card>
-
-          <Collapsible open={transcriptOpen} onOpenChange={setTranscriptOpen}>
-            <Card>
-              <CollapsibleTrigger asChild>
-                <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 cursor-pointer hover-elevate">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5" />
-                        Live Transcript
-                        {transcripts.length > 0 && (
-                          <Badge variant="secondary" className="ml-2">
-                            {transcripts.length} messages
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription>
-                        {transcriptOpen ? "Click to collapse" : "Click to expand transcript"}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {currentPhoneNumber && (
-                      <Badge variant="secondary" data-testid="badge-active-call">
-                        <Phone className="h-3 w-3 mr-1" />
-                        {currentPhoneNumber}
-                      </Badge>
-                    )}
-                    <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${transcriptOpen ? "rotate-180" : ""}`} />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent>
-                  <ScrollArea className="h-[250px]">
-                    {transcripts.length > 0 || livePartial ? (
-                      <div className="space-y-3 pr-4">
-                        {transcripts.map((entry, index) => (
-                          <div
-                            key={index}
-                            className={`p-3 rounded-md ${
-                              entry.speaker === "Agent"
-                                ? "bg-primary/10 ml-4"
-                                : "bg-muted mr-4"
-                            }`}
-                            data-testid={`transcript-entry-${index}`}
-                          >
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <span className="text-xs font-medium text-muted-foreground">
-                                {entry.speaker}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(entry.timestamp).toLocaleTimeString()}
-                              </span>
-                            </div>
-                            <p className="text-sm">{entry.text}</p>
-                          </div>
-                        ))}
-                        {livePartial && (
-                          <div
-                            className={`p-3 rounded-md opacity-70 ${
-                              livePartial.speaker === "Agent"
-                                ? "bg-primary/10 ml-4"
-                                : "bg-muted mr-4"
-                            }`}
-                            data-testid="transcript-live-partial"
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-muted-foreground">
-                                {livePartial.speaker}
-                              </span>
-                              <span className="text-xs text-muted-foreground italic">
-                                typing...
-                              </span>
-                            </div>
-                            <p className="text-sm italic">{livePartial.text}</p>
-                          </div>
-                        )}
-                        <div ref={transcriptEndRef} />
-                      </div>
-                    ) : currentPhoneNumber ? (
-                      <div className="h-full flex items-center justify-center text-muted-foreground">
-                        <div className="text-center">
-                          <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>Waiting for transcription...</p>
-                          <p className="text-xs mt-1">Speak to see your conversation here</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-muted-foreground">
-                        <p>Start a call to see the live transcript</p>
-                      </div>
-                    )}
-                  </ScrollArea>
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-md">
-                    <Phone className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-semibold" data-testid="text-calls-today">
-                      {transcripts.length > 0 ? 1 : 0}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Calls Today</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-md">
-                    <Clock className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-semibold" data-testid="text-talk-time">
-                      {talkTime}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Talk Time</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-md">
-                    <Lightbulb className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-semibold" data-testid="text-tips-received">
-                      {coachingTips.length}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Tips Received</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
-        </TabsContent>
 
-        <TabsContent value="performance" className="mt-6">
-          <Card className="border-2 border-primary/20">
-            <CardContent className="py-12 text-center">
-              <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <TrendingUp className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">View Your Full Performance Dashboard</h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Access your complete performance metrics, call history, coaching insights, and achievements in your dedicated profile page.
-              </p>
-              {user?.sdrId ? (
-                <Button asChild size="lg">
-                  <a href={`/team/${user.sdrId}`}>
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Open My Performance Dashboard
-                  </a>
-                </Button>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No SDR profile linked to your account. Contact your administrator.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <Dialog open={!!selectedCall} onOpenChange={(open) => { 
+      {/* Call Details Modal */}
+      <Dialog open={!!selectedCall} onOpenChange={(open) => {
         if (!open) {
           setSelectedCall(null);
           setAnalysisResult(null);
@@ -777,7 +607,7 @@ export default function CoachingPage() {
           setRecordingAnalysis(null);
         }
       }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Phone className="h-5 w-5" />
@@ -788,9 +618,10 @@ export default function CoachingPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex items-center gap-4 flex-wrap">
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3 flex-wrap">
               <Badge variant={selectedCall?.status === "completed" ? "secondary" : "outline"}>
-                {selectedCall?.status}
+                {selectedCall?.disposition || selectedCall?.status}
               </Badge>
               {selectedCall?.recordingUrl && (
                 <Button
@@ -876,55 +707,58 @@ export default function CoachingPage() {
                   )}
                 </>
               )}
-              {showAeSelector && selectedCall && (
-                <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
-                  <Select value={selectedAeId} onValueChange={setSelectedAeId}>
-                    <SelectTrigger className="w-[220px]" data-testid="select-ae">
-                      <SelectValue placeholder="Select Account Executive" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accountExecutives.map((ae) => (
-                        <SelectItem key={ae.id} value={ae.id}>
-                          {ae.name} ({ae.region})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="sm"
-                    disabled={!selectedAeId || sendToAeMutation.isPending}
-                    onClick={() => {
-                      if (selectedCall.id && selectedAeId) {
-                        sendToAeMutation.mutate({
-                          sessionId: selectedCall.id,
-                          aeId: selectedAeId,
-                          leadId: selectedCall.leadId || undefined,
-                        });
-                      }
-                    }}
-                    data-testid="button-confirm-send-ae"
-                  >
-                    {sendToAeMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Send Handoff"
-                    )}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setShowAeSelector(false);
-                      setSelectedAeId("");
-                    }}
-                    data-testid="button-cancel-send-ae"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
             </div>
 
+            {/* AE Selector */}
+            {showAeSelector && selectedCall && (
+              <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
+                <Select value={selectedAeId} onValueChange={setSelectedAeId}>
+                  <SelectTrigger className="w-[220px]" data-testid="select-ae">
+                    <SelectValue placeholder="Select Account Executive" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accountExecutives.map((ae) => (
+                      <SelectItem key={ae.id} value={ae.id}>
+                        {ae.name} ({ae.region})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  disabled={!selectedAeId || sendToAeMutation.isPending}
+                  onClick={() => {
+                    if (selectedCall.id && selectedAeId) {
+                      sendToAeMutation.mutate({
+                        sessionId: selectedCall.id,
+                        aeId: selectedAeId,
+                        leadId: selectedCall.leadId || undefined,
+                      });
+                    }
+                  }}
+                  data-testid="button-confirm-send-ae"
+                >
+                  {sendToAeMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Send Handoff"
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowAeSelector(false);
+                    setSelectedAeId("");
+                  }}
+                  data-testid="button-cancel-send-ae"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+
+            {/* Manager Analysis Scorecard */}
             {managerAnalysis && (
               <div className="space-y-4">
                 <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 rounded-md border border-purple-200 dark:border-purple-800">
@@ -932,7 +766,7 @@ export default function CoachingPage() {
                     <BarChart3 className="h-5 w-5" />
                     Manager Performance Scorecard
                   </h4>
-                  
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                     <div className="text-center p-3 bg-white/50 dark:bg-black/20 rounded-md">
                       <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{managerAnalysis.overallScore}</p>
@@ -949,7 +783,7 @@ export default function CoachingPage() {
                       </div>
                     ))}
                   </div>
-                  
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                     {[
                       { label: "Objection Handling", score: managerAnalysis.objectionScore },
@@ -971,7 +805,7 @@ export default function CoachingPage() {
                     <TabsTrigger value="recommendations" data-testid="tab-recommendations">Recommendations</TabsTrigger>
                     <TabsTrigger value="criteria" data-testid="tab-criteria">Criteria Met</TabsTrigger>
                   </TabsList>
-                  
+
                   <TabsContent value="observations" className="mt-3">
                     <ScrollArea className="h-[200px]">
                       <div className="space-y-2 pr-2">
@@ -996,7 +830,7 @@ export default function CoachingPage() {
                       </div>
                     </ScrollArea>
                   </TabsContent>
-                  
+
                   <TabsContent value="recommendations" className="mt-3">
                     <ScrollArea className="h-[200px]">
                       <div className="space-y-2 pr-2">
@@ -1006,7 +840,7 @@ export default function CoachingPage() {
                             return recs.map((item: { priority?: string; recommendation?: string; action?: string }, i: number) => (
                               <div key={i} className="p-3 bg-muted/50 rounded-md">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <Badge 
+                                  <Badge
                                     variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "secondary" : "outline"}
                                     className="text-xs"
                                   >
@@ -1026,7 +860,7 @@ export default function CoachingPage() {
                       </div>
                     </ScrollArea>
                   </TabsContent>
-                  
+
                   <TabsContent value="criteria" className="mt-3">
                     <ScrollArea className="h-[200px]">
                       <div className="space-y-2 pr-2">
@@ -1061,6 +895,7 @@ export default function CoachingPage() {
               </div>
             )}
 
+            {/* Recording Analysis */}
             {recordingAnalysis && (
               <div className="space-y-3 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
                 <div className="flex items-center justify-between">
@@ -1102,15 +937,17 @@ export default function CoachingPage() {
               </div>
             )}
 
+            {/* Coaching Notes Indicator */}
             {selectedCall?.coachingNotes && !recordingAnalysis && (
               <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
                 <p className="text-sm text-green-700 dark:text-green-300 flex items-center gap-2">
                   <CheckCircle className="h-4 w-4" />
-                  Coaching feedback available in the "My Performance" tab
+                  This call has been analyzed. View your performance in the "My Performance" page.
                 </p>
               </div>
             )}
-            
+
+            {/* Transcript */}
             {(selectedCall?.transcriptText || recordingAnalysis?.transcript) ? (
               <div>
                 <h4 className="text-sm font-medium mb-2 flex items-center gap-2">

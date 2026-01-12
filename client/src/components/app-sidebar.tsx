@@ -55,7 +55,7 @@ const mainNavItems = [
     allowedRoles: ["admin", "manager", "sdr", "account_specialist"],
   },
   {
-    title: "Live Coaching",
+    title: "Call Center",
     url: "/coaching",
     icon: Phone,
     allowedRoles: ["admin", "manager", "sdr", "account_specialist"],
@@ -112,7 +112,7 @@ export function AppSidebar() {
   const navKeyMap: Record<string, string> = {
     dashboard: "Dashboard",
     leads: "Leads",
-    live_coaching: "Live Coaching",
+    call_center: "Call Center",
     team: "Team",
     reports: "Reports",
     ae_pipeline: "AE Pipeline",

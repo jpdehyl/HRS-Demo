@@ -6,6 +6,7 @@ import { fetchLeadsFromSheet, parseLeadsFromSheet, detectColumnMapping, getSprea
 import { researchLead } from "./ai/leadResearch";
 import { extractQualificationFromTranscript, QualificationDraft } from "./ai/qualificationExtractor";
 import { notifyLeadStatusChange, notifyLeadQualified, notifyManagersOfQualifiedLead, notifyAEHandoff, notifyResearchReady } from "./notificationService";
+import { notifyResearchComplete } from "./dashboardUpdates";
 import pLimit from "p-limit";
 import {
   buildDiscoveredInfoUpdates,
@@ -461,11 +462,16 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       if (!result.success && !result.packet) {
         return res.status(500).json({ message: "Failed to research lead" });
       }
-      
-      res.json({ 
-        message: result.isExisting ? "Research already exists" : "Research completed", 
+
+      // Notify connected clients about completed research
+      if (!result.isExisting && userId) {
+        notifyResearchComplete(leadId, userId);
+      }
+
+      res.json({
+        message: result.isExisting ? "Research already exists" : "Research completed",
         researchPacket: result.packet,
-        isExisting: result.isExisting 
+        isExisting: result.isExisting
       });
     } catch (error) {
       console.error("Lead research error:", error);

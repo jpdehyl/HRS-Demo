@@ -3,6 +3,7 @@ import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { setupDashboardWebSocket } from "./dashboardUpdates";
 
 const app = express();
 
@@ -37,6 +38,9 @@ app.use((req, res, next) => {
 });
 
 const httpServer = createServer(app);
+
+// Setup WebSocket server for real-time dashboard updates
+setupDashboardWebSocket(httpServer);
 
 declare module "http" {
   interface IncomingMessage {

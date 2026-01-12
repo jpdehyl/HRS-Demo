@@ -11,6 +11,12 @@ import { DialingModal } from "@/components/dialing-modal";
 import { ROIStats } from "@/components/roi-stats";
 import { SdrDetailModal } from "@/components/sdr-detail-modal";
 import { LeadDetailModal } from "@/components/lead-detail-modal";
+import { TimeRangeSelector, type TimeRange, getTimeRangeLabel } from "@/components/time-range-selector";
+import { Sparkline } from "@/components/sparkline";
+import { InsightsCard } from "@/components/insights-card";
+import { GoalProgressCard } from "@/components/goal-progress-card";
+import { DrillDownModal } from "@/components/drill-down-modal";
+import { useDashboardUpdates } from "@/hooks/use-dashboard-updates";
 import { 
   Users, 
   Phone, 
@@ -43,6 +49,12 @@ import {
   Tooltip
 } from "recharts";
 
+interface AnomalyData {
+  isAnomaly: boolean;
+  type: "spike" | "drop" | null;
+  severity: number;
+}
+
 interface DashboardMetrics {
   hero: {
     pipelineValue: number;
@@ -50,11 +62,25 @@ interface DashboardMetrics {
     conversionRate: number;
     conversionTrend: number;
     callsToday: number;
-    callsThisWeek: number;
+    callsInRange: number;
     callsTrend: number;
     meetingsBooked: number;
     qualifiedLeads: number;
+    sparklines: {
+      calls: number[];
+      qualified: number[];
+      meetings: number[];
+      conversion: number[];
+    };
+    anomalies: {
+      calls: AnomalyData;
+      qualified: AnomalyData;
+      meetings: AnomalyData;
+      conversion: AnomalyData;
+    };
   };
+  timeRange: string;
+  rangeDays: number;
   funnel: {
     totalCalls: number;
     connected: number;
@@ -88,6 +114,15 @@ interface DashboardMetrics {
     callsWithoutPrep: number;
     meetingsWithPrep: number;
     meetingsWithoutPrep: number;
+  };
+  goalTracking: {
+    daysRemaining: number;
+    daysElapsed: number;
+    metrics: {
+      calls: { current: number; goal: number; projected: number; dailyRate: number };
+      qualified: { current: number; goal: number; projected: number; dailyRate: number };
+      meetings: { current: number; goal: number; projected: number; dailyRate: number };
+    };
   };
   isPrivileged: boolean;
   currentUserId: string;
@@ -135,7 +170,9 @@ function HeroMetric({
   prefix = "",
   suffix = "",
   loading = false,
-  accentColor = "primary"
+  accentColor = "primary",
+  sparklineData,
+  anomaly
 }: {
   label: string;
   value: number | string;
@@ -145,22 +182,50 @@ function HeroMetric({
   suffix?: string;
   loading?: boolean;
   accentColor?: "primary" | "green" | "blue" | "purple";
+  sparklineData?: number[];
+  anomaly?: AnomalyData;
 }) {
+  const colorMap = {
+    primary: "hsl(var(--primary))",
+    green: "#22c55e",
+    blue: "#3b82f6",
+    purple: "#8b5cf6",
+  };
+
+  // Determine if we should show anomaly styling
+  const showAnomaly = anomaly?.isAnomaly && anomaly.severity > 0.3;
+  const anomalyColor = anomaly?.type === "spike" ? "ring-green-500 bg-green-50 dark:bg-green-950/20" : "ring-amber-500 bg-amber-50 dark:bg-amber-950/20";
+
   return (
-    <Card className="border-0 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-      <CardContent className="pt-8 pb-8 text-center">
+    <Card className={`border-0 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1 ${showAnomaly ? `ring-2 ${anomalyColor}` : ''}`}>
+      <CardContent className="pt-6 pb-6 text-center relative">
+        {showAnomaly && (
+          <div className={`absolute top-2 right-2 px-1.5 py-0.5 text-[10px] font-semibold rounded ${anomaly?.type === "spike" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"}`}>
+            {anomaly?.type === "spike" ? "HIGH" : "LOW"}
+          </div>
+        )}
         {loading ? (
-          <div className="flex items-center justify-center h-32">
+          <div className="flex items-center justify-center h-36">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="text-6xl font-bold tracking-tight" data-testid={`metric-${label.toLowerCase().replace(/\s/g, '-')}`}>
+          <div className="space-y-2">
+            <div className="text-5xl font-bold tracking-tight" data-testid={`metric-${label.toLowerCase().replace(/\s/g, '-')}`}>
               {prefix}{typeof value === "number" ? value.toLocaleString() : value}{suffix}
             </div>
             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {label}
             </div>
+            {sparklineData && sparklineData.length > 0 && (
+              <div className="pt-2 px-4">
+                <Sparkline
+                  data={sparklineData}
+                  color={colorMap[accentColor]}
+                  height={28}
+                  showTrend={true}
+                />
+              </div>
+            )}
             {trend !== undefined && trend !== 0 && (
               <div className={`inline-flex items-center gap-1 text-sm font-medium ${trend > 0 ? 'text-green-600' : 'text-red-500'}`}>
                 {trend > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
@@ -174,26 +239,28 @@ function HeroMetric({
   );
 }
 
-function FunnelStage({ 
-  label, 
-  value, 
-  percentage, 
-  color 
-}: { 
-  label: string; 
-  value: number; 
-  percentage: number; 
+function FunnelStage({
+  label,
+  value,
+  percentage,
+  color,
+  onClick
+}: {
+  label: string;
+  value: number;
+  percentage: number;
   color: string;
+  onClick?: () => void;
 }) {
   return (
-    <div className="flex-1 text-center">
-      <div 
-        className="mx-auto mb-2 flex items-center justify-center rounded-md text-white font-bold text-xl"
-        style={{ 
+    <div className={`flex-1 text-center ${onClick ? 'cursor-pointer' : ''}`} onClick={onClick}>
+      <div
+        className={`mx-auto mb-2 flex items-center justify-center rounded-md text-white font-bold text-xl ${onClick ? 'hover:opacity-80 transition-opacity' : ''}`}
+        style={{
           backgroundColor: color,
           width: `${Math.max(60, percentage * 1.5)}%`,
           height: "48px",
-          transition: "width 0.5s ease-out"
+          transition: "width 0.5s ease-out, opacity 0.2s ease"
         }}
       >
         {value}
@@ -340,9 +407,21 @@ export default function DashboardPage() {
   const [dialingLead, setDialingLead] = useState<any | null>(null);
   const [selectedSdr, setSelectedSdr] = useState<SdrLeaderboardData | null>(null);
   const [selectedLead, setSelectedLead] = useState<LeadSummary | null>(null);
+  const [timeRange, setTimeRange] = useState<TimeRange>("7d");
+  const [drillDown, setDrillDown] = useState<{ type: "disposition" | "funnel"; filter: string; label: string } | null>(null);
+
+  // Real-time updates via WebSocket
+  const { isConnected: wsConnected } = useDashboardUpdates();
 
   const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
-    queryKey: ["/api/dashboard/metrics"],
+    queryKey: ["/api/dashboard/metrics", timeRange],
+    queryFn: async () => {
+      const res = await fetch(`/api/dashboard/metrics?range=${timeRange}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch metrics");
+      return res.json();
+    },
   });
 
   const { data: leads = [] } = useQuery<any[]>({
@@ -372,15 +451,22 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-col gap-2 mb-2">
-        <h1 className="text-4xl font-bold tracking-tight" data-testid="text-greeting">
-          {getGreeting()}, {user?.name?.split(" ")[0]}
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          {metrics?.isPrivileged
-            ? "Your team's performance at a glance"
-            : "Your sales performance at a glance"}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-4xl font-bold tracking-tight" data-testid="text-greeting">
+            {getGreeting()}, {user?.name?.split(" ")[0]}
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            {metrics?.isPrivileged
+              ? "Your team's performance at a glance"
+              : "Your sales performance at a glance"}
+          </p>
+        </div>
+        <TimeRangeSelector
+          value={timeRange}
+          onChange={setTimeRange}
+          className="self-start sm:self-auto"
+        />
       </div>
 
       {/* Call Queue - Priority #1 for SDRs */}
@@ -417,9 +503,9 @@ export default function DashboardPage() {
                 <Trophy className="h-5 w-5 text-primary" />
                 <CardTitle className="text-lg">This Week's Performance</CardTitle>
               </div>
-              <Badge variant="secondary" className="gap-1">
-                <Zap className="h-3 w-3" />
-                Live
+              <Badge variant="secondary" className={`gap-1 ${wsConnected ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : ''}`}>
+                <span className={`h-2 w-2 rounded-full ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                {wsConnected ? 'Live' : 'Connecting...'}
               </Badge>
             </div>
           </CardHeader>
@@ -427,7 +513,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <div className="text-3xl font-bold text-primary mb-1">
-                  {metrics.hero.callsThisWeek}
+                  {metrics.hero.callsInRange}
                 </div>
                 <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
                   Total Calls
@@ -464,13 +550,13 @@ export default function DashboardPage() {
               {metrics.hero.conversionTrend > 0 && (
                 <div className="flex items-center gap-2 text-sm text-green-600">
                   <TrendingUp className="h-4 w-4" />
-                  <span>Conversion up {Math.abs(metrics.hero.conversionTrend).toFixed(1)}% from last week</span>
+                  <span>Conversion up {Math.abs(metrics.hero.conversionTrend).toFixed(1)}% vs previous period</span>
                 </div>
               )}
               {metrics.hero.conversionTrend < 0 && (
                 <div className="flex items-center gap-2 text-sm text-amber-600">
                   <TrendingDown className="h-4 w-4" />
-                  <span>Conversion down {Math.abs(metrics.hero.conversionTrend).toFixed(1)}% from last week</span>
+                  <span>Conversion down {Math.abs(metrics.hero.conversionTrend).toFixed(1)}% vs previous period</span>
                 </div>
               )}
               {metrics.actionItems.hotLeads.length > 0 && (
@@ -486,11 +572,13 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <HeroMetric
-          label="Pipeline Value"
-          value={formatCurrency(metrics?.hero.pipelineValue || 0)}
-          icon={<DollarSign className="h-5 w-5 text-green-600" />}
+          label="Qualified Leads"
+          value={metrics?.hero.qualifiedLeads || 0}
+          icon={<Target className="h-5 w-5 text-green-600" />}
           loading={isLoading}
           accentColor="green"
+          sparklineData={metrics?.hero.sparklines?.qualified}
+          anomaly={metrics?.hero.anomalies?.qualified}
         />
         <HeroMetric
           label="Conversion Rate"
@@ -500,14 +588,18 @@ export default function DashboardPage() {
           icon={<TrendingUp className="h-5 w-5 text-blue-600" />}
           loading={isLoading}
           accentColor="blue"
+          sparklineData={metrics?.hero.sparklines?.conversion}
+          anomaly={metrics?.hero.anomalies?.conversion}
         />
         <HeroMetric
-          label="Calls This Week"
-          value={metrics?.hero.callsThisWeek || 0}
+          label={`Calls (${getTimeRangeLabel(timeRange)})`}
+          value={metrics?.hero.callsInRange || 0}
           trend={metrics?.hero.callsTrend}
           icon={<Phone className="h-5 w-5 text-purple-600" />}
           loading={isLoading}
           accentColor="purple"
+          sparklineData={metrics?.hero.sparklines?.calls}
+          anomaly={metrics?.hero.anomalies?.calls}
         />
         <HeroMetric
           label="Meetings Booked"
@@ -515,14 +607,16 @@ export default function DashboardPage() {
           icon={<Calendar className="h-5 w-5 text-primary" />}
           loading={isLoading}
           accentColor="primary"
+          sparklineData={metrics?.hero.sparklines?.meetings}
+          anomaly={metrics?.hero.anomalies?.meetings}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">7-Day Activity</CardTitle>
-            <CardDescription>Calls and qualified leads over the past week</CardDescription>
+            <CardTitle className="text-lg">{getTimeRangeLabel(timeRange)} Activity</CardTitle>
+            <CardDescription>Calls and qualified leads over the selected period</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -587,7 +681,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Call Outcomes</CardTitle>
-            <CardDescription>This week's disposition breakdown</CardDescription>
+            <CardDescription>Disposition breakdown for {getTimeRangeLabel(timeRange).toLowerCase()} (click to drill down)</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -597,7 +691,7 @@ export default function DashboardPage() {
             ) : pieData.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
                 <Phone className="h-8 w-8 mb-2 opacity-50" />
-                <p className="text-sm">No calls this week</p>
+                <p className="text-sm">No calls in this period</p>
               </div>
             ) : (
               <div className="flex items-center gap-4">
@@ -611,28 +705,50 @@ export default function DashboardPage() {
                       outerRadius={55}
                       paddingAngle={2}
                       dataKey="value"
+                      onClick={(data) => {
+                        if (data && data.payload) {
+                          const disposition = Object.keys(DISPOSITION_LABELS).find(
+                            k => DISPOSITION_LABELS[k] === data.payload.name
+                          ) || data.payload.name;
+                          setDrillDown({
+                            type: "disposition",
+                            filter: disposition,
+                            label: data.payload.name,
+                          });
+                        }
+                      }}
+                      className="cursor-pointer"
                     >
                       {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                        <Cell key={`cell-${index}`} fill={entry.color} className="hover:opacity-80 transition-opacity" />
                       ))}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex-1 space-y-1.5">
-                  {pieData.slice(0, 4).map((item) => (
-                    <div key={item.name} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-2.5 h-2.5 rounded-full" 
-                          style={{ backgroundColor: item.color }}
-                        />
-                        <span className="text-muted-foreground truncate max-w-[80px]">{item.name}</span>
+                  {pieData.slice(0, 4).map((item) => {
+                    const disposition = Object.keys(DISPOSITION_LABELS).find(
+                      k => DISPOSITION_LABELS[k] === item.name
+                    ) || item.name;
+                    return (
+                      <div
+                        key={item.name}
+                        className="flex items-center justify-between text-sm cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors"
+                        onClick={() => setDrillDown({ type: "disposition", filter: disposition, label: item.name })}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <span className="text-muted-foreground truncate max-w-[80px]">{item.name}</span>
+                        </div>
+                        <span className="font-medium">
+                          {Math.round((item.value / totalDispositions) * 100)}%
+                        </span>
                       </div>
-                      <span className="font-medium">
-                        {Math.round((item.value / totalDispositions) * 100)}%
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -643,7 +759,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">Sales Funnel</CardTitle>
-          <CardDescription>This week's conversion journey</CardDescription>
+          <CardDescription>Conversion journey for {getTimeRangeLabel(timeRange).toLowerCase()} (click to drill down)</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -652,38 +768,42 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="flex items-end gap-4 py-4">
-              <FunnelStage 
-                label="Total Calls" 
-                value={metrics?.funnel.totalCalls || 0} 
+              <FunnelStage
+                label="Total Calls"
+                value={metrics?.funnel.totalCalls || 0}
                 percentage={100}
                 color="hsl(var(--primary))"
+                onClick={() => setDrillDown({ type: "funnel", filter: "total", label: "Total Calls" })}
               />
               <div className="text-muted-foreground">
                 <ChevronRight className="h-5 w-5" />
               </div>
-              <FunnelStage 
-                label="Connected" 
-                value={metrics?.funnel.connected || 0} 
+              <FunnelStage
+                label="Connected"
+                value={metrics?.funnel.connected || 0}
                 percentage={metrics?.funnel.totalCalls ? Math.round((metrics.funnel.connected / metrics.funnel.totalCalls) * 100) : 0}
                 color="#8b5cf6"
+                onClick={() => setDrillDown({ type: "funnel", filter: "connected", label: "Connected" })}
               />
               <div className="text-muted-foreground">
                 <ChevronRight className="h-5 w-5" />
               </div>
-              <FunnelStage 
-                label="Qualified" 
-                value={metrics?.funnel.qualified || 0} 
+              <FunnelStage
+                label="Qualified"
+                value={metrics?.funnel.qualified || 0}
                 percentage={metrics?.funnel.totalCalls ? Math.round((metrics.funnel.qualified / metrics.funnel.totalCalls) * 100) : 0}
                 color="#22c55e"
+                onClick={() => setDrillDown({ type: "funnel", filter: "qualified", label: "Qualified" })}
               />
               <div className="text-muted-foreground">
                 <ChevronRight className="h-5 w-5" />
               </div>
-              <FunnelStage 
-                label="Meetings" 
-                value={metrics?.funnel.meetings || 0} 
+              <FunnelStage
+                label="Meetings"
+                value={metrics?.funnel.meetings || 0}
                 percentage={metrics?.funnel.totalCalls ? Math.round((metrics.funnel.meetings / metrics.funnel.totalCalls) * 100) : 0}
                 color="#3b82f6"
+                onClick={() => setDrillDown({ type: "funnel", filter: "meetings", label: "Meetings Booked" })}
               />
             </div>
           )}
@@ -696,7 +816,7 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
               <div>
                 <CardTitle className="text-lg">SDR Leaderboard</CardTitle>
-                <CardDescription>Top performers this week</CardDescription>
+                <CardDescription>Top performers ({getTimeRangeLabel(timeRange).toLowerCase()})</CardDescription>
               </div>
               <Link href="/team">
                 <Button variant="ghost" size="sm" data-testid="button-view-team">
@@ -713,7 +833,7 @@ export default function DashboardPage() {
               ) : metrics?.sdrLeaderboard.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                   <Trophy className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">No activity this week</p>
+                  <p className="text-sm">No activity in this period</p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -839,6 +959,37 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         )}
+
+        <InsightsCard timeRange={timeRange} className="lg:col-span-2" />
+
+        {metrics?.goalTracking && (
+          <GoalProgressCard
+            periodLabel="Monthly"
+            metrics={[
+              {
+                label: "Calls",
+                current: metrics.goalTracking.metrics.calls.current,
+                goal: metrics.goalTracking.metrics.calls.goal,
+                projected: metrics.goalTracking.metrics.calls.projected,
+                daysRemaining: metrics.goalTracking.daysRemaining,
+              },
+              {
+                label: "Qualified Leads",
+                current: metrics.goalTracking.metrics.qualified.current,
+                goal: metrics.goalTracking.metrics.qualified.goal,
+                projected: metrics.goalTracking.metrics.qualified.projected,
+                daysRemaining: metrics.goalTracking.daysRemaining,
+              },
+              {
+                label: "Meetings Booked",
+                current: metrics.goalTracking.metrics.meetings.current,
+                goal: metrics.goalTracking.metrics.meetings.goal,
+                projected: metrics.goalTracking.metrics.meetings.projected,
+                daysRemaining: metrics.goalTracking.daysRemaining,
+              },
+            ]}
+          />
+        )}
       </div>
 
       <DialingModal
@@ -872,6 +1023,21 @@ export default function DashboardPage() {
         onCall={(lead) => {
           setSelectedLead(null);
           setDialingLead(lead);
+        }}
+      />
+
+      {/* Drill-down Modal - shows underlying data when clicking on charts */}
+      <DrillDownModal
+        open={!!drillDown}
+        onOpenChange={(open) => !open && setDrillDown(null)}
+        type={drillDown?.type || "disposition"}
+        filter={drillDown?.filter || ""}
+        filterLabel={drillDown?.label || ""}
+        timeRange={timeRange}
+        onLeadClick={(leadId) => {
+          setDrillDown(null);
+          // Navigate to leads page with the specific lead
+          navigate(`/leads?id=${leadId}`);
         }}
       />
     </div>

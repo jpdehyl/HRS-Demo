@@ -51,6 +51,28 @@ import {
 import { format, formatDistanceToNow } from "date-fns";
 import { LeadDetailModal } from "@/components/lead-detail-modal";
 import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+interface TeamAverages {
+  sdrCount: number;
+  avgTotalCalls: number;
+  avgTotalConnected: number;
+  avgTotalQualified: number;
+  avgTotalMeetings: number;
+  avgConnectRate: number;
+  avgConversionRate: number;
+  avgMeetingRate: number;
+  avgWeekCalls: number;
+  avgWeekConnected: number;
+  avgWeekQualified: number;
+  avgWeekMeetings: number;
+  avgMonthCalls: number;
+  avgMonthConnected: number;
+  avgMonthQualified: number;
+  avgMonthMeetings: number;
+}
+
+type TimePeriod = "all" | "month" | "week";
 
 interface SdrProfile {
   sdr: {
@@ -230,6 +252,7 @@ function SkillBar({ label, score, color }: { label: string; score: number | null
 export default function SdrProfilePage() {
   const { sdrId } = useParams<{ sdrId: string }>();
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>("month");
 
   const { data: profile, isLoading, error } = useQuery<SdrProfile>({
     queryKey: ["/api/sdrs", sdrId, "profile"],
@@ -240,6 +263,88 @@ export default function SdrProfilePage() {
     },
     enabled: !!sdrId,
   });
+
+  const { data: teamAverages } = useQuery<TeamAverages>({
+    queryKey: ["/api/team-averages"],
+  });
+
+  // Helper to get metrics based on time period
+  const getMetricsByPeriod = (profile: SdrProfile) => {
+    const p = profile.performance;
+    switch (timePeriod) {
+      case "week":
+        return {
+          calls: p.weekCalls,
+          connected: p.weekConnected,
+          qualified: p.weekQualified,
+          meetings: p.weekMeetings,
+          connectRate: p.weekCalls > 0 ? Math.round((p.weekConnected / p.weekCalls) * 100) : 0,
+          conversionRate: p.weekCalls > 0 ? Math.round((p.weekQualified / p.weekCalls) * 100) : 0,
+        };
+      case "month":
+        return {
+          calls: p.monthCalls,
+          connected: p.monthConnected,
+          qualified: p.monthQualified,
+          meetings: p.monthMeetings,
+          connectRate: p.monthCalls > 0 ? Math.round((p.monthConnected / p.monthCalls) * 100) : 0,
+          conversionRate: p.monthCalls > 0 ? Math.round((p.monthQualified / p.monthCalls) * 100) : 0,
+        };
+      default:
+        return {
+          calls: p.totalCalls,
+          connected: p.totalConnected,
+          qualified: p.totalQualified,
+          meetings: p.totalMeetings,
+          connectRate: p.connectRate,
+          conversionRate: p.conversionRate,
+        };
+    }
+  };
+
+  // Helper to get team averages based on time period
+  const getTeamAvgByPeriod = (teamAvg: TeamAverages) => {
+    switch (timePeriod) {
+      case "week":
+        return {
+          calls: teamAvg.avgWeekCalls,
+          connected: teamAvg.avgWeekConnected,
+          qualified: teamAvg.avgWeekQualified,
+          meetings: teamAvg.avgWeekMeetings,
+          connectRate: teamAvg.avgConnectRate,
+          conversionRate: teamAvg.avgConversionRate,
+        };
+      case "month":
+        return {
+          calls: teamAvg.avgMonthCalls,
+          connected: teamAvg.avgMonthConnected,
+          qualified: teamAvg.avgMonthQualified,
+          meetings: teamAvg.avgMonthMeetings,
+          connectRate: teamAvg.avgConnectRate,
+          conversionRate: teamAvg.avgConversionRate,
+        };
+      default:
+        return {
+          calls: teamAvg.avgTotalCalls,
+          connected: teamAvg.avgTotalConnected,
+          qualified: teamAvg.avgTotalQualified,
+          meetings: teamAvg.avgTotalMeetings,
+          connectRate: teamAvg.avgConnectRate,
+          conversionRate: teamAvg.avgConversionRate,
+        };
+    }
+  };
+
+  // Helper to calculate comparison percentage
+  const getComparisonBadge = (value: number, teamAvg: number) => {
+    if (teamAvg === 0) return null;
+    const diff = Math.round(((value - teamAvg) / teamAvg) * 100);
+    if (diff === 0) return null;
+    return {
+      diff,
+      isPositive: diff > 0,
+    };
+  };
 
   if (isLoading) {
     return (
@@ -316,67 +421,157 @@ export default function SdrProfilePage() {
           </div>
         </div>
 
-        {/* Achievements */}
-        {profile.achievements.length > 0 && (
-          <div className="flex gap-2">
-            {profile.achievements.slice(0, 3).map((achievement, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800"
-                title={achievement.description}
-              >
-                <div className="text-amber-600">{ACHIEVEMENT_ICONS[achievement.icon]}</div>
-                <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                  {achievement.title}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Time Period Selector & Achievements */}
+        <div className="flex items-center gap-4">
+          <Select value={timePeriod} onValueChange={(v) => setTimePeriod(v as TimePeriod)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
+            </SelectContent>
+          </Select>
+          {profile.achievements.length > 0 && (
+            <div className="flex gap-2">
+              {profile.achievements.slice(0, 3).map((achievement, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800"
+                  title={achievement.description}
+                >
+                  <div className="text-amber-600">{ACHIEVEMENT_ICONS[achievement.icon]}</div>
+                  <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                    {achievement.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <StatCard
-          label="Total Calls"
-          value={profile.performance.totalCalls}
-          subValue={`${profile.performance.monthCalls} this month`}
-          trend={profile.trends.callsTrend}
-          icon={<Phone className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Connect Rate"
-          value={`${profile.performance.connectRate}%`}
-          subValue={`${profile.performance.totalConnected} connected`}
-          icon={<PhoneCall className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Qualified Leads"
-          value={profile.performance.totalQualified}
-          subValue={`${profile.performance.monthQualified} this month`}
-          trend={profile.trends.qualifiedTrend}
-          icon={<Target className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Meetings Booked"
-          value={profile.performance.totalMeetings}
-          subValue={`${profile.performance.monthMeetings} this month`}
-          trend={profile.trends.meetingsTrend}
-          icon={<Calendar className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Conversion Rate"
-          value={`${profile.performance.conversionRate}%`}
-          subValue="Calls → Qualified"
-          icon={<TrendingUp className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Talk Time"
-          value={`${totalTalkTimeHours}h ${totalTalkTimeMinutes}m`}
-          subValue={`Avg ${Math.floor(profile.performance.avgCallDuration / 60)}m ${profile.performance.avgCallDuration % 60}s/call`}
-          icon={<Clock className="h-5 w-5" />}
-        />
-      </div>
+      {/* Key Metrics with Team Comparison */}
+      {(() => {
+        const metrics = getMetricsByPeriod(profile);
+        const teamAvg = teamAverages ? getTeamAvgByPeriod(teamAverages) : null;
+
+        const ComparisonBadge = ({ value, teamValue }: { value: number; teamValue: number | undefined }) => {
+          if (!teamValue) return null;
+          const comparison = getComparisonBadge(value, teamValue);
+          if (!comparison) return null;
+          return (
+            <Badge
+              variant="outline"
+              className={`text-xs ${
+                comparison.isPositive
+                  ? "border-green-500 text-green-600 bg-green-50 dark:bg-green-950/30"
+                  : "border-red-500 text-red-600 bg-red-50 dark:bg-red-950/30"
+              }`}
+            >
+              {comparison.isPositive ? "+" : ""}{comparison.diff}% vs team
+            </Badge>
+          );
+        };
+
+        const periodLabel = timePeriod === "week" ? "this week" : timePeriod === "month" ? "this month" : "all time";
+
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Calls</p>
+                    <p className="text-3xl font-bold mt-1">{metrics.calls}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{periodLabel}</p>
+                  </div>
+                  <Phone className="h-5 w-5 text-muted-foreground" />
+                </div>
+                {teamAvg && <div className="mt-2"><ComparisonBadge value={metrics.calls} teamValue={teamAvg.calls} /></div>}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Connected</p>
+                    <p className="text-3xl font-bold mt-1">{metrics.connected}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{metrics.connectRate}% rate</p>
+                  </div>
+                  <PhoneCall className="h-5 w-5 text-muted-foreground" />
+                </div>
+                {teamAvg && <div className="mt-2"><ComparisonBadge value={metrics.connectRate} teamValue={teamAvg.connectRate} /></div>}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Qualified</p>
+                    <p className="text-3xl font-bold mt-1">{metrics.qualified}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{metrics.conversionRate}% rate</p>
+                  </div>
+                  <Target className="h-5 w-5 text-muted-foreground" />
+                </div>
+                {teamAvg && <div className="mt-2"><ComparisonBadge value={metrics.qualified} teamValue={teamAvg.qualified} /></div>}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Meetings</p>
+                    <p className="text-3xl font-bold mt-1">{metrics.meetings}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{periodLabel}</p>
+                  </div>
+                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                </div>
+                {teamAvg && <div className="mt-2"><ComparisonBadge value={metrics.meetings} teamValue={teamAvg.meetings} /></div>}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Connect Rate</p>
+                    <p className="text-3xl font-bold mt-1">{metrics.connectRate}%</p>
+                    <p className="text-xs text-muted-foreground mt-1">{periodLabel}</p>
+                  </div>
+                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                </div>
+                {teamAvg && <div className="mt-2"><ComparisonBadge value={metrics.connectRate} teamValue={teamAvg.connectRate} /></div>}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Talk Time</p>
+                    <p className="text-3xl font-bold mt-1">{totalTalkTimeHours}h {totalTalkTimeMinutes}m</p>
+                    <p className="text-xs text-muted-foreground mt-1">total</p>
+                  </div>
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
+
+      {/* Team Context */}
+      {teamAverages && teamAverages.sdrCount > 1 && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Users className="h-4 w-4" />
+          <span>Comparing against {teamAverages.sdrCount} team members</span>
+        </div>
+      )}
 
       {/* This Week Summary */}
       <Card className="border-l-4 border-l-primary">

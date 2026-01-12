@@ -18,29 +18,7 @@ import { registerSupportRoutes } from "./support-routes";
 import { registerZoomRoutes } from "./zoom-routes";
 import reportRoutes from "./report-routes";
 import { listFilesInProcessed } from "./google/driveClient";
-import {
-  getDateRanges,
-  initializeWeeklyActivity,
-  calculateTrend,
-  processSdrCalls,
-  calculateConnectRate,
-  getTopPerformers,
-  formatCoachingSession,
-  calculateCoachingMetrics,
-  generateAchievements,
-  createEmptyTeamMetrics,
-  type TeamMember,
-  type TeamMetrics,
-  type WeeklyActivityDay,
-} from "./helpers/managerProfileHelpers";
-import {
-  hashPassword,
-  verifyPassword,
-  excludePassword,
-  excludePasswordFromAll,
-  validatePasswordStrength,
-  setUserSession,
-} from "./helpers/authHelpers";
+import { notifyCallCompleted, notifyResearchComplete } from "./dashboardUpdates";
 
 declare module "express-session" {
   interface SessionData {
@@ -1225,6 +1203,111 @@ export async function registerRoutes(
     }
   });
 
+  // Team averages for SDR comparison
+  app.get("/api/team-averages", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const allSdrs = await storage.getAllSdrs();
+      const allUsers = await storage.getAllUsers();
+
+      // Build SDR to User map
+      const sdrUserMap = new Map<string, string>();
+      for (const u of allUsers) {
+        if (u.sdrId) sdrUserMap.set(u.sdrId, u.id);
+      }
+
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      let totalCalls = 0;
+      let totalConnected = 0;
+      let totalQualified = 0;
+      let totalMeetings = 0;
+      let totalTalkTime = 0;
+      let weekCalls = 0;
+      let weekConnected = 0;
+      let weekQualified = 0;
+      let weekMeetings = 0;
+      let monthCalls = 0;
+      let monthConnected = 0;
+      let monthQualified = 0;
+      let monthMeetings = 0;
+      let sdrCount = 0;
+
+      for (const sdr of allSdrs) {
+        const userId = sdrUserMap.get(sdr.id);
+        if (!userId) continue;
+
+        const calls = await storage.getCallSessionsByUser(userId);
+        if (calls.length === 0) continue;
+
+        sdrCount++;
+
+        for (const call of calls) {
+          const callDate = new Date(call.startedAt);
+          const isThisWeek = callDate >= startOfWeek;
+          const isThisMonth = callDate >= startOfMonth;
+
+          totalCalls++;
+          if (isThisWeek) weekCalls++;
+          if (isThisMonth) monthCalls++;
+
+          if (call.duration) {
+            totalTalkTime += call.duration;
+          }
+
+          if (call.disposition) {
+            const isConnected = ['connected', 'qualified', 'meeting-booked', 'callback-scheduled', 'not-interested'].includes(call.disposition);
+            if (isConnected) {
+              totalConnected++;
+              if (isThisWeek) weekConnected++;
+              if (isThisMonth) monthConnected++;
+            }
+            if (call.disposition === 'qualified') {
+              totalQualified++;
+              if (isThisWeek) weekQualified++;
+              if (isThisMonth) monthQualified++;
+            }
+            if (call.disposition === 'meeting-booked') {
+              totalMeetings++;
+              if (isThisWeek) weekMeetings++;
+              if (isThisMonth) monthMeetings++;
+            }
+          }
+        }
+      }
+
+      const avgDivisor = sdrCount || 1;
+
+      res.json({
+        sdrCount,
+        // All-time averages per SDR
+        avgTotalCalls: Math.round(totalCalls / avgDivisor),
+        avgTotalConnected: Math.round(totalConnected / avgDivisor),
+        avgTotalQualified: Math.round(totalQualified / avgDivisor),
+        avgTotalMeetings: Math.round(totalMeetings / avgDivisor),
+        avgConnectRate: totalCalls > 0 ? Math.round((totalConnected / totalCalls) * 100) : 0,
+        avgConversionRate: totalCalls > 0 ? Math.round((totalQualified / totalCalls) * 100) : 0,
+        avgMeetingRate: totalCalls > 0 ? Math.round((totalMeetings / totalCalls) * 100) : 0,
+        // Weekly averages per SDR
+        avgWeekCalls: Math.round(weekCalls / avgDivisor),
+        avgWeekConnected: Math.round(weekConnected / avgDivisor),
+        avgWeekQualified: Math.round(weekQualified / avgDivisor),
+        avgWeekMeetings: Math.round(weekMeetings / avgDivisor),
+        // Monthly averages per SDR
+        avgMonthCalls: Math.round(monthCalls / avgDivisor),
+        avgMonthConnected: Math.round(monthConnected / avgDivisor),
+        avgMonthQualified: Math.round(monthQualified / avgDivisor),
+        avgMonthMeetings: Math.round(monthMeetings / avgDivisor),
+      });
+    } catch (error) {
+      console.error("Get team averages error:", error);
+      res.status(500).json({ message: "Failed to fetch team averages" });
+    }
+  });
+
   app.patch("/api/sdrs/:id", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -1343,13 +1426,32 @@ export async function registerRoutes(
         return res.status(401).json({ message: "User not found" });
       }
 
+      // Parse time range from query parameter (default: 7d)
+      const timeRange = (req.query.range as string) || "7d";
+      const now = new Date();
+
+      // Calculate days based on range
+      let rangeDays: number;
+      switch (timeRange) {
+        case "7d": rangeDays = 7; break;
+        case "14d": rangeDays = 14; break;
+        case "30d": rangeDays = 30; break;
+        case "90d": rangeDays = 90; break;
+        case "ytd": {
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          rangeDays = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+          break;
+        }
+        default: rangeDays = 7;
+      }
+
       const isPrivileged = currentUser.role === "admin" || currentUser.role === "manager";
       const allLeads = await storage.getAllLeads();
       const allSdrs = await storage.getAllSdrs();
       const allAEs = await storage.getAllAccountExecutives();
       const sdrIds = allSdrs.map(sdr => sdr.id);
       const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
-      
+
       let callSessions;
       if (isPrivileged) {
         const sdrUserIds = sdrUsers.map(u => u.id);
@@ -1357,66 +1459,90 @@ export async function registerRoutes(
       } else {
         callSessions = await storage.getCallSessionsByUser(req.session.userId!);
       }
-      
-      const now = new Date();
+
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      const rangeStart = new Date(now.getTime() - rangeDays * 24 * 60 * 60 * 1000);
+      const previousRangeStart = new Date(now.getTime() - (rangeDays * 2) * 24 * 60 * 60 * 1000);
       const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
       const todaySessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= today);
-      const weekSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= weekAgo);
-      const lastWeekSessions = callSessions.filter(s => {
+      const rangeSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= rangeStart);
+      const previousRangeSessions = callSessions.filter(s => {
         const d = s.startedAt ? new Date(s.startedAt) : null;
-        return d && d >= twoWeeksAgo && d < weekAgo;
+        return d && d >= previousRangeStart && d < rangeStart;
       });
       const monthSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= monthAgo);
 
-      const qualifiedWeek = weekSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
-      const qualifiedLastWeek = lastWeekSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
-      const meetingsWeek = weekSessions.filter(s => s.disposition === "meeting-booked");
-      const connectedWeek = weekSessions.filter(s => 
-        s.disposition === "connected" || s.disposition === "qualified" || 
+      const qualifiedInRange = rangeSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const qualifiedPrevRange = previousRangeSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const meetingsInRange = rangeSessions.filter(s => s.disposition === "meeting-booked");
+      const connectedInRange = rangeSessions.filter(s =>
+        s.disposition === "connected" || s.disposition === "qualified" ||
         s.disposition === "meeting-booked" || s.disposition === "callback-scheduled"
       );
 
-      const conversionRate = weekSessions.length > 0 
-        ? Math.round((qualifiedWeek.length / weekSessions.length) * 100) 
+      const conversionRate = rangeSessions.length > 0
+        ? Math.round((qualifiedInRange.length / rangeSessions.length) * 100)
         : 0;
-      const lastConversionRate = lastWeekSessions.length > 0 
-        ? Math.round((qualifiedLastWeek.length / lastWeekSessions.length) * 100) 
+      const lastConversionRate = previousRangeSessions.length > 0
+        ? Math.round((qualifiedPrevRange.length / previousRangeSessions.length) * 100)
         : 0;
 
       const qualifiedLeads = allLeads.filter(l => l.status === "qualified" || l.status === "sent_to_ae");
       const pipelineValue = qualifiedLeads.length * 15000;
 
+      // Generate daily activity based on the selected range
+      // For ranges > 30 days, aggregate by week to keep chart readable
       const dailyActivity: { date: string; calls: number; qualified: number }[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const day = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-        const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-        const daySessions = callSessions.filter(s => {
-          const d = s.startedAt ? new Date(s.startedAt) : null;
-          return d && d >= dayStart && d < dayEnd;
-        });
-        dailyActivity.push({
-          date: dayStart.toLocaleDateString("en-US", { weekday: "short" }),
-          calls: daySessions.length,
-          qualified: daySessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
-        });
+      const useWeeklyAggregation = rangeDays > 30;
+      const dataPoints = useWeeklyAggregation ? Math.min(Math.ceil(rangeDays / 7), 13) : Math.min(rangeDays, 30);
+
+      for (let i = dataPoints - 1; i >= 0; i--) {
+        if (useWeeklyAggregation) {
+          // Aggregate by week
+          const weekEnd = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+          const weekStart = new Date(weekEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const weekSessions = callSessions.filter(s => {
+            const d = s.startedAt ? new Date(s.startedAt) : null;
+            return d && d >= weekStart && d < weekEnd;
+          });
+          dailyActivity.push({
+            date: weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+            calls: weekSessions.length,
+            qualified: weekSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
+          });
+        } else {
+          // Daily data points
+          const day = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+          const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+          const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+          const daySessions = callSessions.filter(s => {
+            const d = s.startedAt ? new Date(s.startedAt) : null;
+            return d && d >= dayStart && d < dayEnd;
+          });
+          // Use shorter date format for ranges > 7 days
+          const dateFormat = rangeDays > 7
+            ? { month: "short" as const, day: "numeric" as const }
+            : { weekday: "short" as const };
+          dailyActivity.push({
+            date: dayStart.toLocaleDateString("en-US", dateFormat),
+            calls: daySessions.length,
+            qualified: daySessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
+          });
+        }
       }
 
-      const dispositionBreakdown = weekSessions.reduce((acc, s) => {
+      const dispositionBreakdown = rangeSessions.reduce((acc, s) => {
         const disp = s.disposition || "no-answer";
         acc[disp] = (acc[disp] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
       const funnel = {
-        totalCalls: weekSessions.length,
-        connected: connectedWeek.length,
-        qualified: qualifiedWeek.length,
-        meetings: meetingsWeek.length,
+        totalCalls: rangeSessions.length,
+        connected: connectedInRange.length,
+        qualified: qualifiedInRange.length,
+        meetings: meetingsInRange.length,
       };
 
       let sdrLeaderboard: Array<{
@@ -1433,10 +1559,10 @@ export async function registerRoutes(
       if (isPrivileged) {
         sdrLeaderboard = allSdrs.map(sdr => {
           const sdrUser = sdrUsers.find(u => u.sdrId === sdr.id);
-          const sdrSessions = sdrUser ? weekSessions.filter(s => s.userId === sdrUser.id) : [];
+          const sdrSessions = sdrUser ? rangeSessions.filter(s => s.userId === sdrUser.id) : [];
           const completed = sdrSessions.filter(s => s.status === "completed");
-          const connected = sdrSessions.filter(s => 
-            s.disposition === "connected" || s.disposition === "qualified" || 
+          const connected = sdrSessions.filter(s =>
+            s.disposition === "connected" || s.disposition === "qualified" ||
             s.disposition === "meeting-booked" || s.disposition === "callback-scheduled"
           );
           return {
@@ -1471,8 +1597,8 @@ export async function registerRoutes(
         let callsWithoutPrep = 0;
         let meetingsWithPrep = 0;
         let meetingsWithoutPrep = 0;
-        
-        for (const session of weekSessions) {
+
+        for (const session of rangeSessions) {
           if (!session.leadId) {
             callsWithoutPrep++;
             if (session.disposition === "meeting-booked") {
@@ -1480,11 +1606,11 @@ export async function registerRoutes(
             }
             continue;
           }
-          
+
           const researchPacket = await storage.getResearchPacketByLead(session.leadId);
           const hadResearch = researchPacket && researchPacket.createdAt && session.startedAt &&
             new Date(researchPacket.createdAt) < new Date(session.startedAt);
-          
+
           if (hadResearch) {
             callsWithPrep++;
             if (session.disposition === "meeting-booked") {
@@ -1497,9 +1623,132 @@ export async function registerRoutes(
             }
           }
         }
-        
+
         return { callsWithPrep, callsWithoutPrep, meetingsWithPrep, meetingsWithoutPrep };
       })();
+
+      // Generate sparkline data for hero metrics (last 7 periods)
+      const sparklinePoints = 7;
+      const periodLength = Math.ceil(rangeDays / sparklinePoints);
+
+      const sparklines = {
+        calls: [] as number[],
+        qualified: [] as number[],
+        meetings: [] as number[],
+        conversion: [] as number[],
+      };
+
+      for (let i = sparklinePoints - 1; i >= 0; i--) {
+        const periodEnd = new Date(now.getTime() - i * periodLength * 24 * 60 * 60 * 1000);
+        const periodStart = new Date(periodEnd.getTime() - periodLength * 24 * 60 * 60 * 1000);
+
+        const periodSessions = callSessions.filter(s => {
+          const d = s.startedAt ? new Date(s.startedAt) : null;
+          return d && d >= periodStart && d < periodEnd;
+        });
+
+        const periodQualified = periodSessions.filter(s =>
+          s.disposition === "qualified" || s.disposition === "meeting-booked"
+        ).length;
+        const periodMeetings = periodSessions.filter(s =>
+          s.disposition === "meeting-booked"
+        ).length;
+
+        sparklines.calls.push(periodSessions.length);
+        sparklines.qualified.push(periodQualified);
+        sparklines.meetings.push(periodMeetings);
+        sparklines.conversion.push(
+          periodSessions.length > 0 ? Math.round((periodQualified / periodSessions.length) * 100) : 0
+        );
+      }
+
+      // Anomaly detection helper function
+      function detectAnomaly(values: number[], currentValue: number): { isAnomaly: boolean; type: "spike" | "drop" | null; severity: number } {
+        if (values.length < 3) return { isAnomaly: false, type: null, severity: 0 };
+
+        const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+        const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+        const stdDev = Math.sqrt(variance);
+
+        // Avoid false positives when std dev is very small
+        if (stdDev < 1) return { isAnomaly: false, type: null, severity: 0 };
+
+        const zScore = (currentValue - mean) / stdDev;
+        const isAnomaly = Math.abs(zScore) > 1.5; // 1.5 standard deviations
+        const severity = Math.min(Math.abs(zScore) / 3, 1); // Normalize severity 0-1
+
+        return {
+          isAnomaly,
+          type: isAnomaly ? (zScore > 0 ? "spike" : "drop") : null,
+          severity: isAnomaly ? severity : 0,
+        };
+      }
+
+      // Detect anomalies for each metric
+      const anomalies = {
+        calls: detectAnomaly(sparklines.calls.slice(0, -1), rangeSessions.length),
+        qualified: detectAnomaly(sparklines.qualified.slice(0, -1), qualifiedInRange.length),
+        meetings: detectAnomaly(sparklines.meetings.slice(0, -1), meetingsInRange.length),
+        conversion: detectAnomaly(sparklines.conversion.slice(0, -1), conversionRate),
+      };
+
+      // Goal tracking with predictions
+      // Calculate days elapsed and remaining in current month
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const daysInMonth = endOfMonth.getDate();
+      const daysElapsed = now.getDate();
+      const daysRemaining = daysInMonth - daysElapsed;
+
+      // Get current month's sessions for goal tracking
+      const currentMonthSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= startOfMonth);
+      const currentMonthQualified = currentMonthSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const currentMonthMeetings = currentMonthSessions.filter(s => s.disposition === "meeting-booked");
+
+      // Define monthly goals (could be stored per-user in the future)
+      const monthlyGoals = {
+        calls: isPrivileged ? allSdrs.length * 200 : 200, // 200 calls per SDR per month
+        qualified: isPrivileged ? allSdrs.length * 20 : 20, // 20 qualified leads per SDR
+        meetings: isPrivileged ? allSdrs.length * 8 : 8, // 8 meetings per SDR
+      };
+
+      // Calculate projections based on current pace
+      const dailyRate = {
+        calls: daysElapsed > 0 ? currentMonthSessions.length / daysElapsed : 0,
+        qualified: daysElapsed > 0 ? currentMonthQualified.length / daysElapsed : 0,
+        meetings: daysElapsed > 0 ? currentMonthMeetings.length / daysElapsed : 0,
+      };
+
+      const projectedMonth = {
+        calls: Math.round(currentMonthSessions.length + (dailyRate.calls * daysRemaining)),
+        qualified: Math.round(currentMonthQualified.length + (dailyRate.qualified * daysRemaining)),
+        meetings: Math.round(currentMonthMeetings.length + (dailyRate.meetings * daysRemaining)),
+      };
+
+      const goalTracking = {
+        daysRemaining,
+        daysElapsed,
+        metrics: {
+          calls: {
+            current: currentMonthSessions.length,
+            goal: monthlyGoals.calls,
+            projected: projectedMonth.calls,
+            dailyRate: Math.round(dailyRate.calls * 10) / 10,
+          },
+          qualified: {
+            current: currentMonthQualified.length,
+            goal: monthlyGoals.qualified,
+            projected: projectedMonth.qualified,
+            dailyRate: Math.round(dailyRate.qualified * 10) / 10,
+          },
+          meetings: {
+            current: currentMonthMeetings.length,
+            goal: monthlyGoals.meetings,
+            projected: projectedMonth.meetings,
+            dailyRate: Math.round(dailyRate.meetings * 10) / 10,
+          },
+        },
+      };
 
       res.json({
         hero: {
@@ -1508,13 +1757,17 @@ export async function registerRoutes(
           conversionRate,
           conversionTrend: conversionRate - lastConversionRate,
           callsToday: todaySessions.length,
-          callsThisWeek: weekSessions.length,
-          callsTrend: lastWeekSessions.length > 0 
-            ? Math.round(((weekSessions.length - lastWeekSessions.length) / lastWeekSessions.length) * 100)
-            : weekSessions.length > 0 ? 100 : 0,
-          meetingsBooked: meetingsWeek.length,
-          qualifiedLeads: qualifiedWeek.length,
+          callsInRange: rangeSessions.length,
+          callsTrend: previousRangeSessions.length > 0
+            ? Math.round(((rangeSessions.length - previousRangeSessions.length) / previousRangeSessions.length) * 100)
+            : rangeSessions.length > 0 ? 100 : 0,
+          meetingsBooked: meetingsInRange.length,
+          qualifiedLeads: qualifiedInRange.length,
+          sparklines,
+          anomalies,
         },
+        timeRange,
+        rangeDays,
         funnel,
         dispositionBreakdown,
         dailyActivity,
@@ -1544,12 +1797,230 @@ export async function registerRoutes(
           leads: allLeads.length,
         },
         roiTracking,
+        goalTracking,
         isPrivileged,
         currentUserId: req.session.userId,
       });
     } catch (error) {
       console.error("Dashboard metrics error:", error);
       res.status(500).json({ message: "Failed to fetch dashboard metrics" });
+    }
+  });
+
+  // Drill-down endpoint for chart interactions
+  app.get("/api/dashboard/drilldown", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const { type, filter, range } = req.query as { type: string; filter: string; range: string };
+      const timeRange = range || "7d";
+      const now = new Date();
+
+      let rangeDays: number;
+      switch (timeRange) {
+        case "7d": rangeDays = 7; break;
+        case "14d": rangeDays = 14; break;
+        case "30d": rangeDays = 30; break;
+        case "90d": rangeDays = 90; break;
+        case "ytd": {
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          rangeDays = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+          break;
+        }
+        default: rangeDays = 7;
+      }
+
+      const rangeStart = new Date(now.getTime() - rangeDays * 24 * 60 * 60 * 1000);
+      const isPrivileged = currentUser.role === "admin" || currentUser.role === "manager";
+
+      const allSdrs = await storage.getAllSdrs();
+      const sdrIds = allSdrs.map(sdr => sdr.id);
+      const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
+
+      let callSessions;
+      if (isPrivileged) {
+        const sdrUserIds = sdrUsers.map(u => u.id);
+        callSessions = await storage.getCallSessionsByUserIds(sdrUserIds);
+      } else {
+        callSessions = await storage.getCallSessionsByUser(req.session.userId!);
+      }
+
+      const rangeSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= rangeStart);
+
+      // Filter based on type and filter value
+      let filteredSessions = rangeSessions;
+      if (type === "disposition") {
+        filteredSessions = rangeSessions.filter(s => s.disposition === filter);
+      } else if (type === "funnel") {
+        // Funnel stages: total, connected, qualified, meetings
+        switch (filter) {
+          case "total":
+            filteredSessions = rangeSessions;
+            break;
+          case "connected":
+            filteredSessions = rangeSessions.filter(s =>
+              s.disposition === "connected" || s.disposition === "qualified" ||
+              s.disposition === "meeting-booked" || s.disposition === "callback-scheduled"
+            );
+            break;
+          case "qualified":
+            filteredSessions = rangeSessions.filter(s =>
+              s.disposition === "qualified" || s.disposition === "meeting-booked"
+            );
+            break;
+          case "meetings":
+            filteredSessions = rangeSessions.filter(s => s.disposition === "meeting-booked");
+            break;
+        }
+      }
+
+      // Get lead info for each session
+      const allLeads = await storage.getAllLeads();
+      const leadMap = new Map(allLeads.map(l => [l.id, l]));
+
+      const calls = filteredSessions.slice(0, 50).map(session => {
+        const lead = session.leadId ? leadMap.get(session.leadId) : null;
+        return {
+          id: session.id,
+          leadId: session.leadId,
+          companyName: lead?.companyName || null,
+          contactName: lead?.contactName || null,
+          toNumber: session.toNumber || "",
+          disposition: session.disposition || "unknown",
+          duration: session.duration,
+          startedAt: session.startedAt,
+        };
+      }).sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime());
+
+      res.json({
+        calls,
+        total: filteredSessions.length,
+        filter,
+      });
+    } catch (error) {
+      console.error("Drill-down error:", error);
+      res.status(500).json({ message: "Failed to fetch drill-down data" });
+    }
+  });
+
+  // AI-powered dashboard insights
+  app.get("/api/dashboard/insights", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const timeRange = (req.query.range as string) || "7d";
+      const now = new Date();
+
+      let rangeDays: number;
+      switch (timeRange) {
+        case "7d": rangeDays = 7; break;
+        case "14d": rangeDays = 14; break;
+        case "30d": rangeDays = 30; break;
+        case "90d": rangeDays = 90; break;
+        case "ytd": {
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          rangeDays = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+          break;
+        }
+        default: rangeDays = 7;
+      }
+
+      const isPrivileged = currentUser.role === "admin" || currentUser.role === "manager";
+      const allSdrs = await storage.getAllSdrs();
+      const sdrIds = allSdrs.map(sdr => sdr.id);
+      const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
+
+      let callSessions;
+      if (isPrivileged) {
+        const sdrUserIds = sdrUsers.map(u => u.id);
+        callSessions = await storage.getCallSessionsByUserIds(sdrUserIds);
+      } else {
+        callSessions = await storage.getCallSessionsByUser(req.session.userId!);
+      }
+
+      const rangeStart = new Date(now.getTime() - rangeDays * 24 * 60 * 60 * 1000);
+      const previousRangeStart = new Date(now.getTime() - (rangeDays * 2) * 24 * 60 * 60 * 1000);
+
+      const rangeSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= rangeStart);
+      const previousRangeSessions = callSessions.filter(s => {
+        const d = s.startedAt ? new Date(s.startedAt) : null;
+        return d && d >= previousRangeStart && d < rangeStart;
+      });
+
+      const qualifiedInRange = rangeSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const qualifiedPrevRange = previousRangeSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const meetingsInRange = rangeSessions.filter(s => s.disposition === "meeting-booked");
+      const meetingsPrevRange = previousRangeSessions.filter(s => s.disposition === "meeting-booked");
+      const connectedInRange = rangeSessions.filter(s =>
+        s.disposition === "connected" || s.disposition === "qualified" ||
+        s.disposition === "meeting-booked" || s.disposition === "callback-scheduled"
+      );
+
+      const conversionRate = rangeSessions.length > 0
+        ? Math.round((qualifiedInRange.length / rangeSessions.length) * 100)
+        : 0;
+      const previousConversionRate = previousRangeSessions.length > 0
+        ? Math.round((qualifiedPrevRange.length / previousRangeSessions.length) * 100)
+        : 0;
+      const connectRate = rangeSessions.length > 0
+        ? Math.round((connectedInRange.length / rangeSessions.length) * 100)
+        : 0;
+
+      // Generate daily activity for analysis
+      const dailyActivity: Array<{ date: string; calls: number; qualified: number }> = [];
+      const dataPoints = Math.min(rangeDays, 14);
+      for (let i = dataPoints - 1; i >= 0; i--) {
+        const day = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        const daySessions = callSessions.filter(s => {
+          const d = s.startedAt ? new Date(s.startedAt) : null;
+          return d && d >= dayStart && d < dayEnd;
+        });
+        dailyActivity.push({
+          date: dayStart.toLocaleDateString("en-US", { weekday: "short" }),
+          calls: daySessions.length,
+          qualified: daySessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
+        });
+      }
+
+      const dispositionBreakdown = rangeSessions.reduce((acc, s) => {
+        const disp = s.disposition || "no-answer";
+        acc[disp] = (acc[disp] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Import and use the AI insights generator
+      const { generateDashboardInsights } = await import("./ai/dashboardInsights.js");
+
+      const insights = await generateDashboardInsights({
+        callsInRange: rangeSessions.length,
+        previousCalls: previousRangeSessions.length,
+        qualifiedLeads: qualifiedInRange.length,
+        previousQualified: qualifiedPrevRange.length,
+        meetingsBooked: meetingsInRange.length,
+        previousMeetings: meetingsPrevRange.length,
+        conversionRate,
+        previousConversionRate,
+        connectRate,
+        dailyActivity,
+        dispositionBreakdown,
+        topPerformingDays: dailyActivity.sort((a, b) => b.qualified - a.qualified).slice(0, 3).map(d => d.date),
+        lowPerformingDays: dailyActivity.sort((a, b) => a.calls - b.calls).slice(0, 3).map(d => d.date),
+        teamSize: isPrivileged ? allSdrs.length : 1,
+        isManager: isPrivileged,
+      });
+
+      res.json({ insights, timeRange, generatedAt: new Date().toISOString() });
+    } catch (error) {
+      console.error("Dashboard insights error:", error);
+      res.status(500).json({ message: "Failed to generate insights" });
     }
   });
 
@@ -2260,6 +2731,11 @@ export async function registerRoutes(
         sdrNotes: validatedData.sdrNotes || null,
         callbackDate: validatedData.callbackDate ? new Date(validatedData.callbackDate) : null,
       });
+
+      // Notify connected clients about the call completion
+      if (validatedData.disposition && session.userId) {
+        notifyCallCompleted(id, session.userId, validatedData.disposition);
+      }
 
       res.json(updated);
     } catch (error) {
