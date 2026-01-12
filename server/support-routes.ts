@@ -161,6 +161,9 @@ const DATA_INTENT_KEYWORDS = {
   
   // SDR call queries - manager/admin only (for reviewing specific SDR's calls)
   sdrCalls: ["'s calls", "'s last", "'s recent", "calls from", "how did", "tell me about", "show me"],
+  
+  // Report generation - all roles can generate their own reports, managers can generate team reports
+  generateReport: ["generate report", "create report", "download report", "pdf report", "export report", "email report", "send report", "make report", "build report", "get report"],
 };
 
 // Extract potential lead name from message for transcript queries
@@ -203,7 +206,7 @@ function extractSDRName(message: string): string | null {
   return null;
 }
 
-type DataIntent = "leads" | "calls" | "stats" | "performance" | "products" | "team" | "leadTranscripts" | "sdrCalls" | null;
+type DataIntent = "leads" | "calls" | "stats" | "performance" | "products" | "team" | "leadTranscripts" | "sdrCalls" | "generateReport" | null;
 
 function detectDataIntent(message: string, userRole: string): DataIntent {
   const lowerMessage = message.toLowerCase();
@@ -228,6 +231,11 @@ function detectDataIntent(message: string, userRole: string): DataIntent {
   if ((userRole === "manager" || userRole === "admin") &&
       DATA_INTENT_KEYWORDS.team.some(keyword => lowerMessage.includes(keyword))) {
     return "team";
+  }
+
+  // Check for report generation intent - available to all roles
+  if (DATA_INTENT_KEYWORDS.generateReport.some(keyword => lowerMessage.includes(keyword))) {
+    return "generateReport";
   }
 
   // Check product questions
@@ -681,6 +689,38 @@ function formatUserDataForPrompt(data: UserContextData, intent: DataIntent, user
         formatted += `\n---\n`;
       }
     }
+  }
+
+  // Handle report generation intent
+  if (intent === "generateReport") {
+    formatted += `\n**Report Generation Available:**\n`;
+    formatted += `The user wants to generate or download a report. Based on their role, here are the available report options:\n\n`;
+    
+    if (data.teamData) {
+      formatted += `**Available Reports for Managers/Admins:**\n`;
+      formatted += `1. **Team Summary Report** - Weekly team performance overview with SDR leaderboard\n`;
+      formatted += `   Download: /api/reports/pdf/team-summary\n\n`;
+      formatted += `2. **Individual SDR Reports** - Performance report for a specific SDR\n`;
+      formatted += `   Download: /api/reports/pdf/sdr/{sdrId}\n\n`;
+      formatted += `3. **Call Analysis Report** - Detailed analysis of a specific call with coaching insights\n`;
+      formatted += `   Download: /api/reports/pdf/call/{sessionId}\n\n`;
+    } else {
+      formatted += `**Available Reports for SDRs:**\n`;
+      formatted += `1. **My Performance Report** - Your weekly calls, qualified leads, and metrics\n`;
+      formatted += `   (Ask your manager to generate this for you)\n\n`;
+      formatted += `2. **Call Analysis Reports** - Detailed breakdown of individual calls\n`;
+      formatted += `   Download: /api/reports/pdf/call/{sessionId}\n\n`;
+    }
+    
+    formatted += `All reports include:\n`;
+    formatted += `- Hawk Ridge Systems professional branding\n`;
+    formatted += `- Date and time of generation\n`;
+    formatted += `- Your name as the report generator\n`;
+    formatted += `- Key metrics and insights\n\n`;
+    
+    formatted += `To download a report, you can:\n`;
+    formatted += `1. Click the report download links above\n`;
+    formatted += `2. Or ask me which specific report you need\n`;
   }
 
   formatted += "---\n";

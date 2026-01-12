@@ -1,0 +1,89 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "sans-serif",
+      "count": 164
+    },
+    {
+      "family": "Hind",
+      "count": 92
+    },
+    {
+      "family": "Montserrat",
+      "count": 46
+    },
+    {
+      "family": "Arial",
+      "count": 26
+    }
+  ],
+  "colors": {
+    "primary": "#1E87F0",
+    "accent": "#2C88C9",
+    "background": "#FFFFFF",
+    "textPrimary": "#2C88C9",
+    "link": "#2C88C9"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Hind",
+      "heading": "Montserrat"
+    },
+    "fontStacks": {
+      "body": [
+        "Hind",
+        "sans-serif"
+      ],
+      "heading": [
+        "Montserrat",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Hind",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "50px",
+      "h2": "40px",
+      "body": "14px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "6px"
+  },
+  "components": {},
+  "images": {
+    "logo": "File saved at: attached_assets/logo.svg",
+    "favicon": "File saved at: attached_assets/favicon.webp",
+    "ogImage": "File saved at: attached_assets/ogImage.jpg"
+  },
+  "__framework_hints": [
+    "Elementor 3.33.5; features: e_font_icon_svg; settings: css_print_method-external, google_font-enabled, font_display-swap"
+  ],
+  "__llm_logo_reasoning": {
+    "selectedIndex": 0,
+    "reasoning": "Strong indicators: header logo linking to homepage, header location, visible, top-left position, src contains logo, reasonable size. Score: 105 (clear winner by 80 points)",
+    "confidence": 0.9
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": -1,
+      "text": "N/A",
+      "reasoning": "LLM failed"
+    },
+    "secondary": {
+      "index": -1,
+      "text": "N/A",
+      "reasoning": "LLM failed"
+    },
+    "confidence": 0
+  },
+  "confidence": {
+    "buttons": 0,
+    "colors": 0,
+    "overall": 0
+  }
+}

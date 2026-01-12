@@ -82,6 +82,17 @@ Preferred communication style: Simple, everyday language.
 - Required secret: `ANTHROPIC_API_KEY`
 - Provides: overall score, strengths, areas for improvement, question quality, objection handling analysis
 
+### PDF Report Generation
+- Service: `server/pdf-service.ts` - Playwright-based HTML-to-PDF generation
+- Routes: `server/report-routes.ts` - API endpoints for report download
+- Branding: Hawk Ridge Systems colors (#1E87F0, #2C88C9, #2f2e78), fonts (Montserrat, Hind), logo from `attached_assets/logo.svg`
+- **Report Types**:
+  - **Team Summary Report** (`GET /api/reports/pdf/team-summary`) - Weekly team performance with SDR leaderboard, week-over-week comparisons (Manager/Admin only)
+  - **SDR Performance Report** (`GET /api/reports/pdf/sdr/:sdrId`) - Individual SDR metrics with recent calls (Manager/Admin or own report)
+  - **Call Analysis Report** (`GET /api/reports/pdf/call/:sessionId`) - Detailed call breakdown with coaching insights
+- **Copilot Integration**: Ask "generate report" or "download PDF" in Copilot chat to get available report links
+- Professional layout: header with logo, metrics cards, data tables, confidential footer
+
 ### Salesforce CRM Integration
 - OAuth 2.0 Web Server Flow for authentication
 - Client: `server/integrations/salesforceClient.ts` (OAuth token management, refresh, API requests)
