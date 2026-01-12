@@ -19,6 +19,7 @@ import { registerSupportRoutes } from "./support-routes";
 import { registerZoomRoutes } from "./zoom-routes";
 import reportRoutes from "./report-routes";
 import { listFilesInProcessed } from "./google/driveClient";
+import { notifyCallCompleted, notifyResearchComplete } from "./dashboardUpdates";
 
 declare module "express-session" {
   interface SessionData {
@@ -1664,10 +1665,10 @@ export async function registerRoutes(
       const daysElapsed = now.getDate();
       const daysRemaining = daysInMonth - daysElapsed;
 
-      // Get current month's sessions
-      const monthSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= startOfMonth);
-      const monthQualified = monthSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
-      const monthMeetings = monthSessions.filter(s => s.disposition === "meeting-booked");
+      // Get current month's sessions for goal tracking
+      const currentMonthSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= startOfMonth);
+      const currentMonthQualified = currentMonthSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const currentMonthMeetings = currentMonthSessions.filter(s => s.disposition === "meeting-booked");
 
       // Define monthly goals (could be stored per-user in the future)
       const monthlyGoals = {
@@ -1678,15 +1679,15 @@ export async function registerRoutes(
 
       // Calculate projections based on current pace
       const dailyRate = {
-        calls: daysElapsed > 0 ? monthSessions.length / daysElapsed : 0,
-        qualified: daysElapsed > 0 ? monthQualified.length / daysElapsed : 0,
-        meetings: daysElapsed > 0 ? monthMeetings.length / daysElapsed : 0,
+        calls: daysElapsed > 0 ? currentMonthSessions.length / daysElapsed : 0,
+        qualified: daysElapsed > 0 ? currentMonthQualified.length / daysElapsed : 0,
+        meetings: daysElapsed > 0 ? currentMonthMeetings.length / daysElapsed : 0,
       };
 
       const projectedMonth = {
-        calls: Math.round(monthSessions.length + (dailyRate.calls * daysRemaining)),
-        qualified: Math.round(monthQualified.length + (dailyRate.qualified * daysRemaining)),
-        meetings: Math.round(monthMeetings.length + (dailyRate.meetings * daysRemaining)),
+        calls: Math.round(currentMonthSessions.length + (dailyRate.calls * daysRemaining)),
+        qualified: Math.round(currentMonthQualified.length + (dailyRate.qualified * daysRemaining)),
+        meetings: Math.round(currentMonthMeetings.length + (dailyRate.meetings * daysRemaining)),
       };
 
       const goalTracking = {
@@ -1694,19 +1695,19 @@ export async function registerRoutes(
         daysElapsed,
         metrics: {
           calls: {
-            current: monthSessions.length,
+            current: currentMonthSessions.length,
             goal: monthlyGoals.calls,
             projected: projectedMonth.calls,
             dailyRate: Math.round(dailyRate.calls * 10) / 10,
           },
           qualified: {
-            current: monthQualified.length,
+            current: currentMonthQualified.length,
             goal: monthlyGoals.qualified,
             projected: projectedMonth.qualified,
             dailyRate: Math.round(dailyRate.qualified * 10) / 10,
           },
           meetings: {
-            current: monthMeetings.length,
+            current: currentMonthMeetings.length,
             goal: monthlyGoals.meetings,
             projected: projectedMonth.meetings,
             dailyRate: Math.round(dailyRate.meetings * 10) / 10,
@@ -2695,6 +2696,11 @@ export async function registerRoutes(
         sdrNotes: validatedData.sdrNotes || null,
         callbackDate: validatedData.callbackDate ? new Date(validatedData.callbackDate) : null,
       });
+
+      // Notify connected clients about the call completion
+      if (validatedData.disposition && session.userId) {
+        notifyCallCompleted(id, session.userId, validatedData.disposition);
+      }
 
       res.json(updated);
     } catch (error) {

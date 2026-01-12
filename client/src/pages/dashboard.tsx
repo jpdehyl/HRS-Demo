@@ -16,6 +16,7 @@ import { Sparkline } from "@/components/sparkline";
 import { InsightsCard } from "@/components/insights-card";
 import { GoalProgressCard } from "@/components/goal-progress-card";
 import { DrillDownModal } from "@/components/drill-down-modal";
+import { useDashboardUpdates } from "@/hooks/use-dashboard-updates";
 import { 
   Users, 
   Phone, 
@@ -409,6 +410,9 @@ export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
   const [drillDown, setDrillDown] = useState<{ type: "disposition" | "funnel"; filter: string; label: string } | null>(null);
 
+  // Real-time updates via WebSocket
+  const { isConnected: wsConnected } = useDashboardUpdates();
+
   const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
     queryKey: ["/api/dashboard/metrics", timeRange],
     queryFn: async () => {
@@ -499,9 +503,9 @@ export default function DashboardPage() {
                 <Trophy className="h-5 w-5 text-primary" />
                 <CardTitle className="text-lg">This Week's Performance</CardTitle>
               </div>
-              <Badge variant="secondary" className="gap-1">
-                <Zap className="h-3 w-3" />
-                Live
+              <Badge variant="secondary" className={`gap-1 ${wsConnected ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : ''}`}>
+                <span className={`h-2 w-2 rounded-full ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                {wsConnected ? 'Live' : 'Connecting...'}
               </Badge>
             </div>
           </CardHeader>
