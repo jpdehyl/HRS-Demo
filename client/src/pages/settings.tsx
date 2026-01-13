@@ -640,52 +640,58 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {[...navigationSettings].sort((a, b) => a.sortOrder - b.sortOrder).map((setting, index) => (
-                      <div
-                        key={setting.id}
-                        className="flex items-center justify-between gap-4 p-4 rounded-md border"
-                        data-testid={`nav-setting-${setting.navKey}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <GripVertical className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium">{setting.label}</p>
-                            <p className="text-sm text-muted-foreground">{setting.navKey}</p>
+                    {(() => {
+                      const sortedSettings = [...navigationSettings].sort((a, b) => a.sortOrder - b.sortOrder);
+                      return sortedSettings.map((setting, index) => (
+                        <div
+                          key={setting.id}
+                          className="flex items-center justify-between gap-4 p-4 rounded-md border"
+                          data-testid={`nav-setting-${setting.navKey}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">{setting.label}</p>
+                              <p className="text-sm text-muted-foreground">{setting.navKey}</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              disabled={index === 0 || updateNavSettingMutation.isPending}
-                              onClick={() => {
-                                const prevItem = navigationSettings.find((s) => s.sortOrder === setting.sortOrder - 1);
-                                if (prevItem) {
-                                  updateNavSettingMutation.mutate({ id: setting.id, sortOrder: setting.sortOrder - 1 });
-                                  updateNavSettingMutation.mutate({ id: prevItem.id, sortOrder: prevItem.sortOrder + 1 });
-                                }
-                              }}
-                              data-testid={`button-move-up-${setting.navKey}`}
-                            >
-                              <ArrowUp className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              disabled={index === navigationSettings.length - 1 || updateNavSettingMutation.isPending}
-                              onClick={() => {
-                                const nextItem = navigationSettings.find((s) => s.sortOrder === setting.sortOrder + 1);
-                                if (nextItem) {
-                                  updateNavSettingMutation.mutate({ id: setting.id, sortOrder: setting.sortOrder + 1 });
-                                  updateNavSettingMutation.mutate({ id: nextItem.id, sortOrder: nextItem.sortOrder - 1 });
-                                }
-                              }}
-                              data-testid={`button-move-down-${setting.navKey}`}
-                            >
-                              <ArrowDown className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled={index === 0 || updateNavSettingMutation.isPending}
+                                onClick={() => {
+                                  const prevItem = sortedSettings[index - 1];
+                                  if (prevItem) {
+                                    const prevOrder = prevItem.sortOrder;
+                                    const currentOrder = setting.sortOrder;
+                                    updateNavSettingMutation.mutate({ id: setting.id, sortOrder: prevOrder });
+                                    updateNavSettingMutation.mutate({ id: prevItem.id, sortOrder: currentOrder });
+                                  }
+                                }}
+                                data-testid={`button-move-up-${setting.navKey}`}
+                              >
+                                <ArrowUp className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled={index === sortedSettings.length - 1 || updateNavSettingMutation.isPending}
+                                onClick={() => {
+                                  const nextItem = sortedSettings[index + 1];
+                                  if (nextItem) {
+                                    const nextOrder = nextItem.sortOrder;
+                                    const currentOrder = setting.sortOrder;
+                                    updateNavSettingMutation.mutate({ id: setting.id, sortOrder: nextOrder });
+                                    updateNavSettingMutation.mutate({ id: nextItem.id, sortOrder: currentOrder });
+                                  }
+                                }}
+                                data-testid={`button-move-down-${setting.navKey}`}
+                              >
+                                <ArrowDown className="h-4 w-4" />
+                              </Button>
+                            </div>
                           <div className="flex items-center gap-2">
                             <Label htmlFor={`nav-toggle-${setting.id}`} className="text-sm">
                               {setting.isEnabled ? "Visible" : "Hidden"}
@@ -700,9 +706,10 @@ export default function SettingsPage() {
                               data-testid={`switch-toggle-${setting.navKey}`}
                             />
                           </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ));
+                    })()}
                     {navigationSettings.length === 0 && (
                       <p className="text-center text-muted-foreground py-8">No navigation settings found</p>
                     )}
