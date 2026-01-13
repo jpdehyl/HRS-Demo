@@ -413,16 +413,28 @@ export default function DashboardPage() {
   // Real-time updates via WebSocket
   const { isConnected: wsConnected } = useDashboardUpdates();
 
-  const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
+  const { data: metrics, isLoading, error: metricsError, isError: isMetricsError } = useQuery<DashboardMetrics>({
     queryKey: ["/api/dashboard/metrics", timeRange],
     queryFn: async () => {
+      console.log("[Dashboard] Fetching metrics for range:", timeRange);
       const res = await fetch(`/api/dashboard/metrics?range=${timeRange}`, {
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to fetch metrics");
-      return res.json();
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("[Dashboard] Metrics fetch failed:", res.status, errorText);
+        throw new Error(`Failed to fetch metrics: ${res.status}`);
+      }
+      const data = await res.json();
+      console.log("[Dashboard] Metrics received:", data.hero?.callsInRange, "calls");
+      return data;
     },
+    retry: 1,
   });
+
+  if (isMetricsError) {
+    console.error("[Dashboard] Metrics error:", metricsError);
+  }
 
   const { data: leads = [] } = useQuery<any[]>({
     queryKey: ["/api/leads"],
