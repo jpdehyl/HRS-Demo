@@ -12,7 +12,7 @@ import {
   compareSnapshots,
   getAllSnapshots
 } from './ai/baselineMetrics.js';
-import { requireAuth, requireRole } from './routes.js';
+import { requireAuth, requireRole } from './middleware/auth.js';
 
 const router = Router();
 

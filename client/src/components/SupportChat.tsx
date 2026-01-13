@@ -697,26 +697,6 @@ export function SupportChat() {
             </div>
           </CardHeader>
 
-          {/* Agent Selector */}
-          <div className="flex items-center gap-1 px-2 py-1.5 border-b bg-muted/30 shrink-0 overflow-x-auto">
-            {AGENTS.map((agent) => (
-              <Button
-                key={agent.type}
-                variant={selectedAgent === agent.type ? "secondary" : "ghost"}
-                size="sm"
-                className={cn(
-                  "h-7 px-2 text-xs whitespace-nowrap",
-                  selectedAgent === agent.type && "bg-primary/10 text-primary"
-                )}
-                onClick={() => setSelectedAgent(agent.type)}
-                title={agent.description}
-              >
-                <span className="mr-1">{agent.emoji}</span>
-                {agent.name}
-              </Button>
-            ))}
-          </div>
-
           {/* Messages Area */}
           <CardContent className="flex-1 overflow-hidden p-0">
             <ScrollArea className="h-full">
@@ -724,67 +704,48 @@ export function SupportChat() {
                 {/* Welcome message if no messages */}
                 {state.messages.length === 0 && !state.isLoading && (
                   <div className="text-center py-4 px-4">
-                    {/* Agent-aware welcome */}
+                    {/* Copilot welcome */}
                     <div className="relative inline-block mb-3">
-                      <span className="text-4xl">{AGENTS.find(a => a.type === selectedAgent)?.emoji || '🧙'}</span>
+                      <span className="text-4xl">🤖</span>
                       <Sparkles className="h-4 w-4 absolute -top-1 -right-1 text-yellow-500" />
                     </div>
-                    <h3 className="text-sm font-semibold mb-1">
-                      {AGENTS.find(a => a.type === selectedAgent)?.name || 'Sage'}
-                    </h3>
+                    <h3 className="text-sm font-semibold mb-1">Copilot</h3>
                     <p className="text-xs text-muted-foreground mb-4">
-                      {AGENTS.find(a => a.type === selectedAgent)?.description}
+                      Your AI assistant for sales intelligence, coaching, and insights
                     </p>
 
-                    {/* Agent-specific Quick Actions */}
+                    {/* Quick Actions */}
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground font-medium">Quick actions:</p>
                       <div className="flex flex-wrap gap-2 justify-center">
-                        {agentQuickActions.slice(0, 4).map((action, index) => (
-                          <Button
-                            key={index}
-                            variant="outline"
-                            size="sm"
-                            className="text-xs h-8"
-                            onClick={() => sendMessage(action.message, action.agent)}
-                          >
-                            {action.label}
-                          </Button>
-                        ))}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => handleQuickAction("Show my leads")}
+                        >
+                          <Users className="h-3 w-3 mr-1.5" />
+                          My Leads
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => handleQuickAction("Show my recent calls")}
+                        >
+                          <Phone className="h-3 w-3 mr-1.5" />
+                          My Calls
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => handleQuickAction("How am I doing? Show my performance")}
+                        >
+                          <BarChart3 className="h-3 w-3 mr-1.5" />
+                          My Stats
+                        </Button>
                       </div>
-
-                      {/* Standard quick actions for Sage */}
-                      {selectedAgent === 'sage' && (
-                        <div className="flex flex-wrap gap-2 justify-center mt-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7"
-                            onClick={() => handleQuickAction("Show my leads")}
-                          >
-                            <Users className="h-3 w-3 mr-1.5" />
-                            My Leads
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7"
-                            onClick={() => handleQuickAction("Show my recent calls")}
-                          >
-                            <Phone className="h-3 w-3 mr-1.5" />
-                            My Calls
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7"
-                            onClick={() => handleQuickAction("How am I doing? Show my performance")}
-                          >
-                            <BarChart3 className="h-3 w-3 mr-1.5" />
-                            My Stats
-                          </Button>
-                        </div>
-                      )}
 
                       {/* Manager-specific quick actions */}
                       {isManager && (
@@ -941,13 +902,13 @@ export function SupportChat() {
                 {state.isLoading && (
                   <div className="flex gap-2">
                     <div className="shrink-0 h-7 w-7 rounded-full bg-muted flex items-center justify-center text-sm">
-                      {AGENTS.find(a => a.type === selectedAgent)?.emoji || <Bot className="h-4 w-4" />}
+                      <Bot className="h-4 w-4" />
                     </div>
                     <div className="bg-muted rounded-lg px-3 py-2">
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span className="text-sm text-muted-foreground">
-                          {AGENTS.find(a => a.type === selectedAgent)?.name || 'Agent'} is thinking...
+                          Copilot is thinking...
                         </span>
                       </div>
                     </div>
