@@ -19,6 +19,7 @@ import { registerZoomRoutes } from "./zoom-routes";
 import { registerAgentRoutes } from "./agent-routes";
 import reportRoutes from "./report-routes";
 import aiReportsRoutes from "./ai-reports-routes";
+import baselineRoutes from "./baseline-routes";
 import { listFilesInProcessed } from "./google/driveClient";
 import { notifyCallCompleted, notifyResearchComplete } from "./dashboardUpdates";
 import { 
@@ -3724,6 +3725,7 @@ export async function registerRoutes(
   registerZoomRoutes(app);
   app.use("/api/reports/pdf", reportRoutes);
   app.use("/api/ai-reports", aiReportsRoutes);
+  app.use("/api/baseline", baselineRoutes);
   registerTwilioVoiceRoutes(app);
   registerTranscriptionRoutes(app);
   setupTranscriptionWebSocket(httpServer);
