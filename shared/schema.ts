@@ -170,6 +170,11 @@ export const leads = pgTable("leads", {
   salesforceId: varchar("salesforce_id"),
   salesforceLastSync: timestamp("salesforce_last_sync"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  // Lifecycle timestamps for baseline metrics tracking
+  firstContactedAt: timestamp("first_contacted_at"),
+  qualifiedAt: timestamp("qualified_at"),
+  convertedAt: timestamp("converted_at"),
+  lostAt: timestamp("lost_at"),
 });
 
 export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true });
@@ -501,9 +506,116 @@ export const salesforceSyncLog = pgTable("salesforce_sync_log", {
   completedAt: timestamp("completed_at"),
 });
 
-export const insertSalesforceSyncLogSchema = createInsertSchema(salesforceSyncLog).omit({ 
-  id: true, 
+export const insertSalesforceSyncLogSchema = createInsertSchema(salesforceSyncLog).omit({
+  id: true,
   startedAt: true,
 });
 export type InsertSalesforceSyncLog = z.infer<typeof insertSalesforceSyncLogSchema>;
 export type SalesforceSyncLog = typeof salesforceSyncLog.$inferSelect;
+
+// Baseline Metrics Snapshots - Capture point-in-time metrics for before/after comparison
+export const baselineSnapshots = pgTable("baseline_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  snapshotType: text("snapshot_type").notNull(), // 'baseline', 'phase1_launch', 'phase1_30day', 'phase2_launch', etc.
+  snapshotLabel: text("snapshot_label").notNull(), // Human-readable description
+
+  // Lead Processing Time Metrics (in hours)
+  avgTimeToFirstContact: integer("avg_time_to_first_contact"), // Hours from intake to first contact
+  avgTimeToQualification: integer("avg_time_to_qualification"), // Hours from intake to qualification
+  avgTimeToHandoff: integer("avg_time_to_handoff"), // Hours from intake to AE handoff
+  avgTimeQualToHandoff: integer("avg_time_qual_to_handoff"), // Hours from qualification to handoff
+
+  // Volume & Capacity Metrics
+  totalLeadsProcessed: integer("total_leads_processed"),
+  leadsPerSdrPerDay: integer("leads_per_sdr_per_day"), // Average leads handled per SDR per day
+  callsPerSdrPerDay: integer("calls_per_sdr_per_day"), // Average calls per SDR per day
+  maxCallsPerSdrPerDay: integer("max_calls_per_sdr_per_day"), // Peak calls per SDR per day
+  activeSdrCount: integer("active_sdr_count"),
+
+  // Lead Quality Metrics
+  avgFitScore: integer("avg_fit_score"), // Average AI fit score (0-100)
+  qualifiedLeadAccuracy: integer("qualified_lead_accuracy"), // % of "qualified" leads that converted
+  qualifiedLeadsCount: integer("qualified_leads_count"),
+  convertedLeadsCount: integer("converted_leads_count"),
+  lostLeadsCount: integer("lost_leads_count"),
+
+  // Conversion Metrics
+  leadToQualifiedRate: integer("lead_to_qualified_rate"), // % of leads that reach qualified
+  qualifiedToConvertedRate: integer("qualified_to_converted_rate"), // % of qualified that convert
+  overallConversionRate: integer("overall_conversion_rate"), // % intake to converted
+
+  // Call Effectiveness Metrics
+  avgCallScore: integer("avg_call_score"), // Average 7-dimension call score
+  avgOpeningScore: integer("avg_opening_score"),
+  avgDiscoveryScore: integer("avg_discovery_score"),
+  avgListeningScore: integer("avg_listening_score"),
+  avgObjectionScore: integer("avg_objection_score"),
+  avgValuePropScore: integer("avg_value_prop_score"),
+  avgClosingScore: integer("avg_closing_score"),
+  totalCallsAnalyzed: integer("total_calls_analyzed"),
+
+  // Sales Cycle Metrics (in days)
+  avgSalesCycleDays: integer("avg_sales_cycle_days"), // Days from intake to converted
+  medianSalesCycleDays: integer("median_sales_cycle_days"),
+
+  // Adoption Metrics
+  dailyActiveUsers: integer("daily_active_users"),
+  weeklyActiveUsers: integer("weekly_active_users"),
+  monthlyActiveUsers: integer("monthly_active_users"),
+  avgLoginsPerUserPerWeek: integer("avg_logins_per_user_per_week"),
+
+  // Research Utilization Metrics
+  leadsWithResearch: integer("leads_with_research"),
+  avgResearchGenerationTime: integer("avg_research_generation_time"), // Minutes to generate research
+  researchUtilizationRate: integer("research_utilization_rate"), // % of calls that used research
+
+  // Pipeline Metrics
+  totalPipelineValue: integer("total_pipeline_value"), // Total $ value of qualified leads
+  avgDealValue: integer("avg_deal_value"),
+
+  // Raw data for detailed analysis
+  rawMetricsJson: jsonb("raw_metrics_json"), // Full detailed metrics snapshot
+
+  // Metadata
+  periodStartDate: timestamp("period_start_date").notNull(), // Start of measurement period
+  periodEndDate: timestamp("period_end_date").notNull(), // End of measurement period
+  capturedBy: varchar("captured_by").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBaselineSnapshotSchema = createInsertSchema(baselineSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertBaselineSnapshot = z.infer<typeof insertBaselineSnapshotSchema>;
+export type BaselineSnapshot = typeof baselineSnapshots.$inferSelect;
+
+// Lead Status History - Track status transitions for velocity metrics
+export const leadStatusHistory = pgTable("lead_status_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status").notNull(),
+  changedBy: varchar("changed_by").references(() => users.id),
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+  durationInPreviousStatus: integer("duration_in_previous_status"), // Minutes in previous status
+});
+
+export const insertLeadStatusHistorySchema = createInsertSchema(leadStatusHistory).omit({
+  id: true,
+  changedAt: true,
+});
+export type InsertLeadStatusHistory = z.infer<typeof insertLeadStatusHistorySchema>;
+export type LeadStatusHistory = typeof leadStatusHistory.$inferSelect;
+
+export const leadStatusHistoryRelations = relations(leadStatusHistory, ({ one }) => ({
+  lead: one(leads, {
+    fields: [leadStatusHistory.leadId],
+    references: [leads.id],
+  }),
+  changedByUser: one(users, {
+    fields: [leadStatusHistory.changedBy],
+    references: [users.id],
+  }),
+}));
