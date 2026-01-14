@@ -31,7 +31,11 @@ export function useTranscription(userId: string | undefined, callSid: string | n
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const connect = useCallback(() => {
-    if (!userId || wsRef.current?.readyState === WebSocket.OPEN) return;
+    // Prevent multiple connections
+    if (!userId) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
+      return;
+    }
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws/transcription?userId=${userId}${callSid ? `&callSid=${callSid}` : ""}`;
@@ -87,8 +91,10 @@ export function useTranscription(userId: string | undefined, callSid: string | n
       setIsConnected(false);
       wsRef.current = null;
 
-      if (userId) {
+      // Only auto-reconnect if we still have a userId and this wasn't intentional
+      if (userId && reconnectTimeoutRef.current === null) {
         reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectTimeoutRef.current = null;
           connect();
         }, 3000);
       }

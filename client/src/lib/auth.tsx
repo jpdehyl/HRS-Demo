@@ -45,7 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refreshUser();
-  }, [refreshUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount - refreshUser is stable via useCallback
 
   const login = async (email: string, password: string) => {
     const res = await fetch("/api/auth/login", {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,12 +50,31 @@ export function CallBrief({ lead, researchPacket, isOnCall = false }: CallBriefP
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [objectionsOpen, setObjectionsOpen] = useState(false);
   const [questionsOpen, setQuestionsOpen] = useState(true);
+  const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const copyToClipboard = (text: string, field: string) => {
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const copyToClipboard = useCallback((text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
+
+    // Clear any existing timeout
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current);
+    }
+
+    copyTimeoutRef.current = setTimeout(() => {
+      setCopiedField(null);
+      copyTimeoutRef.current = null;
+    }, 2000);
+  }, []);
 
   if (!researchPacket) {
     return (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -110,11 +110,11 @@ export default function LeadsPage() {
   const [qualifyDraftFetched, setQualifyDraftFetched] = useState(false);
   const { toast } = useToast();
 
-  const genericDomains = ["gmail.com", "hotmail.com", "live.com", "outlook.com", "yahoo.com", "aol.com", "icloud.com", "mail.com", "protonmail.com", "zoho.com"];
-  const isGenericEmail = (email: string) => {
+  const genericDomains = useMemo(() => ["gmail.com", "hotmail.com", "live.com", "outlook.com", "yahoo.com", "aol.com", "icloud.com", "mail.com", "protonmail.com", "zoho.com"], []);
+  const isGenericEmail = useCallback((email: string) => {
     const domain = email.split("@")[1]?.toLowerCase();
     return genericDomains.includes(domain);
-  };
+  }, [genericDomains]);
   const [, navigate] = useLocation();
 
   const { data: leads = [], isLoading } = useQuery<LeadWithResearch[]>({
@@ -229,30 +229,32 @@ export default function LeadsPage() {
     }
   }, [leads, selectedLead?.id]);
 
-  const filteredLeads = leads
-    .filter(lead => {
-      if (hideGenericEmails && isGenericEmail(lead.contactEmail)) {
-        return false;
-      }
-      return lead.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        lead.contactEmail.toLowerCase().includes(searchQuery.toLowerCase());
-    })
-    .sort((a, b) => {
-      let comparison = 0;
-      switch (sortField) {
-        case "score":
-          comparison = (a.fitScore || 0) - (b.fitScore || 0);
-          break;
-        case "name":
-          comparison = a.contactName.localeCompare(b.contactName);
-          break;
-        case "company":
-          comparison = a.companyName.localeCompare(b.companyName);
-          break;
-      }
-      return sortDirection === "desc" ? -comparison : comparison;
-    });
+  const filteredLeads = useMemo(() => {
+    return leads
+      .filter(lead => {
+        if (hideGenericEmails && isGenericEmail(lead.contactEmail)) {
+          return false;
+        }
+        return lead.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          lead.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          lead.contactEmail.toLowerCase().includes(searchQuery.toLowerCase());
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+        switch (sortField) {
+          case "score":
+            comparison = (a.fitScore || 0) - (b.fitScore || 0);
+            break;
+          case "name":
+            comparison = a.contactName.localeCompare(b.contactName);
+            break;
+          case "company":
+            comparison = a.companyName.localeCompare(b.companyName);
+            break;
+        }
+        return sortDirection === "desc" ? -comparison : comparison;
+      });
+  }, [leads, searchQuery, hideGenericEmails, sortField, sortDirection, isGenericEmail]);
 
   const handleCallLead = (lead: LeadWithResearch) => {
     navigate(`/coaching?phone=${encodeURIComponent(lead.contactPhone || "")}&leadId=${lead.id}`);
@@ -550,9 +552,9 @@ export default function LeadsPage() {
                       queryKey: ["/api/call-sessions"],
                     });
 
-                    const recentCallWithTranscript = (callsQuery as any[])
-                      .filter((call: any) => call.leadId === selectedLead.id && call.transcriptText && call.transcriptText.trim().length >= 100)
-                      .sort((a: any, b: any) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime())[0];
+                    const recentCallWithTranscript = (callsQuery as CallSession[])
+                      .filter((call) => call.leadId === selectedLead.id && call.transcriptText && call.transcriptText.trim().length >= 100)
+                      .sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime())[0];
 
                     if (!recentCallWithTranscript) {
                       toast({
