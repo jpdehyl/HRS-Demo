@@ -275,7 +275,9 @@ export default function CoachingPage() {
         .then(data => {
           if (data) setManagerAnalysis(data);
         })
-        .catch(() => {})
+        .catch((error) => {
+          console.error("Failed to load manager analysis:", error);
+        })
         .finally(() => setLoadingExistingAnalysis(false));
     }
   }, [selectedCall, user?.role]);
