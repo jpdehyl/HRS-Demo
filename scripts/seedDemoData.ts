@@ -9,247 +9,247 @@ import bcrypt from "bcrypt";
 const DEMO_PASSWORD = "demo2024";
 
 const MANAGER_DATA = [
-  { 
-    name: "Roberto Hernandez", 
-    email: "roberto.hernandez@hawkridge.com",
+  {
+    name: "Roberto Hernandez",
+    email: "roberto.hernandez@bsasolutions.com",
     phone: "+1 (555) 234-5678",
     title: "Senior Sales Manager",
-    bio: "15+ years in B2B software sales. Former top performer at PTC who transitioned to leadership. Passionate about developing SDRs into top closers through data-driven coaching and weekly call reviews.",
+    bio: "15+ years in B2B services sales. Former top performer at Accenture who transitioned to leadership. Passionate about developing SDRs into top closers through data-driven coaching and weekly call reviews.",
     coachingStyle: "Collaborative and metrics-focused. Believes in celebrating wins publicly and coaching improvements privately. Known for detailed call breakdowns and role-playing exercises.",
-    specialties: "SOLIDWORKS Enterprise, Complex Deal Cycles, Objection Handling",
+    specialties: "Enterprise Outsourcing, Build & Transfer Programs, Complex Deal Cycles",
     yearsExperience: 15,
     certifications: "Sandler Sales Certification, SPIN Selling, Challenger Sale Methodology"
   },
-  { 
-    name: "Carmen Delgado", 
-    email: "carmen.delgado@hawkridge.com",
+  {
+    name: "Carmen Delgado",
+    email: "carmen.delgado@bsasolutions.com",
     phone: "+1 (555) 345-6789",
     title: "Regional Sales Manager - West",
-    bio: "Started as an SDR at Hawk Ridge 8 years ago and worked her way up. Deep understanding of the manufacturing sector and aerospace verticals. Champions a growth mindset approach.",
+    bio: "Started as an SDR at BSA Solutions 8 years ago and worked her way up. Deep understanding of the E-commerce and SaaS verticals. Champions a growth mindset approach.",
     coachingStyle: "Empathetic listener who focuses on building confidence. Uses real customer stories to illustrate best practices. Weekly 1:1s are sacred.",
-    specialties: "Manufacturing Vertical, Aerospace Clients, New Hire Onboarding",
+    specialties: "E-Commerce Vertical, SaaS Clients, New Hire Onboarding",
     yearsExperience: 8,
-    certifications: "Miller Heiman Strategic Selling, CAD/CAM Product Specialist"
+    certifications: "Miller Heiman Strategic Selling, HR Outsourcing Specialist"
   },
-  { 
-    name: "Luis Morales", 
-    email: "luis.morales@hawkridge.com",
+  {
+    name: "Luis Morales",
+    email: "luis.morales@bsasolutions.com",
     phone: "+1 (555) 456-7890",
     title: "Director of Sales Development",
-    bio: "Former engineering background gives him technical credibility with prospects. Built the SDR program from scratch when he joined 5 years ago. Now oversees all SDR training and development.",
-    coachingStyle: "Technical mentor who helps SDRs understand the product deeply. Focuses on discovery questions and value-based selling. Runs monthly SDR bootcamps.",
-    specialties: "Technical Sales, Value Selling, PDM/PLM Solutions",
+    bio: "Former operations background gives him credibility with prospects. Built the SDR program from scratch when he joined 5 years ago. Now oversees all SDR training and development.",
+    coachingStyle: "Process-oriented mentor who helps SDRs understand outsourcing deeply. Focuses on discovery questions and value-based selling. Runs monthly SDR bootcamps.",
+    specialties: "Technical Sales, Value Selling, Dedicated Team Solutions",
     yearsExperience: 12,
-    certifications: "Mechanical Engineering Degree, MEDDIC Certified, Solution Selling"
+    certifications: "Operations Management Degree, MEDDIC Certified, Solution Selling"
   },
 ];
 
 const SDR_DATA = [
-  { name: "Carlos Martinez", email: "carlos.martinez@hawkridge.com", gender: "male", bio: "Top performer who joined 2 years ago from SaaS sales. Natural relationship builder with strong discovery skills. Working on improving objection handling with technical decision-makers.", strengths: "Rapport building, Discovery questions, Follow-up discipline", developmentAreas: "Technical objections, C-level conversations", goals: "Move to AE role within 18 months", yearsExperience: 2, previousCompany: "HubSpot", specialties: "SMB Manufacturing" },
-  { name: "Maria Rodriguez", email: "maria.rodriguez@hawkridge.com", gender: "female", bio: "Highest connect rate on the team. Former teacher who brings exceptional communication skills. Excels at building trust quickly but working on being more assertive in closing.", strengths: "Communication, Active listening, Call prep", developmentAreas: "Assertiveness, Closing techniques", goals: "Consistently hit 120% of quota", yearsExperience: 1, previousCompany: "Education Sector", specialties: "Healthcare, Medical Devices" },
-  { name: "Juan Gonzalez", email: "juan.gonzalez@hawkridge.com", gender: "male", bio: "Engineering background makes him highly credible with technical buyers. Sometimes spends too long on technical discussions. Working on qualifying faster.", strengths: "Technical knowledge, Problem identification, Demo skills", developmentAreas: "Time management, Qualification speed", goals: "Become the technical SME for the team", yearsExperience: 3, previousCompany: "Siemens PLM", specialties: "Aerospace, Defense" },
-  { name: "Ana Torres", email: "ana.torres@hawkridge.com", gender: "female", bio: "Rising star who broke the monthly meeting record last quarter. Highly competitive and loves the leaderboard. Coaching her on sustainable pacing and work-life balance.", strengths: "Persistence, Competitive drive, Energy", developmentAreas: "Pacing, Account research depth", goals: "President's Club qualification", yearsExperience: 1, previousCompany: "Salesforce", specialties: "Technology, Startups" },
-  { name: "Diego Ramirez", email: "diego.ramirez@hawkridge.com", gender: "male", bio: "Steady performer who never misses quota. Great mentor to new hires. Working on pushing beyond comfort zone to achieve stretch goals.", strengths: "Consistency, Mentorship, Process discipline", developmentAreas: "Risk-taking, Enterprise pursuit", goals: "Team lead position", yearsExperience: 4, previousCompany: "Oracle", specialties: "Mid-Market, Industrial" },
-  { name: "Sofia Vargas", email: "sofia.vargas@hawkridge.com", gender: "female", bio: "Creative approach to prospecting with strong LinkedIn game. Sometimes over-relies on digital channels. Working on phone confidence.", strengths: "Social selling, Creative messaging, Research", developmentAreas: "Cold calling, Voice presence", goals: "Develop multi-channel mastery", yearsExperience: 1, previousCompany: "Marketing Agency", specialties: "Consumer Products, Retail" },
-  { name: "Miguel Flores", email: "miguel.flores@hawkridge.com", gender: "male", bio: "Recently promoted from BDR. Strong work ethic but still building product knowledge. Putting in extra time on training modules.", strengths: "Work ethic, Coachability, Positive attitude", developmentAreas: "Product knowledge, Industry expertise", goals: "Master the full SOLIDWORKS portfolio", yearsExperience: 1, previousCompany: "Inside Sales at Dell", specialties: "General Manufacturing" },
-  { name: "Isabella Sanchez", email: "isabella.sanchez@hawkridge.com", gender: "female", bio: "Data-driven approach to sales. Uses analytics to optimize call times and messaging. Sometimes over-analyzes instead of acting.", strengths: "Analytics, Strategy, A/B testing", developmentAreas: "Speed to action, Intuitive selling", goals: "Build the team's data playbook", yearsExperience: 2, previousCompany: "ZoomInfo", specialties: "Enterprise Accounts" },
-  { name: "Fernando Castro", email: "fernando.castro@hawkridge.com", gender: "male", bio: "Experienced rep who joined from a competitor. Deep industry knowledge but adapting to our sales methodology. Excellent at identifying pain points.", strengths: "Industry expertise, Pain discovery, Competitive positioning", developmentAreas: "Adopting new processes, CRM discipline", goals: "Top 3 performer by year end", yearsExperience: 5, previousCompany: "Autodesk", specialties: "Architecture, Construction" },
-  { name: "Valentina Reyes", email: "valentina.reyes@hawkridge.com", gender: "female", bio: "Excellent at handling objections with empathy. Strong emotional intelligence helps her navigate difficult conversations. Building more industry knowledge.", strengths: "Empathy, Objection handling, Relationship depth", developmentAreas: "Industry terminology, Technical credibility", goals: "Increase average deal size", yearsExperience: 2, previousCompany: "Insurance Sales", specialties: "Professional Services" },
-  { name: "Alejandro Mendoza", email: "alejandro.mendoza@hawkridge.com", gender: "male", bio: "High-volume caller who focuses on activity metrics. Working on quality over quantity - having deeper conversations instead of quick dials.", strengths: "Activity volume, Energy, Resilience", developmentAreas: "Conversation depth, Qualification rigor", goals: "Improve conversion rate by 20%", yearsExperience: 1, previousCompany: "Call Center", specialties: "SMB, Quick Wins" },
-  { name: "Camila Ortiz", email: "camila.ortiz@hawkridge.com", gender: "female", bio: "Strongest email writer on the team. Personalized sequences get high open rates. Phone skills improving with practice.", strengths: "Written communication, Personalization, Creativity", developmentAreas: "Phone presence, Live discovery", goals: "Develop phone confidence to match email strength", yearsExperience: 1, previousCompany: "Content Marketing", specialties: "Education, Research" },
-  { name: "Gabriel Jimenez", email: "gabriel.jimenez@hawkridge.com", gender: "male", bio: "Former CAD operator who knows the product inside and out. Can sometimes get too technical too fast. Learning to lead with business value.", strengths: "Product mastery, Technical demos, User empathy", developmentAreas: "Business case building, Executive messaging", goals: "Become certified pre-sales engineer", yearsExperience: 2, previousCompany: "Manufacturing Plant", specialties: "Simulation, Analysis" },
-  { name: "Lucia Romero", email: "lucia.romero@hawkridge.com", gender: "female", bio: "New hire showing tremendous promise. Fast learner who asks great questions. In ramp period but already booking meetings.", strengths: "Curiosity, Quick learning, Positive attitude", developmentAreas: "Building experience, Handling pressure", goals: "Complete ramp in record time", yearsExperience: 0, previousCompany: "Recent Graduate", specialties: "Learning all verticals" },
-  { name: "Andres Navarro", email: "andres.navarro@hawkridge.com", gender: "male", bio: "Consistent mid-performer working on breakthrough to top tier. Has the skills but needs more confidence. Focus on mindset coaching.", strengths: "Reliability, Follow-through, Preparation", developmentAreas: "Confidence, Asking for the meeting", goals: "Break into top 5 performers", yearsExperience: 2, previousCompany: "Telecommunications", specialties: "Utilities, Energy" },
-  { name: "Paula Gutierrez", email: "paula.gutierrez@hawkridge.com", gender: "female", bio: "Excellent at researching accounts and building targeted messaging. Sometimes spends too long preparing vs. calling. Balance in progress.", strengths: "Research depth, Account planning, Targeting", developmentAreas: "Execution speed, Call volume", goals: "Optimize research-to-call ratio", yearsExperience: 1, previousCompany: "Market Research", specialties: "Enterprise, Strategic Accounts" },
-  { name: "Sebastian Ruiz", email: "sebastian.ruiz@hawkridge.com", gender: "male", bio: "Strong closer who excels at getting meetings from qualified conversations. Working on earlier qualification to avoid wasted time on bad fits.", strengths: "Closing, Urgency creation, Confidence", developmentAreas: "Early qualification, Discovery discipline", goals: "Highest meeting-to-opportunity rate", yearsExperience: 3, previousCompany: "Real Estate Sales", specialties: "Fast-moving deals" },
-  { name: "Elena Diaz", email: "elena.diaz@hawkridge.com", gender: "female", bio: "Bilingual advantage helps with Latin American accounts. Building relationships across borders. Working on navigating longer sales cycles.", strengths: "Bilingual, Cultural intelligence, Patience", developmentAreas: "Urgency tactics, Shortening cycles", goals: "Expand LATAM territory success", yearsExperience: 2, previousCompany: "International Trade", specialties: "LATAM, Multinational" },
-  { name: "Ricardo Herrera", email: "ricardo.herrera@hawkridge.com", gender: "male", bio: "Struggled initially but has made remarkable improvement over past 6 months. Example of coachability and persistence paying off.", strengths: "Coachability, Persistence, Growth mindset", developmentAreas: "Consistency, Peak performance", goals: "Maintain top-half performance", yearsExperience: 1, previousCompany: "Retail Management", specialties: "Consumer Goods" },
-  { name: "Daniela Aguilar", email: "daniela.aguilar@hawkridge.com", gender: "female", bio: "Team collaborator who shares wins and learnings freely. Strong network within accounts. Building individual contributor strength.", strengths: "Collaboration, Account mapping, Team spirit", developmentAreas: "Solo performance, Competitive edge", goals: "Balance team contribution with personal results", yearsExperience: 2, previousCompany: "Account Management", specialties: "Existing Customer Expansion" },
+  { name: "Carlos Martinez", email: "carlos.martinez@bsasolutions.com", gender: "male", bio: "Top performer who joined 2 years ago from SaaS sales. Natural relationship builder with strong discovery skills. Working on improving objection handling with operations decision-makers.", strengths: "Rapport building, Discovery questions, Follow-up discipline", developmentAreas: "Operations objections, C-level conversations", goals: "Move to AE role within 18 months", yearsExperience: 2, previousCompany: "HubSpot", specialties: "SMB E-Commerce" },
+  { name: "Maria Rodriguez", email: "maria.rodriguez@bsasolutions.com", gender: "female", bio: "Highest connect rate on the team. Former teacher who brings exceptional communication skills. Excels at building trust quickly but working on being more assertive in closing.", strengths: "Communication, Active listening, Call prep", developmentAreas: "Assertiveness, Closing techniques", goals: "Consistently hit 120% of quota", yearsExperience: 1, previousCompany: "Education Sector", specialties: "Healthcare, Professional Services" },
+  { name: "Juan Gonzalez", email: "juan.gonzalez@bsasolutions.com", gender: "male", bio: "Operations background makes him highly credible with ops buyers. Sometimes spends too long on process discussions. Working on qualifying faster.", strengths: "Operations knowledge, Problem identification, Process expertise", developmentAreas: "Time management, Qualification speed", goals: "Become the operations SME for the team", yearsExperience: 3, previousCompany: "Genpact", specialties: "Technology, SaaS" },
+  { name: "Ana Torres", email: "ana.torres@bsasolutions.com", gender: "female", bio: "Rising star who broke the monthly meeting record last quarter. Highly competitive and loves the leaderboard. Coaching her on sustainable pacing and work-life balance.", strengths: "Persistence, Competitive drive, Energy", developmentAreas: "Pacing, Account research depth", goals: "President's Club qualification", yearsExperience: 1, previousCompany: "Salesforce", specialties: "Technology, Startups" },
+  { name: "Diego Ramirez", email: "diego.ramirez@bsasolutions.com", gender: "male", bio: "Steady performer who never misses quota. Great mentor to new hires. Working on pushing beyond comfort zone to achieve stretch goals.", strengths: "Consistency, Mentorship, Process discipline", developmentAreas: "Risk-taking, Enterprise pursuit", goals: "Team lead position", yearsExperience: 4, previousCompany: "Oracle", specialties: "Mid-Market, Financial Services" },
+  { name: "Sofia Vargas", email: "sofia.vargas@bsasolutions.com", gender: "female", bio: "Creative approach to prospecting with strong LinkedIn game. Sometimes over-relies on digital channels. Working on phone confidence.", strengths: "Social selling, Creative messaging, Research", developmentAreas: "Cold calling, Voice presence", goals: "Develop multi-channel mastery", yearsExperience: 1, previousCompany: "Marketing Agency", specialties: "Consumer Brands, Retail" },
+  { name: "Miguel Flores", email: "miguel.flores@bsasolutions.com", gender: "male", bio: "Recently promoted from BDR. Strong work ethic but still building service knowledge. Putting in extra time on training modules.", strengths: "Work ethic, Coachability, Positive attitude", developmentAreas: "Service knowledge, Industry expertise", goals: "Master the full BSA service portfolio", yearsExperience: 1, previousCompany: "Inside Sales at Dell", specialties: "General SMB" },
+  { name: "Isabella Sanchez", email: "isabella.sanchez@bsasolutions.com", gender: "female", bio: "Data-driven approach to sales. Uses analytics to optimize call times and messaging. Sometimes over-analyzes instead of acting.", strengths: "Analytics, Strategy, A/B testing", developmentAreas: "Speed to action, Intuitive selling", goals: "Build the team's data playbook", yearsExperience: 2, previousCompany: "ZoomInfo", specialties: "Enterprise Accounts" },
+  { name: "Fernando Castro", email: "fernando.castro@bsasolutions.com", gender: "male", bio: "Experienced rep who joined from a competitor. Deep industry knowledge but adapting to our sales methodology. Excellent at identifying pain points.", strengths: "Industry expertise, Pain discovery, Competitive positioning", developmentAreas: "Adopting new processes, CRM discipline", goals: "Top 3 performer by year end", yearsExperience: 5, previousCompany: "TaskUs", specialties: "BPO, Customer Support" },
+  { name: "Valentina Reyes", email: "valentina.reyes@bsasolutions.com", gender: "female", bio: "Excellent at handling objections with empathy. Strong emotional intelligence helps her navigate difficult conversations. Building more industry knowledge.", strengths: "Empathy, Objection handling, Relationship depth", developmentAreas: "Industry terminology, ROI discussions", goals: "Increase average deal size", yearsExperience: 2, previousCompany: "Insurance Sales", specialties: "Professional Services" },
+  { name: "Alejandro Mendoza", email: "alejandro.mendoza@bsasolutions.com", gender: "male", bio: "High-volume caller who focuses on activity metrics. Working on quality over quantity - having deeper conversations instead of quick dials.", strengths: "Activity volume, Energy, Resilience", developmentAreas: "Conversation depth, Qualification rigor", goals: "Improve conversion rate by 20%", yearsExperience: 1, previousCompany: "Call Center", specialties: "SMB, Quick Wins" },
+  { name: "Camila Ortiz", email: "camila.ortiz@bsasolutions.com", gender: "female", bio: "Strongest email writer on the team. Personalized sequences get high open rates. Phone skills improving with practice.", strengths: "Written communication, Personalization, Creativity", developmentAreas: "Phone presence, Live discovery", goals: "Develop phone confidence to match email strength", yearsExperience: 1, previousCompany: "Content Marketing", specialties: "Education, Research" },
+  { name: "Gabriel Jimenez", email: "gabriel.jimenez@bsasolutions.com", gender: "male", bio: "Former BPO manager who knows outsourcing inside and out. Can sometimes get too detailed too fast. Learning to lead with business value.", strengths: "Service mastery, Process expertise, User empathy", developmentAreas: "Business case building, Executive messaging", goals: "Become certified outsourcing consultant", yearsExperience: 2, previousCompany: "Teleperformance", specialties: "Customer Support, Back Office" },
+  { name: "Lucia Romero", email: "lucia.romero@bsasolutions.com", gender: "female", bio: "New hire showing tremendous promise. Fast learner who asks great questions. In ramp period but already booking meetings.", strengths: "Curiosity, Quick learning, Positive attitude", developmentAreas: "Building experience, Handling pressure", goals: "Complete ramp in record time", yearsExperience: 0, previousCompany: "Recent Graduate", specialties: "Learning all verticals" },
+  { name: "Andres Navarro", email: "andres.navarro@bsasolutions.com", gender: "male", bio: "Consistent mid-performer working on breakthrough to top tier. Has the skills but needs more confidence. Focus on mindset coaching.", strengths: "Reliability, Follow-through, Preparation", developmentAreas: "Confidence, Asking for the meeting", goals: "Break into top 5 performers", yearsExperience: 2, previousCompany: "Telecommunications", specialties: "Tech Support, IT Services" },
+  { name: "Paula Gutierrez", email: "paula.gutierrez@bsasolutions.com", gender: "female", bio: "Excellent at researching accounts and building targeted messaging. Sometimes spends too long preparing vs. calling. Balance in progress.", strengths: "Research depth, Account planning, Targeting", developmentAreas: "Execution speed, Call volume", goals: "Optimize research-to-call ratio", yearsExperience: 1, previousCompany: "Market Research", specialties: "Enterprise, Strategic Accounts" },
+  { name: "Sebastian Ruiz", email: "sebastian.ruiz@bsasolutions.com", gender: "male", bio: "Strong closer who excels at getting meetings from qualified conversations. Working on earlier qualification to avoid wasted time on bad fits.", strengths: "Closing, Urgency creation, Confidence", developmentAreas: "Early qualification, Discovery discipline", goals: "Highest meeting-to-opportunity rate", yearsExperience: 3, previousCompany: "Real Estate Sales", specialties: "Fast-moving deals" },
+  { name: "Elena Diaz", email: "elena.diaz@bsasolutions.com", gender: "female", bio: "Bilingual advantage helps with Latin American accounts. Building relationships across borders. Working on navigating longer sales cycles.", strengths: "Bilingual, Cultural intelligence, Patience", developmentAreas: "Urgency tactics, Shortening cycles", goals: "Expand LATAM territory success", yearsExperience: 2, previousCompany: "International Trade", specialties: "LATAM, Multinational" },
+  { name: "Ricardo Herrera", email: "ricardo.herrera@bsasolutions.com", gender: "male", bio: "Struggled initially but has made remarkable improvement over past 6 months. Example of coachability and persistence paying off.", strengths: "Coachability, Persistence, Growth mindset", developmentAreas: "Consistency, Peak performance", goals: "Maintain top-half performance", yearsExperience: 1, previousCompany: "Retail Management", specialties: "Consumer Goods" },
+  { name: "Daniela Aguilar", email: "daniela.aguilar@bsasolutions.com", gender: "female", bio: "Team collaborator who shares wins and learnings freely. Strong network within accounts. Building individual contributor strength.", strengths: "Collaboration, Account mapping, Team spirit", developmentAreas: "Solo performance, Competitive edge", goals: "Balance team contribution with personal results", yearsExperience: 2, previousCompany: "Account Management", specialties: "Existing Customer Expansion" },
 ];
 
 const AE_DATA = [
-  { name: "Patricia Vega", email: "patricia.vega@hawkridge.com", phone: "+1 (555) 567-8901", region: "West", specialty: "Enterprise", title: "Senior Account Executive", bio: "President's Club winner 3 years running. Expert at navigating complex enterprise sales with multiple stakeholders. Known for large strategic deals in aerospace and defense.", dealFocus: "Enterprise deals $500K+", yearsExperience: 12, quotaAttainment: 142, avgDealSize: 450000 },
-  { name: "Eduardo Silva", email: "eduardo.silva@hawkridge.com", phone: "+1 (555) 678-9012", region: "East", specialty: "Mid-Market", title: "Account Executive", bio: "High-volume closer who excels at mid-market manufacturing deals. Fast deal cycles and strong closing skills. Former SDR who knows how to work with the team.", dealFocus: "Mid-market $50K-$200K deals", yearsExperience: 6, quotaAttainment: 118, avgDealSize: 85000 },
-  { name: "Monica Cruz", email: "monica.cruz@hawkridge.com", phone: "+1 (555) 789-0123", region: "Central", specialty: "Manufacturing", title: "Account Executive - Manufacturing", bio: "Deep manufacturing expertise from previous role at a production plant. Understands shop floor challenges and speaks the customer's language. Growing enterprise skills.", dealFocus: "Discrete manufacturing, job shops", yearsExperience: 5, quotaAttainment: 105, avgDealSize: 120000 },
-  { name: "Felipe Ramos", email: "felipe.ramos@hawkridge.com", phone: "+1 (555) 890-1234", region: "South", specialty: "Healthcare", title: "Account Executive - Medical Devices", bio: "Specialized in medical device and life sciences accounts. Understands regulatory requirements and validation needs. Building pipeline in emerging biotech.", dealFocus: "Medical devices, FDA-regulated", yearsExperience: 8, quotaAttainment: 95, avgDealSize: 180000 },
-  { name: "Teresa Luna", email: "teresa.luna@hawkridge.com", phone: "+1 (555) 901-2345", region: "Northeast", specialty: "Technology", title: "Account Executive - Technology", bio: "Tech sector specialist who works with hardware companies, electronics, and semiconductor firms. Strong at competitive displacement from Autodesk and Siemens.", dealFocus: "High-tech, electronics, semiconductor", yearsExperience: 7, quotaAttainment: 112, avgDealSize: 95000 },
+  { name: "Patricia Vega", email: "patricia.vega@bsasolutions.com", phone: "+1 (555) 567-8901", region: "West", specialty: "Enterprise", title: "Senior Account Executive", bio: "President's Club winner 3 years running. Expert at navigating complex enterprise outsourcing deals with multiple stakeholders. Known for large Build & Transfer programs.", dealFocus: "Enterprise deals $500K+", yearsExperience: 12, quotaAttainment: 142, avgDealSize: 450000 },
+  { name: "Eduardo Silva", email: "eduardo.silva@bsasolutions.com", phone: "+1 (555) 678-9012", region: "East", specialty: "Mid-Market", title: "Account Executive", bio: "High-volume closer who excels at mid-market E-commerce and SaaS deals. Fast deal cycles and strong closing skills. Former SDR who knows how to work with the team.", dealFocus: "Mid-market $50K-$200K deals", yearsExperience: 6, quotaAttainment: 118, avgDealSize: 85000 },
+  { name: "Monica Cruz", email: "monica.cruz@bsasolutions.com", phone: "+1 (555) 789-0123", region: "Central", specialty: "Customer Support", title: "Account Executive - Customer Experience", bio: "Deep customer support expertise from previous role at a BPO. Understands contact center challenges and speaks the customer's language. Growing enterprise skills.", dealFocus: "Customer support teams, help desks", yearsExperience: 5, quotaAttainment: 105, avgDealSize: 120000 },
+  { name: "Felipe Ramos", email: "felipe.ramos@bsasolutions.com", phone: "+1 (555) 890-1234", region: "South", specialty: "Healthcare", title: "Account Executive - Healthcare", bio: "Specialized in healthcare and life sciences accounts. Understands compliance requirements and HIPAA needs. Building pipeline in emerging healthtech.", dealFocus: "Healthcare operations, medical billing", yearsExperience: 8, quotaAttainment: 95, avgDealSize: 180000 },
+  { name: "Teresa Luna", email: "teresa.luna@bsasolutions.com", phone: "+1 (555) 901-2345", region: "Northeast", specialty: "Technology", title: "Account Executive - Technology", bio: "Tech sector specialist who works with SaaS companies, startups, and FinTech firms. Strong at competitive displacement from other BPO providers.", dealFocus: "SaaS, FinTech, Technology", yearsExperience: 7, quotaAttainment: 112, avgDealSize: 95000 },
 ];
 
 const REAL_COMPANIES = [
-  { name: "Boeing Commercial Airplanes", website: "https://boeing.com", industry: "Aerospace", size: "10000+", painPoints: ["Legacy PLM system integration issues", "Multi-site collaboration delays", "Simulation bottlenecks delaying certification"], products: "Commercial aircraft, defense systems" },
-  { name: "Lockheed Martin Aeronautics", website: "https://lockheedmartin.com", industry: "Aerospace & Defense", size: "10000+", painPoints: ["Model-based definition adoption", "Supply chain design collaboration", "Security-compliant CAD workflows"], products: "F-35, military aircraft" },
-  { name: "Northrop Grumman Systems", website: "https://northropgrumman.com", industry: "Defense", size: "5000-10000", painPoints: ["ITAR compliance in design handoffs", "Cross-functional simulation sharing", "PDM version control challenges"], products: "Autonomous systems, space technology" },
-  { name: "General Dynamics Land Systems", website: "https://gdls.com", industry: "Defense Manufacturing", size: "5000-10000", painPoints: ["Heavy assembly design optimization", "Manufacturing process simulation", "Legacy AutoCAD migration needs"], products: "Military vehicles, tanks" },
-  { name: "Raytheon Missiles & Defense", website: "https://raytheon.com", industry: "Defense", size: "10000+", painPoints: ["Complex assembly management", "Thermal/stress simulation requirements", "Multi-CAD environment consolidation"], products: "Missile systems, radar" },
-  { name: "SpaceX", website: "https://spacex.com", industry: "Aerospace", size: "5000-10000", painPoints: ["Rapid iteration design workflows", "Rocket component simulation", "Reusability analysis tools"], products: "Rockets, Starlink satellites" },
-  { name: "Blue Origin", website: "https://blueorigin.com", industry: "Aerospace", size: "1000-5000", painPoints: ["Propulsion system design tools", "Additive manufacturing integration", "Simulation-driven design adoption"], products: "Space vehicles, lunar landers" },
-  { name: "Virgin Galactic", website: "https://virgingalactic.com", industry: "Aerospace", size: "500-1000", painPoints: ["Hybrid aerospace-consumer design", "Lightweight materials optimization", "Cabin pressurization simulation"], products: "Space tourism vehicles" },
-  { name: "Caterpillar Inc", website: "https://caterpillar.com", industry: "Heavy Equipment", size: "10000+", painPoints: ["Global design standardization", "Equipment lifecycle simulation", "Dealer collaboration on customizations"], products: "Construction and mining equipment" },
-  { name: "John Deere", website: "https://deere.com", industry: "Agricultural Equipment", size: "10000+", painPoints: ["Precision agriculture integration", "Autonomous equipment design", "Electrification transition workflows"], products: "Tractors, harvesters, autonomous systems" },
-  { name: "CNH Industrial", website: "https://cnhindustrial.com", industry: "Agricultural & Construction", size: "5000-10000", painPoints: ["Multi-brand design platform consolidation", "Emissions compliance simulation", "Global manufacturing coordination"], products: "Case IH, New Holland equipment" },
-  { name: "AGCO Corporation", website: "https://agcocorp.com", industry: "Agricultural Equipment", size: "5000-10000", painPoints: ["Smart farming equipment design", "Hydraulic systems optimization", "Regional customization management"], products: "Fendt, Massey Ferguson tractors" },
-  { name: "Komatsu America", website: "https://komatsu.com", industry: "Mining & Construction", size: "5000-10000", painPoints: ["Autonomous mining vehicle design", "Durability testing simulation", "Aftermarket parts design"], products: "Excavators, dump trucks" },
-  { name: "Tesla Engineering", website: "https://tesla.com", industry: "Automotive & Energy", size: "10000+", painPoints: ["Battery pack thermal simulation", "Gigacasting design optimization", "Rapid prototyping workflows"], products: "Electric vehicles, energy storage" },
-  { name: "Rivian Automotive", website: "https://rivian.com", industry: "Electric Vehicles", size: "5000-10000", painPoints: ["Adventure vehicle durability simulation", "Battery cooling system design", "Supplier collaboration tools"], products: "R1T, R1S electric trucks" },
-  { name: "Lucid Motors", website: "https://lucidmotors.com", industry: "Electric Vehicles", size: "1000-5000", painPoints: ["Luxury EV interior design", "Aerodynamic optimization", "Powertrain efficiency simulation"], products: "Lucid Air sedan" },
-  { name: "Ford Motor Company", website: "https://ford.com", industry: "Automotive", size: "10000+", painPoints: ["EV transition design workflows", "F-150 Lightning production optimization", "Legacy system modernization"], products: "F-Series, Mustang Mach-E" },
-  { name: "General Motors", website: "https://gm.com", industry: "Automotive", size: "10000+", painPoints: ["Ultium platform design standardization", "Multi-brand collaboration", "Autonomous vehicle simulation"], products: "Chevrolet, GMC, Cadillac EVs" },
-  { name: "Stellantis North America", website: "https://stellantis.com", industry: "Automotive", size: "10000+", painPoints: ["Multi-brand platform consolidation", "Electric Jeep development", "Manufacturing footprint optimization"], products: "Jeep, Ram, Chrysler" },
-  { name: "Honda R&D Americas", website: "https://honda.com", industry: "Automotive", size: "5000-10000", painPoints: ["Fuel cell vehicle design", "Crash simulation workflows", "Motorcycle-auto design sharing"], products: "Accord, CR-V, powersports" },
-  { name: "Medtronic", website: "https://medtronic.com", industry: "Medical Devices", size: "10000+", painPoints: ["FDA 21 CFR Part 11 compliance", "Implant miniaturization design", "Biocompatibility simulation"], products: "Pacemakers, surgical robots" },
-  { name: "Boston Scientific", website: "https://bostonscientific.com", industry: "Medical Devices", size: "10000+", painPoints: ["Catheter design optimization", "Regulatory documentation automation", "Sterilization process simulation"], products: "Stents, endoscopy equipment" },
-  { name: "Abbott Laboratories", website: "https://abbott.com", industry: "Medical Devices", size: "10000+", painPoints: ["Wearable device miniaturization", "Glucose monitoring design", "Global regulatory compliance"], products: "FreeStyle Libre, diagnostics" },
-  { name: "Stryker Corporation", website: "https://stryker.com", industry: "Medical Devices", size: "10000+", painPoints: ["Surgical robot arm design", "Hip/knee implant customization", "OR equipment ergonomics"], products: "Joint replacements, Mako robots" },
-  { name: "Zimmer Biomet", website: "https://zimmerbiomet.com", industry: "Medical Devices", size: "5000-10000", painPoints: ["Patient-specific implant design", "3D printed orthopedic parts", "Surgeon collaboration tools"], products: "Orthopedic implants, robotics" },
-  { name: "Edwards Lifesciences", website: "https://edwards.com", industry: "Medical Devices", size: "5000-10000", painPoints: ["Heart valve simulation", "Transcatheter device design", "Hemodynamic modeling"], products: "Heart valves, monitoring systems" },
-  { name: "Intuitive Surgical", website: "https://intuitive.com", industry: "Medical Devices", size: "5000-10000", painPoints: ["da Vinci system iterations", "Surgical instrument miniaturization", "Haptic feedback simulation"], products: "da Vinci surgical systems" },
-  { name: "Siemens Energy", website: "https://siemens-energy.com", industry: "Energy", size: "10000+", painPoints: ["Gas turbine blade design", "Hydrogen combustion simulation", "Grid equipment modernization"], products: "Turbines, grid infrastructure" },
-  { name: "GE Vernova", website: "https://gevernova.com", industry: "Energy", size: "10000+", painPoints: ["Wind turbine optimization", "Power plant digital twin", "Decarbonization design tools"], products: "Wind turbines, power equipment" },
-  { name: "Vestas Wind Systems", website: "https://vestas.com", industry: "Renewable Energy", size: "5000-10000", painPoints: ["Offshore wind turbine design", "Blade structural analysis", "Nacelle weight optimization"], products: "Wind turbines" },
-  { name: "First Solar", website: "https://firstsolar.com", industry: "Renewable Energy", size: "5000-10000", painPoints: ["Thin-film panel design", "Manufacturing equipment optimization", "Tracker system simulation"], products: "Solar panels, utility projects" },
-  { name: "Fluor Corporation", website: "https://fluor.com", industry: "Engineering & Construction", size: "10000+", painPoints: ["Plant layout optimization", "Piping stress analysis", "EPC project collaboration"], products: "Oil & gas, infrastructure projects" },
-  { name: "Bechtel Corporation", website: "https://bechtel.com", industry: "Engineering & Construction", size: "10000+", painPoints: ["Mega-project design coordination", "Nuclear plant design tools", "Multi-discipline clash detection"], products: "Infrastructure, nuclear, LNG" },
-  { name: "Jacobs Engineering", website: "https://jacobs.com", industry: "Engineering Services", size: "10000+", painPoints: ["Water treatment plant design", "Sustainability simulation tools", "Client design handoff workflows"], products: "Infrastructure, environmental" },
-  { name: "AECOM", website: "https://aecom.com", industry: "Engineering & Construction", size: "10000+", painPoints: ["Transportation infrastructure design", "BIM-CAD integration", "Climate resilience analysis"], products: "Infrastructure, buildings" },
-  { name: "Parker Hannifin", website: "https://parker.com", industry: "Motion & Control", size: "10000+", painPoints: ["Hydraulic system design", "Aerospace component certification", "Electrification of motion systems"], products: "Hydraulics, pneumatics, filtration" },
-  { name: "Eaton Corporation", website: "https://eaton.com", industry: "Power Management", size: "10000+", painPoints: ["Electrical panel design", "Vehicle electrification components", "Data center cooling simulation"], products: "Power distribution, vehicle systems" },
-  { name: "Emerson Electric", website: "https://emerson.com", industry: "Automation", size: "10000+", painPoints: ["Process automation design", "Valve and actuator simulation", "Plant digitalization tools"], products: "Automation systems, valves" },
-  { name: "Rockwell Automation", website: "https://rockwellautomation.com", industry: "Industrial Automation", size: "5000-10000", painPoints: ["Factory floor simulation", "PLC cabinet design", "Digital twin integration"], products: "Allen-Bradley, FactoryTalk" },
-  { name: "Illinois Tool Works", website: "https://itw.com", industry: "Diversified Manufacturing", size: "10000+", painPoints: ["Welding equipment design", "Packaging machinery optimization", "80/20 product rationalization"], products: "Welding, packaging, automotive" },
-  { name: "Stanley Black & Decker", website: "https://stanleyblackanddecker.com", industry: "Tools & Industrial", size: "10000+", painPoints: ["Power tool ergonomics", "Battery platform design", "Manufacturing automation tools"], products: "DeWalt, Stanley, Craftsman" },
-  { name: "Snap-on Incorporated", website: "https://snapon.com", industry: "Tools & Equipment", size: "5000-10000", painPoints: ["Diagnostic tool design", "Tool storage optimization", "Ergonomic handle simulation"], products: "Hand tools, diagnostics" },
-  { name: "Textron Aviation", website: "https://txtav.com", industry: "Aviation", size: "5000-10000", painPoints: ["Business jet design iteration", "Cabin configuration tools", "Composite structure analysis"], products: "Cessna, Beechcraft aircraft" },
-  { name: "Gulfstream Aerospace", website: "https://gulfstream.com", industry: "Aviation", size: "5000-10000", painPoints: ["Ultra-long-range aircraft design", "Cabin noise simulation", "Aerodynamic efficiency optimization"], products: "G700, G650 business jets" },
-  { name: "Bombardier Aviation", website: "https://bombardier.com", industry: "Aviation", size: "5000-10000", painPoints: ["Global aircraft platform updates", "Wing design optimization", "Supplier CAD collaboration"], products: "Global, Challenger jets" },
-  { name: "Spirit AeroSystems", website: "https://spiritaero.com", industry: "Aerospace Manufacturing", size: "10000+", painPoints: ["Fuselage manufacturing design", "OEM collaboration workflows", "Quality documentation systems"], products: "Aircraft fuselages, structures" },
-  { name: "Howmet Aerospace", website: "https://howmet.com", industry: "Aerospace Components", size: "5000-10000", painPoints: ["Turbine blade casting design", "Fastener stress analysis", "Lightweight alloy optimization"], products: "Engine components, fasteners" },
-  { name: "TE Connectivity", website: "https://te.com", industry: "Connectors & Sensors", size: "10000+", painPoints: ["Miniature connector design", "Automotive sensor simulation", "High-speed data connector optimization"], products: "Connectors, sensors" },
-  { name: "Amphenol Corporation", website: "https://amphenol.com", industry: "Connectors", size: "10000+", painPoints: ["Military connector certification", "RF connector design", "Fiber optic connector simulation"], products: "Electronic connectors" },
-  { name: "Cummins Inc", website: "https://cummins.com", industry: "Engines & Power", size: "10000+", painPoints: ["Hydrogen engine development", "Emissions compliance simulation", "Electrified powertrain design"], products: "Diesel engines, generators" },
-  { name: "BorgWarner", website: "https://borgwarner.com", industry: "Automotive Powertrain", size: "10000+", painPoints: ["eDrive system design", "Turbocharger optimization", "Thermal management simulation"], products: "EV components, propulsion" },
-  { name: "Dana Incorporated", website: "https://dana.com", industry: "Automotive Drivetrain", size: "5000-10000", painPoints: ["Electric axle design", "Off-highway drivetrain simulation", "Lightweighting initiatives"], products: "Axles, drivetrains" },
-  { name: "Oshkosh Corporation", website: "https://oshkoshcorp.com", industry: "Specialty Vehicles", size: "5000-10000", painPoints: ["Fire truck ladder design", "Military vehicle protection simulation", "Airport equipment optimization"], products: "Defense, fire & emergency vehicles" },
-  { name: "PACCAR", website: "https://paccar.com", industry: "Commercial Vehicles", size: "5000-10000", painPoints: ["Heavy truck aerodynamics", "EV truck development", "Driver comfort simulation"], products: "Peterbilt, Kenworth trucks" },
-  { name: "Navistar International", website: "https://navistar.com", industry: "Commercial Vehicles", size: "5000-10000", painPoints: ["Electric bus design", "Fleet management integration", "Emissions system optimization"], products: "International trucks, buses" },
-  { name: "Terex Corporation", website: "https://terex.com", industry: "Heavy Equipment", size: "5000-10000", painPoints: ["Crane stability simulation", "Aerial work platform design", "Material processing equipment optimization"], products: "Cranes, aerial lifts" },
-  { name: "Manitowoc Company", website: "https://manitowoc.com", industry: "Cranes & Lifting", size: "1000-5000", painPoints: ["Tower crane design", "Boom deflection simulation", "Transport configuration optimization"], products: "Grove, Manitowoc cranes" },
-  { name: "Lincoln Electric", website: "https://lincolnelectric.com", industry: "Welding", size: "5000-10000", painPoints: ["Welding robot design", "Consumable optimization", "Automated welding simulation"], products: "Welding equipment, consumables" },
-  { name: "Graco Inc", website: "https://graco.com", industry: "Fluid Handling", size: "1000-5000", painPoints: ["Spray equipment design", "Pump simulation", "Contractor equipment ergonomics"], products: "Spray equipment, pumps" },
-  { name: "Dover Corporation", website: "https://dovercorporation.com", industry: "Diversified Industrial", size: "5000-10000", painPoints: ["Fuel dispenser design", "Refrigeration equipment optimization", "Marking equipment simulation"], products: "Fuel systems, refrigeration" },
-  { name: "IDEX Corporation", website: "https://idexcorp.com", industry: "Fluid & Metering", size: "5000-10000", painPoints: ["Precision pump design", "Flow meter simulation", "Fire suppression system optimization"], products: "Pumps, valves, meters" },
-  { name: "Roper Technologies", website: "https://ropertech.com", industry: "Diversified Technology", size: "5000-10000", painPoints: ["Medical imaging design", "Industrial IoT integration", "Software-hardware co-design"], products: "Medical, industrial equipment" },
-  { name: "Fortive Corporation", website: "https://fortive.com", industry: "Industrial Technology", size: "5000-10000", painPoints: ["Test equipment design", "Calibration tool simulation", "Connected device integration"], products: "Fluke, Tektronix instruments" },
-  { name: "Ingersoll Rand", website: "https://ingersollrand.com", industry: "Industrial Equipment", size: "5000-10000", painPoints: ["Compressor efficiency design", "Material handling optimization", "IoT-connected equipment"], products: "Compressors, pumps, tools" },
-  { name: "Flowserve Corporation", website: "https://flowserve.com", industry: "Flow Control", size: "5000-10000", painPoints: ["Industrial pump design", "Valve reliability simulation", "Seal system optimization"], products: "Pumps, valves, seals" },
-  { name: "Chart Industries", website: "https://chartindustries.com", industry: "Cryogenic Equipment", size: "1000-5000", painPoints: ["LNG tank design", "Hydrogen storage simulation", "Heat exchanger optimization"], products: "Cryogenic equipment" },
-  { name: "Watts Water Technologies", website: "https://watts.com", industry: "Water Technology", size: "1000-5000", painPoints: ["Valve design", "Plumbing product simulation", "Flow control optimization"], products: "Plumbing, heating products" },
-  { name: "Mueller Water Products", website: "https://muellerwaterproducts.com", industry: "Water Infrastructure", size: "1000-5000", painPoints: ["Fire hydrant design", "Water main valve simulation", "Leak detection integration"], products: "Water infrastructure products" },
-  { name: "Applied Materials", website: "https://appliedmaterials.com", industry: "Semiconductor Equipment", size: "10000+", painPoints: ["Wafer processing equipment design", "Chamber simulation", "Precision motion control"], products: "Chip manufacturing equipment" },
-  { name: "Lam Research", website: "https://lamresearch.com", industry: "Semiconductor Equipment", size: "10000+", painPoints: ["Etch equipment design", "Deposition chamber simulation", "Cleanroom equipment optimization"], products: "Wafer fabrication equipment" },
-  { name: "KLA Corporation", website: "https://kla.com", industry: "Semiconductor Equipment", size: "5000-10000", painPoints: ["Metrology tool design", "Optical inspection simulation", "Precision stage optimization"], products: "Inspection, metrology tools" },
-  { name: "ASML", website: "https://asml.com", industry: "Semiconductor Equipment", size: "10000+", painPoints: ["Lithography system design", "EUV mirror simulation", "Ultra-precision mechanics"], products: "Lithography systems" },
-  { name: "Brooks Automation", website: "https://brooks.com", industry: "Semiconductor Automation", size: "1000-5000", painPoints: ["Wafer handling robot design", "Vacuum system simulation", "Contamination control optimization"], products: "Automation, cryogenics" },
-  { name: "Nordson Corporation", website: "https://nordson.com", industry: "Precision Technology", size: "5000-10000", painPoints: ["Dispensing equipment design", "Adhesive application simulation", "Electronic packaging tools"], products: "Dispensing, coating equipment" },
-  { name: "Moog Inc", website: "https://moog.com", industry: "Motion Control", size: "5000-10000", painPoints: ["Actuation system design", "Flight control simulation", "Precision motion optimization"], products: "Actuators, motion control" },
-  { name: "Curtiss-Wright Corporation", website: "https://curtisswright.com", industry: "Defense & Industrial", size: "5000-10000", painPoints: ["Naval equipment design", "Nuclear component simulation", "Rugged electronics optimization"], products: "Defense, nuclear equipment" },
-  { name: "Mercury Systems", website: "https://mrcy.com", industry: "Defense Electronics", size: "1000-5000", painPoints: ["Rugged computing design", "RF module simulation", "Thermal management optimization"], products: "Defense processing subsystems" },
-  { name: "L3Harris Technologies", website: "https://l3harris.com", industry: "Defense & Aerospace", size: "10000+", painPoints: ["Communication system design", "Sensor integration", "Space electronics optimization"], products: "Defense electronics, space" },
-  { name: "BWX Technologies", website: "https://bwxt.com", industry: "Nuclear", size: "5000-10000", painPoints: ["Nuclear component design", "Reactor vessel simulation", "Fuel assembly optimization"], products: "Nuclear reactors, components" },
-  { name: "Hexcel Corporation", website: "https://hexcel.com", industry: "Advanced Materials", size: "5000-10000", painPoints: ["Composite layup design", "Carbon fiber simulation", "Honeycomb structure optimization"], products: "Carbon fiber, composites" },
-  { name: "Teledyne Technologies", website: "https://teledyne.com", industry: "Instrumentation", size: "10000+", painPoints: ["Imaging sensor design", "Marine instrument simulation", "Test equipment optimization"], products: "Sensors, instrumentation" },
-  { name: "Trimble Inc", website: "https://trimble.com", industry: "Positioning Technology", size: "5000-10000", painPoints: ["GPS equipment design", "Construction technology integration", "Agriculture guidance simulation"], products: "Positioning, construction tech" },
-  { name: "Zebra Technologies", website: "https://zebra.com", industry: "Enterprise Technology", size: "5000-10000", painPoints: ["Mobile computer design", "Barcode scanner simulation", "Rugged device optimization"], products: "Barcode, mobile computers" },
-  { name: "Cognex Corporation", website: "https://cognex.com", industry: "Machine Vision", size: "1000-5000", painPoints: ["Vision system design", "Optical simulation", "AI inspection integration"], products: "Machine vision systems" },
-  { name: "FANUC America", website: "https://fanucamerica.com", industry: "Industrial Robotics", size: "5000-10000", painPoints: ["Robot arm design", "Motion path simulation", "Collaborative robot safety"], products: "Industrial robots, CNC" },
-  { name: "ABB Robotics", website: "https://abb.com", industry: "Industrial Automation", size: "10000+", painPoints: ["Collaborative robot design", "Welding robot simulation", "Painting robot optimization"], products: "Robots, automation" },
-  { name: "KUKA Robotics", website: "https://kuka.com", industry: "Industrial Robotics", size: "5000-10000", painPoints: ["Automotive robot design", "Heavy payload simulation", "Mobile robot integration"], products: "Industrial robots" },
-  { name: "Universal Robots", website: "https://universal-robots.com", industry: "Collaborative Robotics", size: "1000-5000", painPoints: ["Cobot arm design", "Force sensing simulation", "Deployment flexibility optimization"], products: "Collaborative robots" },
-  { name: "Yaskawa America", website: "https://yaskawa.com", industry: "Motion & Robotics", size: "5000-10000", painPoints: ["Servo motor design", "Arc welding robot simulation", "Motion control optimization"], products: "Robots, drives, controls" },
-  { name: "Proto Labs", website: "https://protolabs.com", industry: "Digital Manufacturing", size: "1000-5000", painPoints: ["Rapid prototyping workflow", "CNC programming automation", "3D printing design optimization"], products: "On-demand manufacturing" },
-  { name: "Stratasys", website: "https://stratasys.com", industry: "3D Printing", size: "1000-5000", painPoints: ["Industrial 3D printer design", "Material simulation", "Production AM optimization"], products: "3D printers, materials" },
-  { name: "3D Systems", website: "https://3dsystems.com", industry: "Additive Manufacturing", size: "1000-5000", painPoints: ["Metal AM system design", "Lattice structure simulation", "Healthcare printing optimization"], products: "3D printers, software" },
-  { name: "Desktop Metal", website: "https://desktopmetal.com", industry: "Metal 3D Printing", size: "500-1000", painPoints: ["Binder jetting design", "Sintering simulation", "Production metal AM optimization"], products: "Metal 3D printing systems" },
-  { name: "Markforged", website: "https://markforged.com", industry: "Industrial 3D Printing", size: "500-1000", painPoints: ["Continuous fiber design", "Metal FFF simulation", "Digital forge optimization"], products: "Composite, metal 3D printers" },
-  { name: "Thermo Fisher Scientific", website: "https://thermofisher.com", industry: "Scientific Instruments", size: "10000+", painPoints: ["Lab equipment design", "Mass spectrometer simulation", "Chromatography optimization"], products: "Analytical instruments" },
-  { name: "Agilent Technologies", website: "https://agilent.com", industry: "Life Sciences", size: "10000+", painPoints: ["Measurement instrument design", "Spectroscopy simulation", "Diagnostics equipment optimization"], products: "Life science instruments" },
-  { name: "Waters Corporation", website: "https://waters.com", industry: "Analytical Instruments", size: "5000-10000", painPoints: ["HPLC system design", "Mass spec simulation", "Thermal analysis optimization"], products: "Chromatography, mass spec" },
-  { name: "PerkinElmer", website: "https://perkinelmer.com", industry: "Life Sciences", size: "5000-10000", painPoints: ["Diagnostic instrument design", "Imaging system simulation", "Screening equipment optimization"], products: "Diagnostics, life science" },
-  { name: "Bruker Corporation", website: "https://bruker.com", industry: "Scientific Instruments", size: "5000-10000", painPoints: ["NMR system design", "X-ray diffraction simulation", "Microscopy optimization"], products: "Scientific instruments" },
-  { name: "HORIBA", website: "https://horiba.com", industry: "Analytical & Measurement", size: "5000-10000", painPoints: ["Emissions analyzer design", "Particle measurement simulation", "Medical diagnostic optimization"], products: "Analyzers, measurement" },
-  { name: "National Instruments", website: "https://ni.com", industry: "Test & Measurement", size: "5000-10000", painPoints: ["DAQ system design", "RF test simulation", "Automated test optimization"], products: "Test systems, LabVIEW" },
-  { name: "Keysight Technologies", website: "https://keysight.com", industry: "Test & Measurement", size: "10000+", painPoints: ["5G test equipment design", "Signal analyzer simulation", "Oscilloscope optimization"], products: "Electronic test equipment" },
-  { name: "Sensata Technologies", website: "https://sensata.com", industry: "Sensors & Controls", size: "5000-10000", painPoints: ["Automotive sensor design", "Pressure transducer simulation", "Industrial control optimization"], products: "Sensors, controls" },
-  { name: "Littelfuse", website: "https://littelfuse.com", industry: "Circuit Protection", size: "5000-10000", painPoints: ["Fuse design", "Power semiconductor simulation", "EV protection optimization"], products: "Fuses, semiconductors" },
-  { name: "Vicor Corporation", website: "https://vicorpower.com", industry: "Power Systems", size: "1000-5000", painPoints: ["Power module design", "DC-DC converter simulation", "Thermal management optimization"], products: "Power components" },
-  { name: "Advanced Energy Industries", website: "https://advancedenergy.com", industry: "Power Technology", size: "1000-5000", painPoints: ["Plasma power design", "Semiconductor power simulation", "Precision power optimization"], products: "Power solutions" },
-  { name: "II-VI Incorporated", website: "https://coherent.com", industry: "Photonics", size: "5000-10000", painPoints: ["Laser component design", "Optical coating simulation", "Semiconductor laser optimization"], products: "Photonics, compound semiconductors" },
-  { name: "Coherent Corp", website: "https://coherent.com", industry: "Lasers & Photonics", size: "5000-10000", painPoints: ["Industrial laser design", "Fiber laser simulation", "Photonics packaging optimization"], products: "Lasers, optics" },
-  { name: "IPG Photonics", website: "https://ipgphotonics.com", industry: "Fiber Lasers", size: "5000-10000", painPoints: ["High-power laser design", "Beam delivery simulation", "Welding laser optimization"], products: "Fiber lasers" },
-  { name: "Gentex Corporation", website: "https://gentex.com", industry: "Automotive Electronics", size: "5000-10000", painPoints: ["Auto-dimming mirror design", "Camera system simulation", "HomeLink integration optimization"], products: "Mirrors, cameras, electronics" },
-  { name: "Modine Manufacturing", website: "https://modine.com", industry: "Thermal Management", size: "5000-10000", painPoints: ["Heat exchanger design", "EV thermal simulation", "Data center cooling optimization"], products: "Thermal management systems" },
-  { name: "Dorman Products", website: "https://dormanproducts.com", industry: "Automotive Aftermarket", size: "1000-5000", painPoints: ["OE replacement design", "Reverse engineering workflow", "Catalog management tools"], products: "Aftermarket auto parts" },
-  { name: "Shyft Group", website: "https://theshyftgroup.com", industry: "Specialty Vehicles", size: "1000-5000", painPoints: ["Delivery vehicle design", "EV chassis simulation", "Upfit configuration optimization"], products: "Specialty vehicles" },
-  { name: "REV Group", website: "https://revgroup.com", industry: "Specialty Vehicles", size: "5000-10000", painPoints: ["Fire apparatus design", "Ambulance layout simulation", "RV optimization"], products: "Emergency, recreation vehicles" },
-  { name: "Welbilt", website: "https://welbilt.com", industry: "Commercial Foodservice", size: "5000-10000", painPoints: ["Kitchen equipment design", "Cooking appliance simulation", "Refrigeration optimization"], products: "Commercial kitchen equipment" },
-  { name: "Middleby Corporation", website: "https://middleby.com", industry: "Commercial Foodservice", size: "5000-10000", painPoints: ["Conveyor oven design", "Ventilation simulation", "Beverage equipment optimization"], products: "Cooking, processing equipment" },
-  { name: "Tennant Company", website: "https://tennantco.com", industry: "Cleaning Equipment", size: "1000-5000", painPoints: ["Floor scrubber design", "Autonomous cleaning simulation", "Battery optimization"], products: "Industrial cleaning equipment" },
-  { name: "Graco Inc", website: "https://graco.com", industry: "Fluid Handling", size: "1000-5000", painPoints: ["Pump design optimization", "Spray equipment simulation", "Lubrication system integration"], products: "Pumps, spray equipment" },
-  { name: "Watts Water Technologies", website: "https://watts.com", industry: "Water Products", size: "1000-5000", painPoints: ["Valve design", "Flow control simulation", "Smart water integration"], products: "Plumbing, flow control" },
-  { name: "Franklin Electric", website: "https://franklin-electric.com", industry: "Water & Fuel Systems", size: "1000-5000", painPoints: ["Submersible pump design", "Fueling system simulation", "IoT water monitoring"], products: "Pumps, fueling systems" },
-  { name: "Hayward Industries", website: "https://hayward.com", industry: "Pool Equipment", size: "1000-5000", painPoints: ["Pool pump design", "Filtration simulation", "Smart pool optimization"], products: "Pool and spa equipment" },
-  { name: "Pentair", website: "https://pentair.com", industry: "Water Solutions", size: "5000-10000", painPoints: ["Pool equipment design", "Industrial filtration simulation", "Residential water optimization"], products: "Water treatment, pool" },
-  { name: "Xylem Inc", website: "https://xylem.com", industry: "Water Technology", size: "10000+", painPoints: ["Water pump design", "Analytics platform integration", "Treatment system simulation"], products: "Water technology" },
-  { name: "Grundfos", website: "https://grundfos.com", industry: "Pump Technology", size: "10000+", painPoints: ["Intelligent pump design", "Variable speed simulation", "Water utility optimization"], products: "Pumps, water technology" },
-  { name: "Sulzer", website: "https://sulzer.com", industry: "Flow Control", size: "5000-10000", painPoints: ["Industrial pump design", "Turbomachinery simulation", "Service tool optimization"], products: "Pumps, mixers, services" },
-  { name: "Weir Group", website: "https://weir.com", industry: "Mining & Energy", size: "5000-10000", painPoints: ["Slurry pump design", "Wear simulation", "Mining equipment optimization"], products: "Pumps, valves, mining" },
-  { name: "ITT Inc", website: "https://itt.com", industry: "Flow & Motion Control", size: "5000-10000", painPoints: ["Specialty pump design", "Connector simulation", "Brake component optimization"], products: "Pumps, connectors, brakes" },
-  { name: "Crane Co", website: "https://craneco.com", industry: "Industrial Products", size: "5000-10000", painPoints: ["Valve design", "Fluid handling simulation", "Aerospace component optimization"], products: "Valves, aerospace, payment" },
-  { name: "Circor International", website: "https://circor.com", industry: "Flow Control", size: "1000-5000", painPoints: ["Valve design", "Actuator simulation", "Severe service optimization"], products: "Valves, regulators" },
-  { name: "SPX Corporation", website: "https://spx.com", industry: "Industrial Equipment", size: "5000-10000", painPoints: ["HVAC equipment design", "Cooling tower simulation", "Detection system optimization"], products: "HVAC, detection, power" },
-  { name: "EnPro Industries", website: "https://enproindustries.com", industry: "Engineered Products", size: "1000-5000", painPoints: ["Sealing product design", "Advanced surface simulation", "Polymer component optimization"], products: "Seals, surface technologies" },
-  { name: "Albany International", website: "https://albint.com", industry: "Engineered Composites", size: "1000-5000", painPoints: ["Aerospace composite design", "Paper machine clothing simulation", "Advanced material optimization"], products: "Composites, textiles" },
-  { name: "Altra Industrial Motion", website: "https://altramotion.com", industry: "Power Transmission", size: "5000-10000", painPoints: ["Clutch and brake design", "Coupling simulation", "Precision motion optimization"], products: "Clutches, couplings, gearing" },
-  { name: "Rexnord Corporation", website: "https://rexnord.com", industry: "Motion & Water", size: "5000-10000", painPoints: ["Conveyor component design", "Bearing simulation", "Water management optimization"], products: "Bearings, couplings, water" },
-  { name: "Gates Industrial", website: "https://gates.com", industry: "Power Transmission", size: "10000+", painPoints: ["Belt drive design", "Hose and hydraulics simulation", "Fluid power optimization"], products: "Belts, hoses, hydraulics" },
-  { name: "Timken Company", website: "https://timken.com", industry: "Bearings & Motion", size: "10000+", painPoints: ["Tapered bearing design", "Power transmission simulation", "Industrial bearing optimization"], products: "Bearings, power transmission" },
-  { name: "SKF USA", website: "https://skf.com", industry: "Bearings & Seals", size: "10000+", painPoints: ["Rolling bearing design", "Lubrication simulation", "Condition monitoring optimization"], products: "Bearings, seals, services" },
-  { name: "NSK Americas", website: "https://nsk.com", industry: "Bearings & Precision", size: "5000-10000", painPoints: ["Precision bearing design", "Linear motion simulation", "Automotive bearing optimization"], products: "Bearings, linear motion" },
-  { name: "NTN Bearing Corporation", website: "https://ntnamericas.com", industry: "Bearings", size: "5000-10000", painPoints: ["Hub bearing design", "Wind turbine bearing simulation", "Constant velocity joint optimization"], products: "Bearings, driveshafts" },
-  { name: "Schaeffler Americas", website: "https://schaeffler.com", industry: "Bearings & Automotive", size: "10000+", painPoints: ["Engine bearing design", "Transmission component simulation", "Electromobility optimization"], products: "Bearings, automotive" },
-  { name: "Regal Rexnord", website: "https://regalrexnord.com", industry: "Motion & Power", size: "10000+", painPoints: ["Electric motor design", "Gearbox simulation", "Conveying component optimization"], products: "Motors, drives, conveying" },
-  { name: "Nidec Motor Corporation", website: "https://nidec-motor.com", industry: "Motors & Drives", size: "10000+", painPoints: ["HVAC motor design", "Commercial motor simulation", "EV motor optimization"], products: "Electric motors" },
-  { name: "WEG Industries", website: "https://weg.net", industry: "Motors & Drives", size: "10000+", painPoints: ["Industrial motor design", "Drive and automation simulation", "Energy efficiency optimization"], products: "Motors, drives, transformers" },
-  { name: "ABB Motors & Drives", website: "https://abb.com", industry: "Electrification", size: "10000+", painPoints: ["IE5 motor design", "Variable speed drive simulation", "Digital powertrain optimization"], products: "Motors, drives, automation" },
-  { name: "Siemens Digital Industries", website: "https://siemens.com", industry: "Industrial Automation", size: "10000+", painPoints: ["PLC hardware design", "Motion control simulation", "Digital twin optimization"], products: "Automation, drives, software" },
-  { name: "Schneider Electric", website: "https://se.com", industry: "Energy Management", size: "10000+", painPoints: ["Switchgear design", "Power distribution simulation", "Building automation optimization"], products: "Power, automation, software" },
-  { name: "Honeywell Process Solutions", website: "https://honeywell.com", industry: "Process Automation", size: "10000+", painPoints: ["DCS hardware design", "Safety system simulation", "Connected plant optimization"], products: "Automation, safety, software" },
-  { name: "Johnson Controls", website: "https://johnsoncontrols.com", industry: "Building Technology", size: "10000+", painPoints: ["HVAC equipment design", "Building automation simulation", "Fire & security optimization"], products: "HVAC, controls, security" },
-  { name: "Trane Technologies", website: "https://tranetechnologies.com", industry: "HVAC", size: "10000+", painPoints: ["Chiller design", "Refrigerant transition simulation", "Building efficiency optimization"], products: "HVAC equipment" },
-  { name: "Carrier Global", website: "https://carrier.com", industry: "HVAC & Refrigeration", size: "10000+", painPoints: ["Heat pump design", "Cold chain simulation", "Fire & security optimization"], products: "HVAC, refrigeration, fire" },
-  { name: "Lennox International", website: "https://lennox.com", industry: "HVAC", size: "5000-10000", painPoints: ["Residential HVAC design", "Commercial rooftop simulation", "Refrigeration optimization"], products: "Heating, cooling, refrigeration" },
-  { name: "Daikin Industries", website: "https://daikin.com", industry: "HVAC", size: "10000+", painPoints: ["VRV system design", "Refrigerant innovation simulation", "Applied equipment optimization"], products: "HVAC equipment" },
-  { name: "Wacker Neuson", website: "https://wackerneuson.com", industry: "Compact Equipment", size: "1000-5000", painPoints: ["Compact excavator design", "Concrete equipment simulation", "Electric equipment optimization"], products: "Compact equipment" },
-  { name: "Manitou Group", website: "https://manitou.com", industry: "Material Handling", size: "1000-5000", painPoints: ["Telehandler design", "Aerial platform simulation", "Electric forklift optimization"], products: "Telehandlers, forklifts" },
-  { name: "JLG Industries", website: "https://jlg.com", industry: "Access Equipment", size: "5000-10000", painPoints: ["Boom lift design", "Scissor lift simulation", "Electric platform optimization"], products: "Aerial work platforms" },
-  { name: "Skyjack", website: "https://skyjack.com", industry: "Access Equipment", size: "1000-5000", painPoints: ["Scissor lift design", "Telehandler simulation", "Simplicity optimization"], products: "Scissor lifts, telehandlers" },
-  { name: "Genie", website: "https://genielift.com", industry: "Aerial Equipment", size: "5000-10000", painPoints: ["Articulating boom design", "Material lift simulation", "Hybrid power optimization"], products: "Aerial lifts" },
-  { name: "Bobcat Company", website: "https://bobcat.com", industry: "Compact Equipment", size: "5000-10000", painPoints: ["Compact loader design", "Attachment simulation", "Electric equipment optimization"], products: "Loaders, excavators, UTVs" },
-  { name: "Kubota USA", website: "https://kubota.com", industry: "Compact Equipment", size: "5000-10000", painPoints: ["Compact tractor design", "Construction equipment simulation", "Engine optimization"], products: "Tractors, construction, turf" },
-  { name: "STIHL Inc", website: "https://stihl.com", industry: "Outdoor Power", size: "5000-10000", painPoints: ["Chainsaw design", "Battery platform simulation", "Ergonomic optimization"], products: "Chainsaws, trimmers, blowers" },
-  { name: "Husqvarna", website: "https://husqvarna.com", industry: "Outdoor Power", size: "5000-10000", painPoints: ["Robotic mower design", "Professional equipment simulation", "Battery platform optimization"], products: "Mowers, chainsaws, robots" },
-  { name: "Briggs & Stratton", website: "https://briggsandstratton.com", industry: "Small Engines", size: "1000-5000", painPoints: ["Small engine design", "Electric power simulation", "Commercial turf optimization"], products: "Engines, power products" },
-  { name: "Kohler Power", website: "https://kohler.com", industry: "Engines & Power", size: "10000+", painPoints: ["Generator design", "Industrial engine simulation", "Residential power optimization"], products: "Generators, engines" },
-  { name: "Generac Power Systems", website: "https://generac.com", industry: "Power Generation", size: "5000-10000", painPoints: ["Home standby design", "Industrial generator simulation", "Energy storage optimization"], products: "Generators, energy storage" },
+  { name: "Shopify Plus", website: "https://shopify.com", industry: "E-Commerce", size: "10000+", painPoints: ["Customer support ticket backlog growing", "24/7 coverage gaps in support", "High cost of US-based support agents"], products: "E-commerce platform, merchant services" },
+  { name: "BigCommerce", website: "https://bigcommerce.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Scaling support with merchant growth", "Technical support hiring challenges", "Chat support response time issues"], products: "E-commerce platform, B2B commerce" },
+  { name: "WooCommerce (Automattic)", website: "https://woocommerce.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Plugin support ticket volume", "Developer support bottlenecks", "Community management resources"], products: "WordPress e-commerce plugin" },
+  { name: "Klaviyo", website: "https://klaviyo.com", industry: "SaaS", size: "1000-5000", painPoints: ["Customer onboarding capacity", "Technical support scaling", "Data migration assistance needs"], products: "Marketing automation, email platform" },
+  { name: "Stripe", website: "https://stripe.com", industry: "FinTech", size: "5000-10000", painPoints: ["Developer support queue times", "Integration assistance demand", "Fraud review team capacity"], products: "Payment processing, financial infrastructure" },
+  { name: "Square", website: "https://squareup.com", industry: "FinTech", size: "5000-10000", painPoints: ["Merchant onboarding backlog", "Hardware support ticket volume", "Multi-language support needs"], products: "Payment solutions, business tools" },
+  { name: "Brex", website: "https://brex.com", industry: "FinTech", size: "1000-5000", painPoints: ["Customer success team scaling", "Expense report processing", "Compliance review capacity"], products: "Corporate cards, spend management" },
+  { name: "Ramp", website: "https://ramp.com", industry: "FinTech", size: "500-1000", painPoints: ["Rapid customer growth outpacing support", "Finance operations bottlenecks", "Implementation team capacity"], products: "Corporate cards, expense management" },
+  { name: "Gusto", website: "https://gusto.com", industry: "SaaS", size: "1000-5000", painPoints: ["Payroll support scaling challenges", "Tax filing season surge", "HR support ticket backlog"], products: "Payroll, HR, benefits platform" },
+  { name: "Rippling", website: "https://rippling.com", industry: "SaaS", size: "1000-5000", painPoints: ["Implementation team constraints", "IT support ticket volume", "Multi-product support complexity"], products: "HR, IT, finance platform" },
+  { name: "Lattice", website: "https://lattice.com", industry: "SaaS", size: "500-1000", painPoints: ["Customer success hiring lag", "Implementation backlog", "Support response time issues"], products: "People management platform" },
+  { name: "Culture Amp", website: "https://cultureamp.com", industry: "SaaS", size: "500-1000", painPoints: ["Survey analysis support", "Customer onboarding delays", "Global support coverage gaps"], products: "Employee engagement platform" },
+  { name: "BambooHR", website: "https://bamboohr.com", industry: "SaaS", size: "500-1000", painPoints: ["Support ticket growth", "Implementation team capacity", "SMB customer success scaling"], products: "HR software for SMBs" },
+  { name: "Zendesk", website: "https://zendesk.com", industry: "SaaS", size: "5000-10000", painPoints: ["Tier 1 support cost reduction", "24/7 chat support needs", "Technical troubleshooting capacity"], products: "Customer service software" },
+  { name: "Freshworks", website: "https://freshworks.com", industry: "SaaS", size: "5000-10000", painPoints: ["Multi-product support complexity", "Global time zone coverage", "Onboarding team scaling"], products: "Business software suite" },
+  { name: "Intercom", website: "https://intercom.com", industry: "SaaS", size: "1000-5000", painPoints: ["Customer success capacity", "Technical support demand", "Implementation assistance needs"], products: "Customer messaging platform" },
+  { name: "Drift", website: "https://drift.com", industry: "SaaS", size: "500-1000", painPoints: ["Conversation routing support", "Bot training resources", "Customer onboarding delays"], products: "Conversational marketing platform" },
+  { name: "HubSpot", website: "https://hubspot.com", industry: "SaaS", size: "5000-10000", painPoints: ["Partner support scaling", "Free tier support costs", "Implementation team backlog"], products: "CRM, marketing, sales platform" },
+  { name: "Monday.com", website: "https://monday.com", industry: "SaaS", size: "1000-5000", painPoints: ["Customer success hiring", "Enterprise onboarding capacity", "Multi-language support needs"], products: "Work management platform" },
+  { name: "Asana", website: "https://asana.com", industry: "SaaS", size: "1000-5000", painPoints: ["Support queue times", "Enterprise implementation delays", "Customer success scaling"], products: "Work management software" },
+  { name: "Oscar Health", website: "https://hioscar.com", industry: "Healthcare", size: "1000-5000", painPoints: ["Member services scaling", "Claims processing backlog", "Provider support capacity"], products: "Health insurance technology" },
+  { name: "Clover Health", website: "https://cloverhealth.com", industry: "Healthcare", size: "1000-5000", painPoints: ["Medicare support demands", "Care coordination staffing", "Prior authorization processing"], products: "Medicare advantage plans" },
+  { name: "Devoted Health", website: "https://devoted.com", industry: "Healthcare", size: "1000-5000", painPoints: ["Concierge support capacity", "Member engagement resources", "Claims adjudication support"], products: "Medicare health plans" },
+  { name: "Bright Health", website: "https://brighthealth.com", industry: "Healthcare", size: "1000-5000", painPoints: ["Customer service volume", "Provider network support", "Enrollment processing capacity"], products: "Health insurance plans" },
+  { name: "Hims & Hers", website: "https://forhims.com", industry: "Healthcare", size: "1000-5000", painPoints: ["Customer support demand", "Provider scheduling support", "Prescription processing backlog"], products: "Telehealth, wellness products" },
+  { name: "Ro (Roman)", website: "https://ro.co", industry: "Healthcare", size: "500-1000", painPoints: ["Patient support scaling", "Pharmacy operations support", "Provider coordination needs"], products: "Digital health clinic" },
+  { name: "Teladoc Health", website: "https://teladoc.com", industry: "Healthcare", size: "5000-10000", painPoints: ["24/7 support requirements", "Provider scheduling support", "Technical support for virtual visits"], products: "Virtual healthcare services" },
+  { name: "Amwell", website: "https://amwell.com", industry: "Healthcare", size: "1000-5000", painPoints: ["Platform support demand", "Provider onboarding capacity", "Patient technical assistance"], products: "Telehealth platform" },
+  { name: "Doctor On Demand", website: "https://doctorondemand.com", industry: "Healthcare", size: "500-1000", painPoints: ["Appointment scheduling support", "Insurance verification backlog", "Patient follow-up capacity"], products: "Virtual care services" },
+  { name: "MDLive", website: "https://mdlive.com", industry: "Healthcare", size: "500-1000", painPoints: ["Member support scaling", "Provider support needs", "Technical troubleshooting demand"], products: "Virtual healthcare" },
+  { name: "Chewy", website: "https://chewy.com", industry: "E-Commerce", size: "10000+", painPoints: ["Pet expert customer service scaling", "24/7 support coverage", "Peak season staffing challenges"], products: "Pet products e-commerce" },
+  { name: "Wayfair", website: "https://wayfair.com", industry: "E-Commerce", size: "10000+", painPoints: ["Furniture specialist support", "Delivery coordination team", "Returns processing capacity"], products: "Home goods e-commerce" },
+  { name: "Etsy", website: "https://etsy.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Seller support scaling", "Trust & safety team capacity", "Buyer support demand"], products: "Handmade goods marketplace" },
+  { name: "Poshmark", website: "https://poshmark.com", industry: "E-Commerce", size: "500-1000", painPoints: ["Seller community support", "Authentication services scaling", "Customer service demand"], products: "Fashion resale marketplace" },
+  { name: "ThredUp", website: "https://thredup.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Item processing backlog", "Customer support volume", "Seller payout inquiries"], products: "Online consignment, thrift" },
+  { name: "StockX", website: "https://stockx.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Authentication team scaling", "Customer disputes handling", "Seller support demand"], products: "Sneaker and streetwear marketplace" },
+  { name: "Fanatics", website: "https://fanatics.com", industry: "E-Commerce", size: "10000+", painPoints: ["Game day support surges", "Order fulfillment support", "Licensing inquiry handling"], products: "Sports merchandise" },
+  { name: "GOAT", website: "https://goat.com", industry: "E-Commerce", size: "500-1000", painPoints: ["Authentication backlog", "International support coverage", "Dispute resolution capacity"], products: "Sneaker marketplace" },
+  { name: "Faire", website: "https://faire.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Retailer onboarding support", "Brand partner management", "Order issue resolution"], products: "Wholesale marketplace" },
+  { name: "Alibaba.com", website: "https://alibaba.com", industry: "E-Commerce", size: "10000+", painPoints: ["Cross-border trade support", "Supplier verification team", "Buyer protection capacity"], products: "B2B e-commerce platform" },
+  { name: "Allbirds", website: "https://allbirds.com", industry: "E-Commerce", size: "500-1000", painPoints: ["Returns processing support", "Sustainability inquiries", "International expansion support"], products: "Sustainable footwear" },
+  { name: "Warby Parker", website: "https://warbyparker.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Virtual try-on support", "Prescription verification", "Store appointment scheduling"], products: "Eyewear, DTC" },
+  { name: "Glossier", website: "https://glossier.com", industry: "E-Commerce", size: "500-1000", painPoints: ["Beauty advisor support", "Social community management", "Order fulfillment support"], products: "Beauty and skincare" },
+  { name: "Fabletics", website: "https://fabletics.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Subscription management support", "VIP member services", "Returns processing capacity"], products: "Activewear subscription" },
+  { name: "Rent the Runway", website: "https://renttherunway.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Styling consultation demand", "Rental logistics support", "Customer service scaling"], products: "Fashion rental service" },
+  { name: "Stitch Fix", website: "https://stitchfix.com", industry: "E-Commerce", size: "5000-10000", painPoints: ["Styling team capacity", "Returns processing", "Customer feedback handling"], products: "Personal styling service" },
+  { name: "Grove Collaborative", website: "https://grove.co", industry: "E-Commerce", size: "500-1000", painPoints: ["Subscription support needs", "Product recommendation support", "Sustainability inquiry handling"], products: "Eco-friendly household products" },
+  { name: "Thrive Market", website: "https://thrivemarket.com", industry: "E-Commerce", size: "500-1000", painPoints: ["Member services scaling", "Product sourcing inquiries", "Order fulfillment support"], products: "Healthy food membership" },
+  { name: "Boxed", website: "https://boxed.com", industry: "E-Commerce", size: "500-1000", painPoints: ["Bulk order support", "B2B customer service", "Delivery coordination needs"], products: "Bulk goods e-commerce" },
+  { name: "Instacart", website: "https://instacart.com", industry: "E-Commerce", size: "5000-10000", painPoints: ["Shopper support scaling", "Customer issue resolution", "Retailer partner support"], products: "Grocery delivery platform" },
+  { name: "DoorDash", website: "https://doordash.com", industry: "E-Commerce", size: "5000-10000", painPoints: ["Dasher support scaling", "Restaurant partner support", "Customer issue resolution"], products: "Food delivery platform" },
+  { name: "Grubhub", website: "https://grubhub.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Driver support capacity", "Restaurant onboarding", "Order issue handling"], products: "Food delivery service" },
+  { name: "Postmates (Uber)", website: "https://postmates.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Fleet support needs", "Merchant support scaling", "Customer service demand"], products: "On-demand delivery" },
+  { name: "Gopuff", website: "https://gopuff.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["24/7 support coverage", "Driver coordination", "Customer service volume"], products: "Instant delivery" },
+  { name: "Shipt", website: "https://shipt.com", industry: "E-Commerce", size: "1000-5000", painPoints: ["Shopper support needs", "Member services scaling", "Order issue resolution"], products: "Same-day delivery" },
+  { name: "Zapier", website: "https://zapier.com", industry: "SaaS", size: "500-1000", painPoints: ["Technical support demand", "Integration troubleshooting", "Customer success scaling"], products: "Automation platform" },
+  { name: "Notion", website: "https://notion.so", industry: "SaaS", size: "500-1000", painPoints: ["User onboarding support", "Enterprise implementation", "Technical support scaling"], products: "Productivity software" },
+  { name: "Figma", website: "https://figma.com", industry: "SaaS", size: "1000-5000", painPoints: ["Designer support scaling", "Enterprise onboarding", "Technical support demand"], products: "Design collaboration tool" },
+  { name: "Canva", website: "https://canva.com", industry: "SaaS", size: "1000-5000", painPoints: ["Free tier support volume", "Enterprise customer success", "Content moderation needs"], products: "Design platform" },
+  { name: "Miro", website: "https://miro.com", industry: "SaaS", size: "1000-5000", painPoints: ["User support scaling", "Enterprise implementation", "Template support needs"], products: "Visual collaboration platform" },
+  { name: "Airtable", website: "https://airtable.com", industry: "SaaS", size: "500-1000", painPoints: ["User support demand", "Enterprise onboarding", "Template and integration support"], products: "Low-code database platform" },
+  { name: "ClickUp", website: "https://clickup.com", industry: "SaaS", size: "500-1000", painPoints: ["Rapid growth support needs", "Migration assistance demand", "Technical support scaling"], products: "Project management platform" },
+  { name: "Linear", website: "https://linear.app", industry: "SaaS", size: "100-500", painPoints: ["Customer success resources", "Enterprise onboarding needs", "Technical support demand"], products: "Issue tracking software" },
+  { name: "Webflow", website: "https://webflow.com", industry: "SaaS", size: "500-1000", painPoints: ["Designer support scaling", "Enterprise implementation", "Technical troubleshooting"], products: "No-code website builder" },
+  { name: "Retool", website: "https://retool.com", industry: "SaaS", size: "500-1000", painPoints: ["Developer support demand", "Enterprise onboarding", "Integration troubleshooting"], products: "Internal tools platform" },
+  { name: "Amplitude", website: "https://amplitude.com", industry: "SaaS", size: "500-1000", painPoints: ["Analytics support needs", "Implementation assistance", "Customer success scaling"], products: "Product analytics" },
+  { name: "Mixpanel", website: "https://mixpanel.com", industry: "SaaS", size: "500-1000", painPoints: ["Technical support demand", "Implementation assistance", "Customer onboarding backlog"], products: "Product analytics" },
+  { name: "Heap", website: "https://heap.io", industry: "SaaS", size: "500-1000", painPoints: ["Analytics support scaling", "Enterprise implementation", "Technical support needs"], products: "Digital insights platform" },
+  { name: "Segment", website: "https://segment.com", industry: "SaaS", size: "500-1000", painPoints: ["Integration support demand", "Technical troubleshooting", "Enterprise onboarding"], products: "Customer data platform" },
+  { name: "Braze", website: "https://braze.com", industry: "SaaS", size: "1000-5000", painPoints: ["Campaign support needs", "Technical implementation", "Customer success scaling"], products: "Customer engagement platform" },
+  { name: "Iterable", website: "https://iterable.com", industry: "SaaS", size: "500-1000", painPoints: ["Campaign support demand", "Technical implementation", "Customer success needs"], products: "Marketing automation" },
+  { name: "Customer.io", website: "https://customer.io", industry: "SaaS", size: "100-500", painPoints: ["Technical support scaling", "Integration troubleshooting", "Customer onboarding"], products: "Marketing automation" },
+  { name: "Sendgrid (Twilio)", website: "https://sendgrid.com", industry: "SaaS", size: "1000-5000", painPoints: ["Deliverability support", "Technical troubleshooting", "Enterprise scaling support"], products: "Email delivery platform" },
+  { name: "Mailchimp", website: "https://mailchimp.com", industry: "SaaS", size: "1000-5000", painPoints: ["SMB support volume", "Migration assistance", "Technical support demand"], products: "Email marketing platform" },
+  { name: "Constant Contact", website: "https://constantcontact.com", industry: "SaaS", size: "1000-5000", painPoints: ["SMB customer service", "Onboarding support", "Technical assistance needs"], products: "Email and marketing" },
+  { name: "ActiveCampaign", website: "https://activecampaign.com", industry: "SaaS", size: "500-1000", painPoints: ["Automation support demand", "Migration assistance", "Customer success scaling"], products: "Marketing automation" },
+  { name: "Calendly", website: "https://calendly.com", industry: "SaaS", size: "500-1000", painPoints: ["Enterprise support scaling", "Integration troubleshooting", "Customer success needs"], products: "Scheduling software" },
+  { name: "Loom", website: "https://loom.com", industry: "SaaS", size: "500-1000", painPoints: ["Support ticket volume", "Enterprise onboarding", "Technical assistance demand"], products: "Video messaging platform" },
+  { name: "Descript", website: "https://descript.com", industry: "SaaS", size: "100-500", painPoints: ["Technical support needs", "Creator support scaling", "Feature request handling"], products: "Video and audio editing" },
+  { name: "Riverside.fm", website: "https://riverside.fm", industry: "SaaS", size: "100-500", painPoints: ["Technical support demand", "Customer onboarding", "Feature support needs"], products: "Podcast recording platform" },
+  { name: "Podium", website: "https://podium.com", industry: "SaaS", size: "1000-5000", painPoints: ["SMB customer support", "Onboarding assistance", "Technical support scaling"], products: "Business messaging platform" },
+  { name: "Birdeye", website: "https://birdeye.com", industry: "SaaS", size: "500-1000", painPoints: ["Customer support demand", "Onboarding capacity", "Technical assistance needs"], products: "Reputation management" },
+  { name: "Yotpo", website: "https://yotpo.com", industry: "SaaS", size: "500-1000", painPoints: ["E-commerce support scaling", "Implementation assistance", "Customer success needs"], products: "E-commerce marketing" },
+  { name: "Attentive", website: "https://attentive.com", industry: "SaaS", size: "500-1000", painPoints: ["SMS campaign support", "Technical implementation", "Customer success scaling"], products: "SMS marketing platform" },
+  { name: "Postscript", website: "https://postscript.io", industry: "SaaS", size: "100-500", painPoints: ["E-commerce support needs", "Campaign assistance", "Technical troubleshooting"], products: "SMS marketing for Shopify" },
+  { name: "Gorgias", website: "https://gorgias.com", industry: "SaaS", size: "100-500", painPoints: ["E-commerce support", "Technical implementation", "Customer success capacity"], products: "E-commerce helpdesk" },
+  { name: "Recharge", website: "https://rechargepayments.com", industry: "SaaS", size: "100-500", painPoints: ["Merchant support scaling", "Technical troubleshooting", "Migration assistance"], products: "Subscription payments" },
+  { name: "Bold Commerce", website: "https://boldcommerce.com", industry: "SaaS", size: "100-500", painPoints: ["Merchant support needs", "Technical implementation", "App support demand"], products: "E-commerce apps" },
+  { name: "Okendo", website: "https://okendo.io", industry: "SaaS", size: "100-500", painPoints: ["Merchant onboarding", "Technical support needs", "Customer success scaling"], products: "Customer marketing platform" },
+  { name: "Privy", website: "https://privy.com", industry: "SaaS", size: "100-500", painPoints: ["E-commerce support demand", "Onboarding assistance", "Technical troubleshooting"], products: "E-commerce marketing" },
+  { name: "Plivo", website: "https://plivo.com", industry: "SaaS", size: "500-1000", painPoints: ["Developer support scaling", "Technical troubleshooting", "Enterprise implementation"], products: "Communications API" },
+  { name: "MessageBird", website: "https://messagebird.com", industry: "SaaS", size: "500-1000", painPoints: ["Global support coverage", "Developer support needs", "Enterprise onboarding"], products: "Communications platform" },
+  { name: "Vonage", website: "https://vonage.com", industry: "SaaS", size: "1000-5000", painPoints: ["API support scaling", "Technical troubleshooting", "Enterprise support needs"], products: "Communications APIs" },
+  { name: "Bandwidth Inc", website: "https://bandwidth.com", industry: "SaaS", size: "1000-5000", painPoints: ["Technical support demand", "Enterprise onboarding", "Carrier support needs"], products: "Communications platform" },
+  { name: "RingCentral", website: "https://ringcentral.com", industry: "SaaS", size: "5000-10000", painPoints: ["Customer support volume", "Technical troubleshooting", "Enterprise implementation"], products: "Business communications" },
+  { name: "Dialpad", website: "https://dialpad.com", industry: "SaaS", size: "1000-5000", painPoints: ["Support ticket growth", "Enterprise onboarding", "Technical assistance needs"], products: "AI communications" },
+  { name: "Aircall", website: "https://aircall.io", industry: "SaaS", size: "500-1000", painPoints: ["Customer support scaling", "Integration troubleshooting", "Onboarding capacity"], products: "Cloud phone system" },
+  { name: "JustCall", website: "https://justcall.io", industry: "SaaS", size: "100-500", painPoints: ["Support ticket volume", "Technical troubleshooting", "Customer onboarding"], products: "Cloud phone for sales" },
+  { name: "Talkdesk", website: "https://talkdesk.com", industry: "SaaS", size: "1000-5000", painPoints: ["Enterprise support needs", "Technical implementation", "Customer success scaling"], products: "Contact center software" },
+  { name: "Five9", website: "https://five9.com", industry: "SaaS", size: "1000-5000", painPoints: ["Enterprise implementation", "Technical support demand", "Customer success needs"], products: "Contact center cloud" },
+  { name: "NICE inContact", website: "https://nice.com", industry: "SaaS", size: "5000-10000", painPoints: ["Enterprise support demand", "Technical implementation", "Global support coverage"], products: "Contact center platform" },
+  { name: "Genesys", website: "https://genesys.com", industry: "SaaS", size: "5000-10000", painPoints: ["Enterprise implementation", "Technical support scaling", "Customer success needs"], products: "Customer experience platform" },
+  { name: "Twilio Flex", website: "https://twilio.com/flex", industry: "SaaS", size: "5000-10000", painPoints: ["Developer support demand", "Implementation assistance", "Technical troubleshooting"], products: "Programmable contact center" },
+  { name: "Datadog", website: "https://datadoghq.com", industry: "SaaS", size: "5000-10000", painPoints: ["Technical support scaling", "Enterprise onboarding", "Implementation assistance"], products: "Monitoring and analytics" },
+  { name: "New Relic", website: "https://newrelic.com", industry: "SaaS", size: "1000-5000", painPoints: ["Technical support demand", "Enterprise implementation", "Customer success scaling"], products: "Observability platform" },
+  { name: "Splunk", website: "https://splunk.com", industry: "SaaS", size: "5000-10000", painPoints: ["Enterprise support needs", "Technical implementation", "Customer success capacity"], products: "Data platform" },
+  { name: "Elastic", website: "https://elastic.co", industry: "SaaS", size: "1000-5000", painPoints: ["Technical support scaling", "Enterprise onboarding", "Implementation assistance"], products: "Search and observability" },
+  { name: "Sumo Logic", website: "https://sumologic.com", industry: "SaaS", size: "500-1000", painPoints: ["Technical support demand", "Enterprise implementation", "Customer success needs"], products: "Cloud SIEM" },
+  { name: "PagerDuty", website: "https://pagerduty.com", industry: "SaaS", size: "1000-5000", painPoints: ["Technical support scaling", "Enterprise onboarding", "Customer success capacity"], products: "Operations platform" },
+  { name: "OpsGenie", website: "https://opsgenie.com", industry: "SaaS", size: "500-1000", painPoints: ["Technical support demand", "Enterprise implementation", "Customer onboarding"], products: "Incident management" },
+  { name: "xMatters", website: "https://xmatters.com", industry: "SaaS", size: "500-1000", painPoints: ["Technical support scaling", "Enterprise implementation", "Customer success needs"], products: "Service reliability platform" },
+  { name: "ServiceNow", website: "https://servicenow.com", industry: "SaaS", size: "10000+", painPoints: ["Implementation partner needs", "Technical support demand", "Customer success scaling"], products: "Digital workflow platform" },
+  { name: "Atlassian", website: "https://atlassian.com", industry: "SaaS", size: "5000-10000", painPoints: ["Self-service support volume", "Technical troubleshooting", "Enterprise implementation"], products: "Team collaboration tools" },
+  { name: "GitLab", website: "https://gitlab.com", industry: "SaaS", size: "1000-5000", painPoints: ["Technical support demand", "Enterprise onboarding", "Customer success scaling"], products: "DevOps platform" },
+  { name: "GitHub", website: "https://github.com", industry: "SaaS", size: "1000-5000", painPoints: ["Developer support scaling", "Enterprise implementation", "Technical troubleshooting"], products: "Development platform" },
+  { name: "CircleCI", website: "https://circleci.com", industry: "SaaS", size: "500-1000", painPoints: ["Developer support demand", "Technical troubleshooting", "Enterprise onboarding"], products: "CI/CD platform" },
+  { name: "Travis CI", website: "https://travis-ci.com", industry: "SaaS", size: "100-500", painPoints: ["Technical support capacity", "Developer assistance", "Enterprise support needs"], products: "CI/CD platform" },
+  { name: "Buildkite", website: "https://buildkite.com", industry: "SaaS", size: "100-500", painPoints: ["Technical support scaling", "Enterprise onboarding", "Customer success needs"], products: "CI/CD platform" },
+  { name: "LaunchDarkly", website: "https://launchdarkly.com", industry: "SaaS", size: "500-1000", painPoints: ["Technical support demand", "Enterprise implementation", "Customer success scaling"], products: "Feature management" },
+  { name: "Split.io", website: "https://split.io", industry: "SaaS", size: "100-500", painPoints: ["Technical support needs", "Enterprise onboarding", "Customer success capacity"], products: "Feature delivery platform" },
+  { name: "Optimizely", website: "https://optimizely.com", industry: "SaaS", size: "500-1000", painPoints: ["Technical support demand", "Enterprise implementation", "Customer success scaling"], products: "Digital experience platform" },
+  { name: "Unbounce", website: "https://unbounce.com", industry: "SaaS", size: "100-500", painPoints: ["SMB support volume", "Technical troubleshooting", "Customer onboarding"], products: "Landing page builder" },
+  { name: "Instapage", website: "https://instapage.com", industry: "SaaS", size: "100-500", painPoints: ["Enterprise support needs", "Technical implementation", "Customer success capacity"], products: "Landing page platform" },
+  { name: "Leadpages", website: "https://leadpages.com", industry: "SaaS", size: "100-500", painPoints: ["SMB support demand", "Technical troubleshooting", "Customer onboarding"], products: "Landing page software" },
+  { name: "Typeform", website: "https://typeform.com", industry: "SaaS", size: "500-1000", painPoints: ["Customer support scaling", "Technical troubleshooting", "Enterprise onboarding"], products: "Form and survey platform" },
+  { name: "SurveyMonkey", website: "https://surveymonkey.com", industry: "SaaS", size: "1000-5000", painPoints: ["SMB support volume", "Enterprise implementation", "Technical assistance needs"], products: "Survey platform" },
+  { name: "Qualtrics", website: "https://qualtrics.com", industry: "SaaS", size: "5000-10000", painPoints: ["Enterprise implementation", "Technical support demand", "Customer success scaling"], products: "Experience management" },
+  { name: "Medallia", website: "https://medallia.com", industry: "SaaS", size: "1000-5000", painPoints: ["Enterprise support needs", "Technical implementation", "Customer success capacity"], products: "Experience management" },
+  { name: "UserTesting", website: "https://usertesting.com", industry: "SaaS", size: "500-1000", painPoints: ["Technical support scaling", "Enterprise onboarding", "Customer success needs"], products: "User research platform" },
+  { name: "Hotjar", website: "https://hotjar.com", industry: "SaaS", size: "500-1000", painPoints: ["Self-service support volume", "Technical troubleshooting", "Customer onboarding"], products: "Behavior analytics" },
+  { name: "Fullstory", website: "https://fullstory.com", industry: "SaaS", size: "500-1000", painPoints: ["Technical support demand", "Enterprise implementation", "Customer success scaling"], products: "Digital experience analytics" },
+  { name: "Pendo", website: "https://pendo.io", industry: "SaaS", size: "500-1000", painPoints: ["Technical support scaling", "Enterprise onboarding", "Customer success needs"], products: "Product experience platform" },
+  { name: "Gainsight", website: "https://gainsight.com", industry: "SaaS", size: "500-1000", painPoints: ["Enterprise support needs", "Technical implementation", "Customer success capacity"], products: "Customer success platform" },
+  { name: "ChurnZero", website: "https://churnzero.com", industry: "SaaS", size: "100-500", painPoints: ["Technical support demand", "Enterprise onboarding", "Customer success scaling"], products: "Customer success software" },
+  { name: "Totango", website: "https://totango.com", industry: "SaaS", size: "100-500", painPoints: ["Technical support needs", "Enterprise implementation", "Customer success capacity"], products: "Customer success platform" },
+  { name: "Vitally", website: "https://vitally.io", industry: "SaaS", size: "100-500", painPoints: ["Technical support scaling", "Enterprise onboarding", "Customer success needs"], products: "Customer success platform" },
+  { name: "Outreach", website: "https://outreach.io", industry: "SaaS", size: "1000-5000", painPoints: ["Technical support demand", "Enterprise implementation", "Customer success scaling"], products: "Sales engagement platform" },
+  { name: "SalesLoft", website: "https://salesloft.com", industry: "SaaS", size: "1000-5000", painPoints: ["Technical support scaling", "Enterprise onboarding", "Customer success needs"], products: "Revenue workflow platform" },
+  { name: "Gong.io", website: "https://gong.io", industry: "SaaS", size: "1000-5000", painPoints: ["Technical support demand", "Enterprise implementation", "Customer success capacity"], products: "Revenue intelligence" },
+  { name: "Chorus.ai", website: "https://chorus.ai", industry: "SaaS", size: "500-1000", painPoints: ["Technical support needs", "Enterprise onboarding", "Customer success scaling"], products: "Conversation intelligence" },
+  { name: "6sense", website: "https://6sense.com", industry: "SaaS", size: "500-1000", painPoints: ["Technical support demand", "Enterprise implementation", "Customer success scaling"], products: "Revenue AI platform" },
+  { name: "Demandbase", website: "https://demandbase.com", industry: "SaaS", size: "500-1000", painPoints: ["Technical support scaling", "Enterprise onboarding", "Customer success needs"], products: "ABM platform" },
+  { name: "ZoomInfo", website: "https://zoominfo.com", industry: "SaaS", size: "5000-10000", painPoints: ["Customer support volume", "Technical troubleshooting", "Enterprise implementation"], products: "Sales intelligence" },
+  { name: "Apollo.io", website: "https://apollo.io", industry: "SaaS", size: "500-1000", painPoints: ["Support ticket growth", "Technical troubleshooting", "Customer onboarding"], products: "Sales intelligence platform" },
+  { name: "Lusha", website: "https://lusha.com", industry: "SaaS", size: "100-500", painPoints: ["Customer support scaling", "Technical assistance", "Enterprise onboarding"], products: "B2B contact data" },
+  { name: "Clearbit", website: "https://clearbit.com", industry: "SaaS", size: "100-500", painPoints: ["Technical support demand", "Integration troubleshooting", "Customer success needs"], products: "Data enrichment" },
+  { name: "LeadIQ", website: "https://leadiq.com", industry: "SaaS", size: "100-500", painPoints: ["Customer support scaling", "Technical troubleshooting", "Enterprise onboarding"], products: "Prospecting platform" },
+  { name: "Cognism", website: "https://cognism.com", industry: "SaaS", size: "500-1000", painPoints: ["Customer support demand", "Technical assistance", "Enterprise implementation"], products: "Sales intelligence" },
+  { name: "Seamless.AI", website: "https://seamless.ai", industry: "SaaS", size: "100-500", painPoints: ["Support ticket volume", "Technical troubleshooting", "Customer onboarding"], products: "Sales prospecting" },
+  { name: "Hunter.io", website: "https://hunter.io", industry: "SaaS", size: "100-500", painPoints: ["Customer support scaling", "Technical assistance", "Feature request handling"], products: "Email finder" },
+  { name: "Snov.io", website: "https://snov.io", industry: "SaaS", size: "100-500", painPoints: ["Customer support demand", "Technical troubleshooting", "Customer onboarding"], products: "Sales automation" },
+  { name: "Reply.io", website: "https://reply.io", industry: "SaaS", size: "100-500", painPoints: ["Customer support scaling", "Technical assistance", "Feature request handling"], products: "Sales engagement" },
+  { name: "Woodpecker", website: "https://woodpecker.co", industry: "SaaS", size: "100-500", painPoints: ["Customer support demand", "Technical troubleshooting", "Enterprise onboarding"], products: "Cold email software" },
+  { name: "Mailshake", website: "https://mailshake.com", industry: "SaaS", size: "100-500", painPoints: ["Support ticket volume", "Technical assistance", "Customer onboarding"], products: "Sales engagement" },
+  { name: "Lemlist", website: "https://lemlist.com", industry: "SaaS", size: "100-500", painPoints: ["Customer support scaling", "Technical troubleshooting", "Feature request handling"], products: "Email outreach" },
+  { name: "ScratchPay", website: "https://scratchpay.com", industry: "FinTech", size: "100-500", painPoints: ["Customer support demand", "Provider support needs", "Application processing"], products: "Healthcare financing" },
+  { name: "CareCredit", website: "https://carecredit.com", industry: "FinTech", size: "1000-5000", painPoints: ["Customer service volume", "Provider support scaling", "Application support"], products: "Healthcare financing" },
+  { name: "Affirm", website: "https://affirm.com", industry: "FinTech", size: "1000-5000", painPoints: ["Customer support demand", "Merchant support scaling", "Dispute resolution"], products: "Buy now pay later" },
+  { name: "Klarna", website: "https://klarna.com", industry: "FinTech", size: "5000-10000", painPoints: ["Global support coverage", "Merchant support needs", "Customer service volume"], products: "Buy now pay later" },
+  { name: "Afterpay", website: "https://afterpay.com", industry: "FinTech", size: "1000-5000", painPoints: ["Customer support scaling", "Merchant onboarding", "Dispute handling"], products: "Buy now pay later" },
+  { name: "Sezzle", website: "https://sezzle.com", industry: "FinTech", size: "500-1000", painPoints: ["Customer support demand", "Merchant support needs", "Payment assistance"], products: "Buy now pay later" },
+  { name: "Zip (QuadPay)", website: "https://zip.co", industry: "FinTech", size: "500-1000", painPoints: ["Customer service volume", "Merchant support scaling", "Application support"], products: "Buy now pay later" },
+  { name: "Splitit", website: "https://splitit.com", industry: "FinTech", size: "100-500", painPoints: ["Customer support needs", "Merchant onboarding", "Technical assistance"], products: "Installment payments" },
+  { name: "PayPal Credit", website: "https://paypal.com", industry: "FinTech", size: "10000+", painPoints: ["Customer service volume", "Dispute resolution", "Technical support demand"], products: "Digital payments, credit" },
 ];
 
 const CONTACT_TITLES = [
-  "VP of Engineering", "Director of Engineering", "Chief Technology Officer", "VP of Manufacturing",
-  "Engineering Manager", "Director of IT", "Plant Manager", "VP of Product Development",
-  "Chief Operating Officer", "Director of Operations", "Manufacturing Director", "IT Director",
-  "VP of R&D", "Operations Manager", "Director of Quality", "Chief Information Officer",
-  "Director of Design Engineering", "Senior Engineering Manager", "Director of Product Engineering",
-  "VP of Technical Operations", "Chief Engineer", "Principal Engineer", "Director of CAD/CAM",
-  "Manufacturing Engineering Manager", "Director of New Product Development", "VP of Innovation",
+  "VP of Operations", "Director of Operations", "Chief Operating Officer", "VP of Customer Success",
+  "Head of Customer Support", "Director of Customer Experience", "VP of People Operations", "Chief People Officer",
+  "Director of HR", "VP of Finance", "Chief Financial Officer", "Controller",
+  "VP of IT", "Chief Information Officer", "Director of Technology", "IT Director",
+  "Head of Engineering", "VP of Product", "Director of Business Operations", "Operations Manager",
+  "Director of Shared Services", "VP of Global Operations", "Head of Back Office", "Director of Process Excellence",
+  "Chief Revenue Officer", "VP of Sales Operations", "Director of Business Development", "Head of Growth",
 ];
 
 const FIRST_NAMES = [
@@ -283,7 +283,7 @@ const OBSERVATION_TEMPLATES = {
     "Demonstrated exceptional discovery skills by asking 5+ probing questions that uncovered the prospect's core pain points",
     "Built strong rapport immediately by referencing the prospect's recent company news and industry challenges",
     "Effectively navigated past the gatekeeper with confidence and professionalism",
-    "Showed deep product knowledge when connecting SOLIDWORKS features to specific customer needs",
+    "Showed deep service knowledge when connecting BSA Solutions offerings to specific customer needs",
     "Handled the budget objection skillfully by shifting focus to ROI and total cost of ownership",
     "Used social proof effectively by mentioning similar companies in the prospect's industry",
     "Demonstrated active listening by accurately summarizing the prospect's concerns before responding",
@@ -298,7 +298,7 @@ const OBSERVATION_TEMPLATES = {
     "Handled initial resistance well but backed off too quickly when prospect hesitated",
     "Good energy and pacing throughout the call, maintained professional tone",
     "Identified key pain point but didn't fully explore the business impact",
-    "Demonstrated knowledge of the manufacturing industry and common challenges",
+    "Demonstrated knowledge of outsourcing benefits and common operational challenges",
     "Asked for the meeting but could have been more direct in setting a specific date/time",
     "Good follow-up on voicemail but could have added more value proposition",
     "Showed improvement in objection handling compared to previous calls",
@@ -327,7 +327,7 @@ const RECOMMENDATION_TEMPLATES = {
   ],
   objectionHandling: [
     "Use the LAER framework: Listen, Acknowledge, Explore, Respond when handling objections",
-    "Prepare responses for the top 5 objections: price, timing, competitor, authority, need",
+    "Prepare responses for the top 5 objections: offshore concerns, timing, competitor BPO, authority, need",
     "When prospect says 'not interested,' ask: 'What would need to change for this to be relevant?'",
     "Practice the feel-felt-found technique for empathetic objection handling",
     "Don't argue - instead, ask questions to understand the real concern behind the objection",
@@ -350,7 +350,7 @@ const RECOMMENDATION_TEMPLATES = {
     "Lead with business outcomes, not product features - ROI, time savings, quality improvement",
     "Use customer success stories from similar companies in their industry",
     "Quantify the value: 'Companies like yours typically see X% reduction in design time'",
-    "Connect SOLIDWORKS capabilities directly to the pain points they mentioned",
+    "Connect BSA Solutions services directly to the operational pain points they mentioned",
     "Prepare an elevator pitch that's 30 seconds or less and focuses on customer benefits",
   ],
 };
@@ -371,7 +371,7 @@ const CRITERIA_MET_TEMPLATES = {
     { met: true, criterion: "Competition awareness", detail: "Asked what other solutions they're considering" },
   ],
   presentation: [
-    { met: true, criterion: "Solution matched to pain points", detail: "Connected SOLIDWORKS features to stated challenges" },
+    { met: true, criterion: "Solution matched to pain points", detail: "Connected BSA Solutions services to stated challenges" },
     { met: true, criterion: "Used customer proof points", detail: "Referenced similar customers or case studies" },
     { met: false, criterion: "Quantified ROI", detail: "Did not provide specific ROI numbers or benchmarks" },
     { met: true, criterion: "Avoided feature dumping", detail: "Focused on relevant capabilities only" },
@@ -396,12 +396,12 @@ function generateDetailedObservations(score: number, disposition: string, sdrNam
   const observations: { category: string; observation: string; quote?: string }[] = [];
   
   const quotes = [
-    "I completely understand your concern about budget...",
+    "I completely understand your concern about offshore operations...",
     "Tell me more about how that affects your team...",
-    "Based on what you've shared, I think SOLIDWORKS could help by...",
+    "Based on what you've shared, I think BSA Solutions could help by...",
     "What would need to happen for you to move forward?",
-    "Other companies in your industry have seen 30% time savings...",
-    "It sounds like version control is really slowing your team down...",
+    "Other companies in your industry have seen 60% cost savings...",
+    "It sounds like scaling your support team is really challenging...",
     "If we could solve that problem, what would that mean for your Q2 goals?",
   ];
   
@@ -652,53 +652,53 @@ function dateInLastWeek(): Date {
 
 function generateTranscript(contactName: string, companyName: string, outcome: string, painPoints: string[]): string {
   const sdrName = "SDR";
-  const painPoint = painPoints[0] || "CAD software challenges";
-  
+  const painPoint = painPoints[0] || "scaling operational challenges";
+
   const intros = [
-    `${sdrName}: Hi ${contactName}, this is calling from Hawk Ridge Systems. I noticed ${companyName} has been expanding operations. Do you have a moment to discuss your engineering design workflows?`,
-    `${sdrName}: Good morning ${contactName}, I'm reaching out from Hawk Ridge Systems. We work with many companies in your industry on SOLIDWORKS solutions. Is this a good time?`,
+    `${sdrName}: Hi ${contactName}, this is calling from BSA Solutions. I noticed ${companyName} has been expanding operations. Do you have a moment to discuss how we help companies scale their teams?`,
+    `${sdrName}: Good morning ${contactName}, I'm reaching out from BSA Solutions. We work with many companies in your industry on talent outsourcing. Is this a good time?`,
     `${sdrName}: Hello ${contactName}, hope I'm not catching you at a bad time. I wanted to connect about how ${companyName} is handling ${painPoint}?`,
   ];
   
   const discoveries = [
-    `${contactName}: Actually, yes. We've been struggling with ${painPoint}. It's been causing delays in our product development.
-${sdrName}: I hear that a lot from engineering leaders. Can you tell me more about the specific challenges you're facing?
-${contactName}: Well, our current CAD system is over 5 years old, and we're finding it hard to collaborate across our different sites.
-${sdrName}: That's a common issue. How many engineers are working with design files on a daily basis?
-${contactName}: We have about 45 engineers across three locations. Version control has become a nightmare.`,
-    `${contactName}: Yes, actually. We're evaluating different solutions right now.
+    `${contactName}: Actually, yes. We've been struggling with ${painPoint}. It's been causing delays in our operations.
+${sdrName}: I hear that a lot from operations leaders. Can you tell me more about the specific challenges you're facing?
+${contactName}: Well, our current team is stretched thin, and we're finding it hard to scale during peak periods.
+${sdrName}: That's a common issue. How many support agents or back-office staff do you currently have?
+${contactName}: We have about 45 people across customer support and operations. The hiring and training costs have become a nightmare.`,
+    `${contactName}: Yes, actually. We're evaluating different outsourcing solutions right now.
 ${sdrName}: Perfect timing then. What's driving the evaluation?
-${contactName}: Mainly ${painPoint}. Our current tools just aren't keeping up with what we need.
-${sdrName}: I understand. What specific capabilities are you looking for in a new solution?
-${contactName}: Better simulation, definitely. And we need seamless PDM integration.`,
-    `${contactName}: We're actually locked into a contract, but I'm always interested in learning what's new.
-${sdrName}: I appreciate that. When does your current agreement expire?
-${contactName}: End of next year. But if there's compelling value, we can always revisit earlier.
-${sdrName}: That makes sense. What would make you consider switching before the contract ends?
-${contactName}: Significant productivity improvements. Our ${painPoint} is really hurting our time-to-market.`,
+${contactName}: Mainly ${painPoint}. Our current in-house team just can't keep up with demand.
+${sdrName}: I understand. What specific capabilities are you looking for in an outsourcing partner?
+${contactName}: Quality talent, definitely. And we need 24/7 coverage with good English skills.`,
+    `${contactName}: We're actually working with another BPO, but I'm always interested in learning about alternatives.
+${sdrName}: I appreciate that. How is that relationship working out?
+${contactName}: It's okay, but there are some quality issues. We might be open to a change.
+${sdrName}: That makes sense. What would make you consider switching to a new partner?
+${contactName}: Better talent quality and more flexibility. Our ${painPoint} is really hurting our customer satisfaction scores.`,
   ];
   
   const qualifications = {
-    qualified: `${sdrName}: Based on what you've shared, it sounds like SOLIDWORKS could address these challenges. We have several customers in your industry who saw 30% faster design cycles after implementation.
+    qualified: `${sdrName}: Based on what you've shared, it sounds like BSA Solutions could address these challenges. We have several customers in your industry who saw 60% cost savings while improving quality after partnering with us.
 ${contactName}: That would be significant for us. What would be the next steps?
-${sdrName}: I'd recommend a technical assessment where our solutions engineer evaluates your specific workflow. Would that be valuable?
-${contactName}: Yes, let's do that. I can also loop in our CAD manager and IT director.
-${sdrName}: Perfect. I'll send over some preliminary information and set up a call with our technical team.`,
-    "meeting-booked": `${sdrName}: Given your timeline and the challenges you've outlined, I think a personalized demo would be really valuable. Our solution engineer can show exactly how SOLIDWORKS handles ${painPoint}.
+${sdrName}: I'd recommend a discovery call where our solutions team evaluates your specific operational needs. Would that be valuable?
+${contactName}: Yes, let's do that. I can also loop in our VP of Operations and HR director.
+${sdrName}: Perfect. I'll send over some preliminary information and set up a call with our team.`,
+    "meeting-booked": `${sdrName}: Given your timeline and the challenges you've outlined, I think a personalized consultation would be really valuable. Our solutions team can show exactly how BSA Solutions handles ${painPoint}.
 ${contactName}: That sounds good. When can we schedule that?
 ${sdrName}: How does next Tuesday at 2 PM work for you? We can do a 45-minute session.
 ${contactName}: Let me check... yes, that works. Send me a calendar invite.
 ${sdrName}: Excellent! I'll include a brief agenda. Who else should I invite from your team?
-${contactName}: Add our engineering manager, Mike Stevens, and Sarah from IT.`,
+${contactName}: Add our operations manager, Mike Stevens, and Sarah from HR.`,
     connected: `${sdrName}: I really appreciate you taking the time today, ${contactName}. It sounds like there's definitely some alignment here.
 ${contactName}: Yes, thanks for the call. Send me some information and I'll review it with my team.
 ${sdrName}: Absolutely. I'll send over a case study from a similar company in your industry. Can I follow up next week to see if you have questions?
 ${contactName}: Sure, early next week would be fine.`,
-    "not-interested": `${contactName}: Look, we just signed a 5-year agreement with PTC last quarter. There's really no point in continuing this conversation.
-${sdrName}: I completely understand. Timing is everything. Would it be alright if I checked back in about 4 years as you approach renewal?
+    "not-interested": `${contactName}: Look, we just signed a 3-year agreement with another BPO last quarter. There's really no point in continuing this conversation.
+${sdrName}: I completely understand. Timing is everything. Would it be alright if I checked back in about 2 years as you approach renewal?
 ${contactName}: That's fine, but I can't promise we'll be interested.
 ${sdrName}: I appreciate your honesty. Things change, and we'll be here if you ever need alternatives.`,
-    voicemail: `${sdrName}: Hi ${contactName}, this is calling from Hawk Ridge Systems. I work with engineering teams at companies like ${companyName} on SOLIDWORKS solutions. I'd love to discuss how we're helping companies address ${painPoint}. Please give me a call back at your convenience, or I'll try you again later this week.`,
+    voicemail: `${sdrName}: Hi ${contactName}, this is calling from BSA Solutions. I work with operations teams at companies like ${companyName} on talent outsourcing solutions. I'd love to discuss how we're helping companies address ${painPoint}. Please give me a call back at your convenience, or I'll try you again later this week.`,
   };
   
   const outcomeKey = outcome === "meeting-booked" ? "meeting-booked" : 
@@ -719,47 +719,47 @@ function generateCoachingAnalysis(score: number, disposition: string): string {
     "Excellent rapport building through industry-specific knowledge",
     "Effective use of open-ended discovery questions",
     "Professional tone maintained throughout the call",
-    "Demonstrated deep product knowledge and competitive positioning",
+    "Demonstrated deep service knowledge and competitive positioning",
     "Handled objections with confidence and relevant examples",
     "Active listening skills evident through follow-up questions",
     "Clear next steps established with specific timeline",
     "Good use of customer success stories to build credibility",
     "Effectively uncovered budget and decision-making process",
   ];
-  
+
   const improvements = [
     "Could ask more discovery questions before presenting solutions",
     "Consider slowing down the pace to allow prospect to elaborate",
-    "More focus needed on identifying specific pain points",
+    "More focus needed on identifying specific operational pain points",
     "Better qualification of decision-making authority recommended",
     "Stronger transition to closing could improve conversion",
     "More personalization based on pre-call research would help",
     "Value articulation could be more specific to prospect's industry",
     "Better handling of silence/pauses to encourage prospect sharing",
-    "Consider deeper exploration of competitive landscape",
-    "More emphasis on ROI and business impact would strengthen pitch",
+    "Consider deeper exploration of current outsourcing situation",
+    "More emphasis on cost savings and quality improvement would strengthen pitch",
   ];
-  
+
   const actions = [
     "Practice discovery question techniques using SPIN methodology",
-    "Review objection handling playbook for pricing concerns",
-    "Study competitor differentiation points for PTC and Autodesk",
+    "Review objection handling playbook for offshore concerns",
+    "Study competitor differentiation points vs TaskUs and Teleperformance",
     "Work on call opening variations for different industries",
     "Improve closing statement delivery with specific CTAs",
     "Focus on BANT qualification in first 5 minutes",
-    "Practice handling 'we're happy with current vendor' objection",
+    "Practice handling 'we've had bad BPO experiences' objection",
     "Develop industry-specific case study references",
   ];
   
   const bantAssessment = {
-    budget: disposition === "meeting-booked" || disposition === "qualified" ? 
+    budget: disposition === "meeting-booked" || disposition === "qualified" ?
       { status: "identified", details: "Prospect confirmed budget allocation for Q2" } :
       { status: "unknown", details: "Budget not discussed in this call" },
-    authority: disposition === "meeting-booked" ? 
+    authority: disposition === "meeting-booked" ?
       { status: "confirmed", details: "VP-level decision maker with final approval authority" } :
-      { status: "partial", details: "Technical influencer, need to identify economic buyer" },
-    need: { status: "confirmed", details: "Clear pain points around current CAD limitations" },
-    timeline: disposition === "meeting-booked" ? 
+      { status: "partial", details: "Operations influencer, need to identify economic buyer" },
+    need: { status: "confirmed", details: "Clear pain points around operational scaling challenges" },
+    timeline: disposition === "meeting-booked" ?
       { status: "defined", details: "Looking to implement by end of Q2" } :
       { status: "exploratory", details: "No specific timeline established" },
   };
@@ -969,16 +969,16 @@ async function seedDemoData() {
         
         await db.insert(researchPackets).values({
           leadId: lead.id,
-          companyIntel: `${company.name} is a ${company.size} employee ${company.industry} company. ${company.products}. They are a market leader with strong growth trajectory and significant investment in engineering and product development. Recent news includes expansion initiatives and digital transformation projects.`,
-          contactIntel: `${contactName} has been with ${company.name} for ${randomInt(3, 15)} years in increasingly senior engineering leadership roles. Background includes experience with major CAD platforms and PLM systems. Active on LinkedIn with ${randomInt(800, 8000)} connections. Known for driving technology adoption and process improvement initiatives.`,
+          companyIntel: `${company.name} is a ${company.size} employee ${company.industry} company. ${company.products}. They are a market leader with strong growth trajectory and significant investment in technology and operations. Recent news includes expansion initiatives and scaling customer operations.`,
+          contactIntel: `${contactName} has been with ${company.name} for ${randomInt(3, 15)} years in increasingly senior operations leadership roles. Background includes experience with operational scaling and team management. Active on LinkedIn with ${randomInt(800, 8000)} connections. Known for driving operational excellence and process improvement initiatives.`,
           painSignals: company.painPoints.map(p => `- ${p}`).join("\n"),
-          competitorPresence: `Currently using ${randomItem(["AutoCAD", "Inventor", "Fusion 360", "PTC Creo", "Siemens NX", "CATIA"])}. ${randomItem(["Some concerns about support quality and upgrade costs.", "Looking to consolidate multi-CAD environment.", "Evaluating alternatives for upcoming contract renewal.", "Frustrated with lack of simulation capabilities."])}`,
-          fitAnalysis: `Strong fit for SOLIDWORKS ${company.industry.includes("Aerospace") || company.industry.includes("Defense") ? "Premium with Simulation Professional" : company.industry.includes("Medical") ? "Professional with PDM" : "Professional with CAM"} solutions. ${company.size.includes("10000") ? "Enterprise-level deployment" : company.size.includes("5000") ? "Large deployment" : "Mid-market opportunity"} with budget alignment for ${priority === "hot" ? "immediate purchase" : priority === "warm" ? "Q1-Q2 decision" : "long-term nurturing"}.`,
+          competitorPresence: `Currently using ${randomItem(["in-house team only", "TaskUs", "Teleperformance", "Concentrix", "Alorica", "no outsourcing partner"])}. ${randomItem(["Some concerns about quality and turnover.", "Looking to diversify outsourcing partners.", "Evaluating alternatives for better cost structure.", "Frustrated with current provider's flexibility."])}`,
+          fitAnalysis: `Strong fit for BSA Solutions ${company.industry.includes("E-Commerce") || company.industry.includes("SaaS") ? "Customer Support Team with 24/7 coverage" : company.industry.includes("Healthcare") ? "Back Office and Claims Processing" : company.industry.includes("FinTech") ? "Technical Support and Compliance" : "Dedicated Operations Team"}. ${company.size.includes("10000") ? "Enterprise-level engagement" : company.size.includes("5000") ? "Large team deployment" : "Mid-market starter team"} with budget alignment for ${priority === "hot" ? "immediate pilot" : priority === "warm" ? "Q1-Q2 decision" : "long-term nurturing"}.`,
           fitScore: fitScore,
           priority: priority,
-          talkTrack: `Opening: "Hi ${contactName}, I noticed ${company.name} has been ${randomItem(["expanding operations", "investing in new product development", "modernizing your engineering workflows"])}. Many ${company.industry} companies are finding that ${company.painPoints[0]}..."\n\nValue Prop: Focus on ${company.industry}-specific ROI and productivity gains. Reference similar customers like ${randomItem(["Boeing", "Lockheed", "Caterpillar", "John Deere", "Medtronic"])} success stories.\n\nCall to Action: Offer a ${randomItem(["technical assessment", "personalized demo", "engineering workflow review"])}.`,
-          discoveryQuestions: `1. What CAD/CAM software are you currently using across your engineering teams?\n2. How many engineers work with design files on a daily basis?\n3. What's your biggest challenge with ${company.painPoints[0]}?\n4. When does your current software licensing agreement expire?\n5. Who else would be involved in evaluating a new design platform?\n6. What's your timeline for making improvements to your engineering workflow?`,
-          objectionHandles: `Price: "I understand budget is a consideration. Let me show you our ROI calculator that demonstrates typical 3-year TCO savings of 25-40%..."\nTiming: "I completely understand. Many of our customers started with a pilot program on one team before broader rollout..."\nCompetitor: "That's a solid platform too. The key differentiator for ${company.industry} companies is our ${randomItem(["simulation depth", "PDM integration", "manufacturing connectivity"])}..."`,
+          talkTrack: `Opening: "Hi ${contactName}, I noticed ${company.name} has been ${randomItem(["scaling operations", "investing in customer experience", "expanding their team"])}. Many ${company.industry} companies are finding that ${company.painPoints[0]}..."\n\nValue Prop: Focus on ${company.industry}-specific cost savings and quality improvements. Reference similar customers like ${randomItem(["Shopify Plus", "Klaviyo", "Zendesk", "Oscar Health", "Stripe"])} success stories.\n\nCall to Action: Offer a ${randomItem(["discovery consultation", "personalized assessment", "operations review"])}.`,
+          discoveryQuestions: `1. How are you currently handling customer support and back-office operations?\n2. How many people do you have on your operations team today?\n3. What's your biggest challenge with ${company.painPoints[0]}?\n4. Are you working with any outsourcing partners currently?\n5. Who else would be involved in evaluating a new outsourcing partner?\n6. What's your timeline for making improvements to your operations?`,
+          objectionHandles: `Offshore Concerns: "I completely understand the hesitation. Our Philippines team has 95% English proficiency and strong cultural alignment with Western businesses..."\nTiming: "I completely understand. Many of our customers started with a small pilot of 3-5 agents before scaling up..."\nCompetitor: "That's a solid provider too. The key differentiator for ${company.industry} companies is our ${randomItem(["talent quality", "flexibility to scale", "Great Place to Work certified culture"])}..."`,
           verificationStatus: "verified",
         }).onConflictDoNothing();
       }
@@ -1047,7 +1047,7 @@ async function seedDemoData() {
         endedAt: new Date(callDate.getTime() + duration * 1000),
         disposition: disposition,
         sentimentScore: score,
-        keyTakeaways: duration > 120 ? `Key interest in ${randomItem(["SOLIDWORKS Professional", "PDM", "Simulation", "CAM", "Technical Services"])}. ${lead.painPoints[0]}` : null,
+        keyTakeaways: duration > 120 ? `Key interest in ${randomItem(["Customer Support Team", "Virtual Assistants", "Accounting Team", "Technical Support", "Dedicated Agents"])}. ${lead.painPoints[0]}` : null,
         nextSteps: disposition === "meeting-booked" ? "Demo scheduled with solutions engineer" : 
                    disposition === "qualified" ? "Send proposal and case studies" :
                    disposition === "callback-scheduled" ? "Follow up call scheduled" : 
@@ -1106,8 +1106,8 @@ async function seedDemoData() {
   console.log(`   - ${recentCallCount} Recent calls (last 7 days)`);
   console.log(`\n🔑 All demo accounts use password: ${DEMO_PASSWORD}`);
   console.log(`\n📧 Example logins:`);
-  console.log(`   - SDR: carlos.martinez@hawkridge.com`);
-  console.log(`   - Manager: roberto.hernandez@hawkridge.com`);
+  console.log(`   - SDR: carlos.martinez@bsasolutions.com`);
+  console.log(`   - Manager: roberto.hernandez@bsasolutions.com`);
 }
 
 seedDemoData()

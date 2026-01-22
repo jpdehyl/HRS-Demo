@@ -987,7 +987,7 @@ function LeadDetailPanel({
 interface PainPointData {
   pain: string;
   severity: string;
-  hawkRidgeSolution?: string;
+  bsaSolution?: string;
 }
 
 interface ProductMatchData {
@@ -1140,7 +1140,7 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
       return {
         pain: arrowMatch[0]?.replace(/\[.*?\]/, '').trim() || line,
         severity: severityMatch?.[1]?.toLowerCase() || 'medium',
-        hawkRidgeSolution: arrowMatch[1]?.trim() || ''
+        bsaSolution: arrowMatch[1]?.trim() || ''
       };
     }).filter(p => p.pain);
   };
@@ -1430,10 +1430,10 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
               {painPoints.length > 0 ? (
                 <div className="space-y-2">
                   <p className="text-lg font-medium">{painPoints[0].pain}</p>
-                  {painPoints[0].hawkRidgeSolution && (
+                  {painPoints[0].bsaSolution && (
                     <div className="flex items-start gap-2 text-green-600 dark:text-green-400">
                       <ArrowRight className="h-4 w-4 mt-1 flex-shrink-0" />
-                      <span>{painPoints[0].hawkRidgeSolution}</span>
+                      <span>{painPoints[0].bsaSolution}</span>
                     </div>
                   )}
                 </div>
@@ -1582,10 +1582,10 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
                     </Badge>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{pp.pain}</p>
-                      {pp.hawkRidgeSolution && (
+                      {pp.bsaSolution && (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           <ChevronRight className="h-3 w-3" />
-                          {pp.hawkRidgeSolution}
+                          {pp.bsaSolution}
                         </p>
                       )}
                     </div>
@@ -1599,7 +1599,7 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Target className="h-4 w-4 text-green-500" />
-                <h4 className="font-medium text-sm">Product Matches</h4>
+                <h4 className="font-medium text-sm">Service Matches</h4>
               </div>
               <div className="grid gap-2">
                 {productMatches.map((pm, i) => (

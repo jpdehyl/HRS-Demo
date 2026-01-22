@@ -493,15 +493,15 @@ Return a JSON object with these EXACT keys:
   ],
   
   "productMatches": [
-    {"productId": "solidworks-premium", "productName": "SOLIDWORKS Premium", "category": "3D CAD + Simulation", "matchScore": 90, "rationale": "Why this product fits their needs", "valueProposition": "How it will help them specifically"},
-    {"productId": "camworks", "productName": "CAMWorks", "category": "CAM / Manufacturing", "matchScore": 85, "rationale": "Why CAMWorks", "valueProposition": "Specific value"}
+    {"productId": "customer-support-team", "productName": "Customer Support Team", "category": "Customer Experience", "matchScore": 90, "rationale": "Why this service fits their needs", "valueProposition": "How it will help them specifically"},
+    {"productId": "virtual-assistant-team", "productName": "Virtual Assistant Team", "category": "Administrative Support", "matchScore": 85, "rationale": "Why VAs would help", "valueProposition": "Specific value"}
   ],
-  
+
   "techStackIntel": [
-    "Current CAD tool they likely use",
-    "Manufacturing systems",
-    "Data management approach",
-    "Other relevant technology"
+    "Current tools they use for operations",
+    "Support/helpdesk systems (Zendesk, Intercom, etc.)",
+    "Project management approach",
+    "Other relevant operational technology"
   ],
   
   "buyingTriggers": [
@@ -517,7 +517,7 @@ Return a JSON object with these EXACT keys:
     {"title": "Previous Title", "company": "Previous Company", "duration": "3 years", "relevance": "Relevant experience"}
   ],
   
-  "professionalInterests": ["Design efficiency", "Manufacturing automation", "Team productivity", "specific interests based on their role"],
+  "professionalInterests": ["Operational efficiency", "Team scaling", "Cost optimization", "specific interests based on their role"],
   
   "decisionMakingStyle": "How this person likely makes decisions based on their role and background",
   
@@ -544,20 +544,20 @@ Return a JSON object with these EXACT keys:
   ],
   
   "objectionHandles": [
-    {"objection": "We're happy with our current tools", "response": "Specific response referencing their situation"},
-    {"objection": "Budget is tight", "response": "ROI-focused response"},
-    {"objection": "Too busy to switch", "response": "Migration support response"},
-    {"objection": "Need to involve others", "response": "Champion enablement response"}
+    {"objection": "We've had bad experiences with outsourcing", "response": "Specific response about BSA's Great Place to Work certification and quality focus"},
+    {"objection": "Budget is tight", "response": "ROI-focused response highlighting 60-70% cost savings"},
+    {"objection": "Concerned about communication/time zones", "response": "Response about 95% English proficiency and flexible coverage options"},
+    {"objection": "Need to involve others", "response": "Champion enablement response with case studies and references"}
   ],
   
   "theAsk": "The specific next step to propose based on their likely readiness and situation",
   
   "fitScore": 0-100 STRICT SCORING (follow Lead Scoring Parameters doc if provided above):
-    - Industry fit (25 pts max): Manufacturing/engineering = 20-25, Other industrial = 10-15, Non-industrial/unknown = 0-5
-    - Company size (20 pts max): 50-500 employees = 20, 501-2000 = 15, 10-49 = 10, <10 or unknown = 0-5
-    - Pain signals (25 pts max): Clear CAD/PDM/CAM pain = 20-25, Implied pain = 10-15, No signals = 0-5
-    - Tech readiness (15 pts max): Using competitor CAD (AutoCAD/Inventor/Creo) = 12-15, Unknown/no CAD = 5-8, Already SOLIDWORKS = 0-3
-    - Buying triggers (15 pts max): Active project/expansion/deadline = 12-15, General interest = 5-8, No triggers = 0-3
+    - Industry fit (25 pts max): E-commerce/SaaS/Tech = 20-25, Professional Services/Healthcare = 15-20, Other industries = 5-10
+    - Company size (20 pts max): 50-500 employees = 20, 10-49 (growing) = 15, 501-2000 = 12, <10 or unknown = 0-5
+    - Pain signals (25 pts max): Clear scaling/cost/hiring pain = 20-25, Implied operational challenges = 10-15, No signals = 0-5
+    - Outsourcing readiness (15 pts max): Currently outsourcing or expressed interest = 12-15, Open to it = 5-8, No indication = 0-3
+    - Buying triggers (15 pts max): Active hiring/scaling/cost pressure = 12-15, General growth = 5-8, No triggers = 0-3
     
     PENALTIES (subtract from total):
     - Gmail/personal email with unknown company: -30 points (likely not a real business lead)

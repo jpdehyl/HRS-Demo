@@ -27,182 +27,191 @@ interface LineItem {
   discount: number;
 }
 
-const HAWK_RIDGE_PRODUCTS: ProductItem[] = [
+const BSA_SERVICES: ProductItem[] = [
+  // Customer Experience
   {
-    id: "sw-standard",
-    name: "SOLIDWORKS Standard",
-    category: "CAD Software",
-    basePrice: 3995,
-    description: "Essential 3D CAD with part/assembly modeling, 2D drawings",
-    features: ["Part & Assembly Modeling", "2D Drawings", "Basic Simulation", "eDrawings"]
+    id: "cs-agent",
+    name: "Customer Support Agent",
+    category: "Customer Experience",
+    basePrice: 2250,
+    description: "Dedicated customer service representative (monthly)",
+    features: ["Phone Support", "Email Support", "Chat Support", "Ticket Management", "24/7 Coverage Option"]
   },
   {
-    id: "sw-professional",
-    name: "SOLIDWORKS Professional",
-    category: "CAD Software",
-    basePrice: 5490,
-    description: "Advanced features including PDM, rendering, and toolbox",
-    features: ["All Standard Features", "SOLIDWORKS PDM Standard", "PhotoView 360", "Toolbox", "Task Scheduler"]
+    id: "cs-team-lead",
+    name: "Customer Support Team Lead",
+    category: "Customer Experience",
+    basePrice: 3200,
+    description: "Senior agent to manage and mentor support team (monthly)",
+    features: ["Team Supervision", "Quality Assurance", "Escalation Handling", "Performance Reporting"]
+  },
+  // Administrative Support
+  {
+    id: "va-general",
+    name: "Virtual Assistant",
+    category: "Administrative",
+    basePrice: 1800,
+    description: "Executive/administrative assistant (monthly)",
+    features: ["Calendar Management", "Email Management", "Travel Booking", "Research Tasks", "Document Prep"]
   },
   {
-    id: "sw-premium",
-    name: "SOLIDWORKS Premium",
-    category: "CAD Software",
-    basePrice: 7995,
-    description: "Complete design solution with simulation and routing",
-    features: ["All Professional Features", "Advanced Simulation", "Routing (Piping/Tubing)", "Motion Analysis", "Tolerance Analysis"]
+    id: "va-executive",
+    name: "Executive Virtual Assistant",
+    category: "Administrative",
+    basePrice: 2500,
+    description: "Senior VA with advanced skills (monthly)",
+    features: ["All VA Features", "Project Coordination", "Meeting Prep", "Stakeholder Communication"]
+  },
+  // Finance Operations
+  {
+    id: "bookkeeper",
+    name: "Bookkeeper",
+    category: "Finance",
+    basePrice: 2200,
+    description: "QuickBooks/Xero bookkeeping professional (monthly)",
+    features: ["AP/AR Management", "Bank Reconciliation", "Invoice Processing", "Monthly Reports"]
   },
   {
-    id: "sw-subscription",
-    name: "SOLIDWORKS Annual Subscription",
-    category: "Subscription",
-    basePrice: 1295,
-    description: "Annual maintenance and support per license",
-    features: ["Software Updates", "Technical Support", "Online Resources", "Service Packs"]
+    id: "accountant",
+    name: "Staff Accountant",
+    category: "Finance",
+    basePrice: 3000,
+    description: "Full-charge accounting professional (monthly)",
+    features: ["All Bookkeeper Features", "Financial Statements", "Month-End Close", "Variance Analysis"]
   },
   {
-    id: "pdm-standard",
-    name: "PDM Standard (CAD Editor)",
-    category: "Data Management",
-    basePrice: 1995,
-    description: "Document management for CAD users",
-    features: ["Version Control", "Check-in/Check-out", "Revision Management", "BOM Management"]
+    id: "financial-analyst",
+    name: "Financial Analyst",
+    category: "Finance",
+    basePrice: 3500,
+    description: "FP&A and financial modeling specialist (monthly)",
+    features: ["Financial Modeling", "Budgeting & Forecasting", "KPI Tracking", "Management Reporting"]
+  },
+  // Technology
+  {
+    id: "developer-junior",
+    name: "Junior Developer",
+    category: "Technology",
+    basePrice: 2800,
+    description: "Entry-level full-stack developer (monthly)",
+    features: ["Frontend Development", "Backend Development", "Code Review", "Documentation"]
   },
   {
-    id: "pdm-professional",
-    name: "PDM Professional (CAD Editor)",
-    category: "Data Management",
-    basePrice: 3495,
-    description: "Enterprise data management with workflows",
-    features: ["All Standard Features", "Automated Workflows", "SQL Database", "Web2 Client", "API Access"]
+    id: "developer-mid",
+    name: "Mid-Level Developer",
+    category: "Technology",
+    basePrice: 4000,
+    description: "Experienced software developer (monthly)",
+    features: ["All Junior Features", "Architecture Input", "Technical Leadership", "Mentoring"]
   },
   {
-    id: "pdm-contributor",
-    name: "PDM Contributor License",
-    category: "Data Management",
-    basePrice: 695,
-    description: "View and markup access for non-CAD users",
-    features: ["View Files", "Markup & Redline", "Search", "Basic Workflows"]
+    id: "developer-senior",
+    name: "Senior Developer",
+    category: "Technology",
+    basePrice: 5500,
+    description: "Senior engineer with 5+ years experience (monthly)",
+    features: ["All Mid Features", "System Design", "Code Standards", "Sprint Leadership"]
   },
   {
-    id: "cam-standard",
-    name: "CAMWorks Standard",
-    category: "CAM Software",
-    basePrice: 4995,
-    description: "2.5-axis milling and turning",
-    features: ["2.5-Axis Milling", "Turning", "Feature Recognition", "Associative Machining"]
+    id: "qa-engineer",
+    name: "QA Engineer",
+    category: "Technology",
+    basePrice: 2500,
+    description: "Manual and automated testing specialist (monthly)",
+    features: ["Test Planning", "Manual Testing", "Automation Scripts", "Bug Reporting"]
+  },
+  // Marketing & Creative
+  {
+    id: "social-media-manager",
+    name: "Social Media Manager",
+    category: "Marketing",
+    basePrice: 2000,
+    description: "Social media content and engagement specialist (monthly)",
+    features: ["Content Creation", "Community Management", "Analytics", "Campaign Management"]
   },
   {
-    id: "cam-professional",
-    name: "CAMWorks Professional",
-    category: "CAM Software",
-    basePrice: 7495,
-    description: "Multi-axis milling with advanced toolpaths",
-    features: ["All Standard Features", "3-Axis Milling", "4/5-Axis Indexing", "Advanced Toolpaths"]
+    id: "content-writer",
+    name: "Content Writer",
+    category: "Marketing",
+    basePrice: 1800,
+    description: "Blog, web, and marketing content writer (monthly)",
+    features: ["Blog Posts", "Web Copy", "Email Content", "SEO Optimization"]
   },
   {
-    id: "sim-standard",
-    name: "SOLIDWORKS Simulation Standard",
-    category: "Simulation",
-    basePrice: 3995,
-    description: "Linear static stress analysis",
-    features: ["Static Analysis", "Motion Analysis", "Fatigue Analysis", "Trend Tracker"]
+    id: "graphic-designer",
+    name: "Graphic Designer",
+    category: "Creative",
+    basePrice: 2200,
+    description: "Visual design for marketing and branding (monthly)",
+    features: ["Social Graphics", "Marketing Materials", "Brand Assets", "Presentation Design"]
   },
   {
-    id: "sim-professional",
-    name: "SOLIDWORKS Simulation Professional",
-    category: "Simulation",
-    basePrice: 7995,
-    description: "Advanced analysis including thermal and frequency",
-    features: ["All Standard Features", "Thermal Analysis", "Frequency Analysis", "Buckling", "Drop Test"]
+    id: "video-editor",
+    name: "Video Editor",
+    category: "Creative",
+    basePrice: 2500,
+    description: "Video production and editing specialist (monthly)",
+    features: ["Video Editing", "Motion Graphics", "Color Correction", "Content Repurposing"]
+  },
+  // E-Commerce
+  {
+    id: "ecom-specialist",
+    name: "E-Commerce Specialist",
+    category: "E-Commerce",
+    basePrice: 2000,
+    description: "Product listing and marketplace management (monthly)",
+    features: ["Product Listings", "Inventory Updates", "Catalog Management", "Order Processing"]
   },
   {
-    id: "sim-premium",
-    name: "SOLIDWORKS Simulation Premium",
-    category: "Simulation",
-    basePrice: 12995,
-    description: "Nonlinear and dynamics simulation",
-    features: ["All Professional Features", "Nonlinear Analysis", "Dynamic Analysis", "Composite Analysis"]
+    id: "amazon-specialist",
+    name: "Amazon Specialist",
+    category: "E-Commerce",
+    basePrice: 2500,
+    description: "Amazon Seller Central expert (monthly)",
+    features: ["Listing Optimization", "PPC Management", "Review Management", "Inventory Planning"]
+  },
+  // Data & Back Office
+  {
+    id: "data-entry",
+    name: "Data Entry Specialist",
+    category: "Back Office",
+    basePrice: 1400,
+    description: "High-volume data processing (monthly)",
+    features: ["Data Entry", "Data Cleansing", "Document Processing", "Database Updates"]
+  },
+  // Sales & HR
+  {
+    id: "sdr",
+    name: "Sales Development Rep",
+    category: "Sales",
+    basePrice: 2500,
+    description: "Outbound prospecting and lead qualification (monthly)",
+    features: ["Cold Calling", "Email Outreach", "Lead Research", "Meeting Setting"]
   },
   {
-    id: "printer-f170",
-    name: "Stratasys F170",
-    category: "3D Printing",
-    basePrice: 19900,
-    description: "Entry-level industrial FDM printer",
-    features: ["254 x 254 x 254mm Build", "PLA & ASA Materials", "GrabCAD Print", "Remote Monitoring"]
+    id: "recruiter",
+    name: "Recruiter",
+    category: "HR",
+    basePrice: 2500,
+    description: "Talent sourcing and recruiting support (monthly)",
+    features: ["Sourcing", "Screening", "Interview Scheduling", "ATS Management"]
+  },
+  // Setup & Onboarding
+  {
+    id: "setup-fee",
+    name: "Team Setup Fee",
+    category: "Setup",
+    basePrice: 500,
+    description: "One-time onboarding and setup per team member",
+    features: ["Recruitment", "Onboarding", "Training Setup", "Tool Configuration"]
   },
   {
-    id: "printer-f370",
-    name: "Stratasys F370",
-    category: "3D Printing",
-    basePrice: 49900,
-    description: "Mid-range FDM with larger build volume",
-    features: ["355 x 254 x 355mm Build", "Engineering Materials", "Soluble Supports", "Network Ready"]
-  },
-  {
-    id: "printer-j55",
-    name: "Stratasys J55",
-    category: "3D Printing",
-    basePrice: 99000,
-    description: "Full-color PolyJet desktop printer",
-    features: ["1174 x 132mm Build", "Full Color", "Multi-Material", "Office-Friendly"]
-  },
-  {
-    id: "scanner-gom",
-    name: "GOM ATOS Q 3D Scanner",
-    category: "3D Scanning",
-    basePrice: 75000,
-    description: "High-precision blue light scanner",
-    features: ["Blue Light Technology", "Automated Inspection", "GOM Inspect Software", "High Accuracy"]
-  },
-  {
-    id: "training-essentials",
-    name: "SOLIDWORKS Essentials Training",
-    category: "Training",
-    basePrice: 1995,
-    description: "4-day instructor-led fundamentals course",
-    features: ["4 Days", "Instructor-Led", "Certification Prep", "Hands-on Exercises"]
-  },
-  {
-    id: "training-advanced",
-    name: "Advanced Training Package",
-    category: "Training",
-    basePrice: 3495,
-    description: "Specialized training (Surfacing, Weldments, etc.)",
-    features: ["Specialized Topics", "Certification Track", "Project-Based", "Best Practices"]
-  },
-  {
-    id: "support-bronze",
-    name: "Bronze Support Package",
-    category: "Support",
-    basePrice: 2995,
-    description: "Annual priority technical support",
-    features: ["Phone Support", "Email Support", "Knowledge Base", "Standard Response"]
-  },
-  {
-    id: "support-silver",
-    name: "Silver Support Package",
-    category: "Support",
-    basePrice: 5995,
-    description: "Enhanced support with faster response",
-    features: ["All Bronze Features", "Priority Response", "Remote Sessions", "Quarterly Check-ins"]
-  },
-  {
-    id: "support-gold",
-    name: "Gold Support Package",
-    category: "Support",
-    basePrice: 9995,
-    description: "Premium dedicated support with on-site visits",
-    features: ["All Silver Features", "Dedicated Rep", "On-Site Visits", "Custom Training"]
-  },
-  {
-    id: "implementation",
-    name: "Implementation Services",
-    category: "Services",
-    basePrice: 4995,
-    description: "Professional deployment and configuration",
-    features: ["Installation", "Configuration", "Data Migration", "User Setup"]
+    id: "training-custom",
+    name: "Custom Training Program",
+    category: "Setup",
+    basePrice: 1500,
+    description: "Tailored training development (one-time)",
+    features: ["Process Documentation", "Training Materials", "Knowledge Transfer", "Certification"]
   }
 ];
 
@@ -223,7 +232,7 @@ const PAYMENT_TERMS = [
   { label: "36-Month Financing", value: "36mo", multiplier: 1.15, monthly: true }
 ];
 
-const categories = ["All", "CAD Software", "Data Management", "CAM Software", "Simulation", "3D Printing", "3D Scanning", "Training", "Support", "Services", "Subscription"];
+const categories = ["All", "Customer Experience", "Administrative", "Finance", "Technology", "Marketing", "Creative", "E-Commerce", "Back Office", "Sales", "HR", "Setup"];
 
 export default function BudgetingPage() {
   const { toast } = useToast();
@@ -236,7 +245,7 @@ export default function BudgetingPage() {
   const [includeSubscription, setIncludeSubscription] = useState(true);
 
   const filteredProducts = useMemo(() => {
-    return HAWK_RIDGE_PRODUCTS.filter(p => {
+    return BSA_SERVICES.filter(p => {
       const matchesCategory = selectedCategory === "All" || p.category === selectedCategory;
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -322,7 +331,7 @@ export default function BudgetingPage() {
 
   const generateQuoteSummary = () => {
     const lines = [
-      "=== HAWK RIDGE SYSTEMS BUDGET ESTIMATE ===",
+      "=== BSA SOLUTIONS BUDGET ESTIMATE ===",
       "",
       "PRODUCTS:",
       ...lineItems.map(li => 
@@ -352,7 +361,7 @@ export default function BudgetingPage() {
         <div className="flex items-center gap-2">
           <Calculator className="h-5 w-5 text-muted-foreground" />
           <h1 className="text-xl font-semibold">Budgeting Tool</h1>
-          <Badge variant="secondary">Hawk Ridge Portfolio</Badge>
+          <Badge variant="secondary">BSA Services</Badge>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={clearQuote} data-testid="button-clear-quote">
@@ -369,7 +378,7 @@ export default function BudgetingPage() {
         <div className="w-1/2 border-r flex flex-col">
           <div className="p-3 border-b bg-muted/30 space-y-3">
             <Input
-              placeholder="Search products..."
+              placeholder="Search services..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-9"
