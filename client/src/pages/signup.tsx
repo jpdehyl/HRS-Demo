@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
-import logoPath from "@assets/logo_1766696202008.png";
+import logoPath from "@assets/bsa-logo.png";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -117,7 +117,7 @@ export default function SignupPage() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-background">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center lg:text-left">
-            <img src={logoPath} alt="Hawk Ridge Systems" className="h-10 mx-auto lg:mx-0 mb-6" />
+            <img src={logoPath} alt="BSA Solutions" className="h-10 mx-auto lg:mx-0 mb-6" />
             <h2 className="text-2xl font-semibold text-foreground mb-2">Create your account</h2>
             <p className="text-muted-foreground">Join Lead Intel and boost your sales performance</p>
           </div>

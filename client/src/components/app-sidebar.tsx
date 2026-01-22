@@ -36,10 +36,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import logoPath from "@assets/logoab_1766696790372.png";
+import logoPath from "@assets/bsa-logo.png";
 import type { NavigationSetting } from "@shared/schema";
-
-import _1 from "@assets/1.png";
 
 const mainNavItems = [
   {
@@ -173,7 +171,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <Link href="/dashboard">
-          <img src={_1} alt="Hawk Ridge Systems" className="h-16" />
+          <img src={logoPath} alt="BSA Solutions" className="h-16" />
         </Link>
       </SidebarHeader>
       <SidebarContent>

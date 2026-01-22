@@ -4,7 +4,7 @@ import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { useLocation } from "wouter";
 import { ChevronRight } from "lucide-react";
-import logoPath from "@assets/logo_1766696202008.png";
+import logoPath from "@assets/bsa-logo.png";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -300,7 +300,7 @@ export default function LandingPage() {
       </div>
 
       <div className="absolute top-0 left-0 right-0 p-6 flex items-center z-10">
-        <img src={logoPath} alt="Hawk Ridge Systems" className="h-10" data-testid="img-logo" />
+        <img src={logoPath} alt="BSA Solutions" className="h-10" data-testid="img-logo" />
       </div>
 
       <div 

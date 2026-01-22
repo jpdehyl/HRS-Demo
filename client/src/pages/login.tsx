@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
-import logoPath from "@assets/logo_1766696202008.png";
+import logoPath from "@assets/bsa-logo.png";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -107,7 +107,7 @@ export default function LoginPage() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-background">
         <div className="w-full max-w-md">
           <div className="mb-12 text-center lg:text-left">
-            <img src={logoPath} alt="Hawk Ridge Systems" className="h-12 mx-auto lg:mx-0 mb-8" />
+            <img src={logoPath} alt="BSA Solutions" className="h-12 mx-auto lg:mx-0 mb-8" />
             <h2 className="text-4xl font-bold text-foreground mb-3 tracking-tight">Welcome back</h2>
             <p className="text-lg text-muted-foreground">Sign in to access your dashboard</p>
           </div>
