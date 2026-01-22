@@ -29,7 +29,7 @@ type SignupForm = z.infer<typeof signupSchema>;
 function AnimatedBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#14202E] via-[#1a2d42] to-[#14202E]" />
+      <div className="absolute inset-0 bg-[#14202E]" />
       {Array.from({ length: 60 }).map((_, i) => (
         <div
           key={i}
