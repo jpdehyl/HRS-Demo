@@ -9,6 +9,12 @@ import {
   generateCoachingIntelligence,
   generateComparativeAnalytics,
   generateResearchROI,
+  generateDemoExecutiveSummary,
+  generateDemoAnomalies,
+  generateDemoPredictiveInsights,
+  generateDemoComparativeAnalytics,
+  generateDemoCoachingIntelligence,
+  generateDemoResearchROI,
   type AggregatedReportData,
   type ExecutiveSummary,
   type Anomaly,
@@ -185,8 +191,18 @@ router.get('/coaching/:sdrId', requireAuth, async (req: Request, res: Response) 
  */
 router.get('/coaching', requireManager, async (req: Request, res: Response) => {
   try {
-    const sdrs = await storage.getSdrs();
-    const intelligencePromises = sdrs.map(sdr => generateCoachingIntelligence(sdr.id));
+    const sdrs = await storage.getAllSdrs();
+    
+    // Return demo data if no real SDRs exist
+    if (sdrs.length === 0) {
+      const demoIntelligence = [
+        generateDemoCoachingIntelligence("demo-sdr-1"),
+        generateDemoCoachingIntelligence("demo-sdr-2")
+      ].filter(Boolean);
+      return res.json(demoIntelligence);
+    }
+    
+    const intelligencePromises = sdrs.map((sdr: { id: string }) => generateCoachingIntelligence(sdr.id));
     const intelligenceResults = await Promise.all(intelligencePromises);
     const intelligence = intelligenceResults.filter(Boolean);
     res.json(intelligence);
@@ -218,28 +234,18 @@ router.get('/comparative', requireAuth, async (req: Request, res: Response) => {
  */
 router.get('/research-roi', requireAuth, async (req: Request, res: Response) => {
   try {
+    // Check if database is empty and return demo data
+    const allSdrs = await storage.getAllSdrs();
+    if (allSdrs.length === 0) {
+      return res.json(generateDemoResearchROI());
+    }
+    
     const roi = await generateResearchROI();
     res.json(roi);
   } catch (error) {
     console.error('[AI Reports] Error generating research ROI:', error);
-    // Return fallback data instead of error
-    res.json({
-      overallEffectiveness: 65,
-      intelUsageRate: 45,
-      conversionByIntelType: [
-        { intelType: 'Company Research', usageRate: 78, conversionRate: 32 },
-        { intelType: 'Pain Points', usageRate: 65, conversionRate: 28 },
-        { intelType: 'Product Matches', usageRate: 52, conversionRate: 35 }
-      ],
-      winningTalkTracks: [
-        { industry: 'Manufacturing', talkTrack: 'ROI-focused approach', successRate: 42 },
-        { industry: 'Technology', talkTrack: 'Innovation narrative', successRate: 38 }
-      ],
-      topPerformingPainPoints: [
-        { painPoint: 'Manual processes', mentionRate: 45, conversionRate: 38 },
-        { painPoint: 'Data silos', mentionRate: 32, conversionRate: 35 }
-      ]
-    });
+    // Return demo data on error
+    res.json(generateDemoResearchROI());
   }
 });
 
@@ -252,19 +258,33 @@ router.get('/dashboard', requireAuth, async (req: Request, res: Response) => {
     const periodDays = parseInt(req.query.period as string) || 7;
     const data = await getAggregatedData(periodDays);
 
-    // Fetch all components in parallel with graceful error handling
-    const results = await Promise.allSettled([
-      generateExecutiveSummary(data),
-      detectAnomalies(data),
-      generatePredictiveInsights(data),
-      generateComparativeAnalytics(data)
-    ]);
+    // Check if this is demo data (database was empty)
+    const isDemoData = data.calls.total === 847 && data.leads.total === 342;
 
-    // Extract results with fallbacks
-    const summary = results[0].status === 'fulfilled' ? results[0].value : createFallbackSummary(data);
-    const anomalies = results[1].status === 'fulfilled' ? results[1].value : [];
-    const predictions = results[2].status === 'fulfilled' ? results[2].value : createFallbackPredictions(data);
-    const comparative = results[3].status === 'fulfilled' ? results[3].value : createFallbackComparative(data);
+    let summary, anomalies, predictions, comparative;
+
+    if (isDemoData) {
+      // Use pre-generated demo data for fast, consistent display
+      console.log('[AI Reports] Using demo data for dashboard');
+      summary = generateDemoExecutiveSummary();
+      anomalies = generateDemoAnomalies();
+      predictions = generateDemoPredictiveInsights();
+      comparative = generateDemoComparativeAnalytics();
+    } else {
+      // Fetch all components in parallel with graceful error handling
+      const results = await Promise.allSettled([
+        generateExecutiveSummary(data),
+        detectAnomalies(data),
+        generatePredictiveInsights(data),
+        generateComparativeAnalytics(data)
+      ]);
+
+      // Extract results with fallbacks
+      summary = results[0].status === 'fulfilled' ? results[0].value : createFallbackSummary(data);
+      anomalies = results[1].status === 'fulfilled' ? results[1].value : [];
+      predictions = results[2].status === 'fulfilled' ? results[2].value : createFallbackPredictions(data);
+      comparative = results[3].status === 'fulfilled' ? results[3].value : createFallbackComparative(data);
+    }
 
     res.json({
       data,
@@ -272,7 +292,8 @@ router.get('/dashboard', requireAuth, async (req: Request, res: Response) => {
       anomalies,
       predictions,
       comparative,
-      generatedAt: new Date()
+      generatedAt: new Date(),
+      isDemoData
     });
   } catch (error) {
     console.error('[AI Reports] Error loading dashboard:', error);
