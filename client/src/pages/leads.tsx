@@ -404,7 +404,37 @@ export default function LeadsPage() {
                   <Mail className="h-4 w-4" />
                 </Button>
               </div>
-              
+
+              {/* Results count and clear filters bar */}
+              {!isLoading && (
+                <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    {filteredLeads.length === leads.length ? (
+                      <>{leads.length} {leads.length === 1 ? 'lead' : 'leads'}</>
+                    ) : (
+                      <>{filteredLeads.length} of {leads.length} {leads.length === 1 ? 'lead' : 'leads'}</>
+                    )}
+                  </span>
+                  {(searchQuery || hideGenericEmails || sortField !== "score" || sortDirection !== "desc") && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs px-2"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setHideGenericEmails(false);
+                        setSortField("score");
+                        setSortDirection("desc");
+                      }}
+                      data-testid="button-clear-filters"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
+              )}
+
               <ScrollArea className="flex-1">
                 <div className="p-2 space-y-1">
                   {isLoading ? (
@@ -412,8 +442,25 @@ export default function LeadsPage() {
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                   ) : filteredLeads.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground text-sm">
-                      No leads found
+                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground text-sm">
+                      <Search className="h-8 w-8 mb-2 opacity-40" />
+                      <p className="font-medium">No leads match your filters</p>
+                      {searchQuery && (
+                        <p className="text-xs mt-1">Try a different search term</p>
+                      )}
+                      {(searchQuery || hideGenericEmails) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={() => {
+                            setSearchQuery("");
+                            setHideGenericEmails(false);
+                          }}
+                        >
+                          Clear filters
+                        </Button>
+                      )}
                     </div>
                   ) : (
                     filteredLeads.map((lead) => (

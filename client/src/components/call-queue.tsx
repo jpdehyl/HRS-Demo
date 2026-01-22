@@ -303,7 +303,7 @@ export function CallQueue({ leads, onCall, onLeadClick }: CallQueueProps) {
                 <Button
                   size="sm"
                   onClick={() => onCall(lead)}
-                  className="h-9 bg-[#2C88C9] hover:bg-[#2477AD] text-white gap-2"
+                  className="h-9 bg-hawk-blue hover:bg-hawk-blue-600 text-white gap-2"
                 >
                   <Phone className="h-4 w-4" />
                   Call Now
