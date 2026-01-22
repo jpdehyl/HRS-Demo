@@ -50,7 +50,7 @@ function isWebGLAvailable(): boolean {
 function AnimatedBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#14202E] via-[#1a2d42] to-[#14202E]" />
+      <div className="absolute inset-0 bg-[#2a2a2a]" />
       {Array.from({ length: 100 }).map((_, i) => (
         <div
           key={i}
@@ -279,7 +279,7 @@ export default function LandingPage() {
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#14202E] via-[#1a2d42] to-[#14202E]">
+      <div className="absolute inset-0 bg-[#2a2a2a]">
         {webglSupported ? (
           <WebGLErrorBoundary fallback={<AnimatedBackground />}>
             <Canvas
@@ -287,8 +287,8 @@ export default function LandingPage() {
               dpr={[1, 2]}
               gl={{ antialias: true, alpha: true }}
             >
-              <color attach="background" args={['#14202E']} />
-              <fog attach="fog" args={['#14202E', 5, 15]} />
+              <color attach="background" args={['#2a2a2a']} />
+              <fog attach="fog" args={['#2a2a2a', 5, 15]} />
               <ambientLight intensity={0.5} />
               <GalaxyParticles particleCount={15000} />
               <CameraController />
