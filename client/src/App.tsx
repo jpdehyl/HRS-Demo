@@ -17,6 +17,8 @@ import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
 import SignupPage from "@/pages/signup";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import DashboardPage from "@/pages/dashboard";
 import CoachingPage from "@/pages/coaching";
 import LeadsPage from "@/pages/leads";
@@ -158,6 +160,18 @@ function Router() {
       <Route path="/signup">
         <PublicOnlyRoute>
           <SignupPage />
+        </PublicOnlyRoute>
+      </Route>
+      
+      <Route path="/forgot-password">
+        <PublicOnlyRoute>
+          <ForgotPasswordPage />
+        </PublicOnlyRoute>
+      </Route>
+      
+      <Route path="/reset-password">
+        <PublicOnlyRoute>
+          <ResetPasswordPage />
         </PublicOnlyRoute>
       </Route>
       
