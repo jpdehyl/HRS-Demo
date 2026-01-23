@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation, Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,22 +22,36 @@ const resetPasswordSchema = z.object({
 type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
 
 function AnimatedBackground() {
+  const particles = useMemo(() => 
+    Array.from({ length: 60 }).map((_, i) => ({
+      id: i,
+      width: Math.random() * 3 + 1,
+      height: Math.random() * 3 + 1,
+      isGold: Math.random() > 0.7,
+      left: Math.random() * 50,
+      top: Math.random() * 100,
+      opacity: Math.random() * 0.5 + 0.2,
+      duration: 2 + Math.random() * 4,
+      delay: Math.random() * 3,
+    })), []
+  );
+
   return (
     <div className="absolute inset-0 overflow-hidden">
       <div className="absolute inset-0 bg-[#2a2a2a]" />
-      {Array.from({ length: 60 }).map((_, i) => (
+      {particles.map((p) => (
         <div
-          key={i}
+          key={p.id}
           className="absolute rounded-full"
           style={{
-            width: `${Math.random() * 3 + 1}px`,
-            height: `${Math.random() * 3 + 1}px`,
-            backgroundColor: Math.random() > 0.7 ? "#E5C100" : "#ffd54f",
-            left: `${Math.random() * 50}%`,
-            top: `${Math.random() * 100}%`,
-            opacity: Math.random() * 0.5 + 0.2,
-            animation: `twinkle ${2 + Math.random() * 4}s ease-in-out infinite`,
-            animationDelay: `${Math.random() * 3}s`,
+            width: `${p.width}px`,
+            height: `${p.height}px`,
+            backgroundColor: p.isGold ? "#E5C100" : "#ffd54f",
+            left: `${p.left}%`,
+            top: `${p.top}%`,
+            opacity: p.opacity,
+            animation: `twinkle ${p.duration}s ease-in-out infinite`,
+            animationDelay: `${p.delay}s`,
           }}
         />
       ))}
