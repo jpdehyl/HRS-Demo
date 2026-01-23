@@ -12,12 +12,14 @@ import {
   type AccountExecutive, type InsertAccountExecutive,
   type Notification, type InsertNotification,
   type NavigationSetting,
+  type PasswordResetToken,
   users, managers, sdrs, leads, 
   liveCoachingSessions, liveCoachingTips, liveTranscripts, researchPackets,
-  callSessions, managerCallAnalyses, accountExecutives, notifications, navigationSettings
+  callSessions, managerCallAnalyses, accountExecutives, notifications, navigationSettings,
+  passwordResetTokens
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, isNull, isNotNull, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, desc, inArray, sql, lt } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -119,6 +121,12 @@ export interface IStorage {
   // SDR call search for Copilot
   searchSdrsByName(searchName: string): Promise<Array<{ sdr: Sdr; user: User }>>;
   getCallsWithTranscriptsByUser(userId: string, limit?: number): Promise<Array<CallSession & { sdrName?: string; leadName?: string; companyName?: string }>>;
+  
+  // Password Reset Tokens
+  createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(id: string): Promise<void>;
+  deleteExpiredPasswordResetTokens(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -766,6 +774,35 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
     
     return results as Array<CallSession & { sdrName?: string; leadName?: string; companyName?: string }>;
+  }
+  
+  async createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<PasswordResetToken> {
+    const [resetToken] = await db.insert(passwordResetTokens).values({
+      userId,
+      token,
+      expiresAt,
+    }).returning();
+    return resetToken;
+  }
+  
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [resetToken] = await db.select().from(passwordResetTokens)
+      .where(and(
+        eq(passwordResetTokens.token, token),
+        isNull(passwordResetTokens.usedAt)
+      ));
+    return resetToken;
+  }
+  
+  async markPasswordResetTokenUsed(id: string): Promise<void> {
+    await db.update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(passwordResetTokens.id, id));
+  }
+  
+  async deleteExpiredPasswordResetTokens(): Promise<void> {
+    await db.delete(passwordResetTokens)
+      .where(lt(passwordResetTokens.expiresAt, new Date()));
   }
 }
 
