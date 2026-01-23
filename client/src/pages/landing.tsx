@@ -303,22 +303,24 @@ export default function LandingPage() {
         <img src={logoPath} alt="BSA Solutions" className="h-10" data-testid="img-logo" />
       </div>
 
-      <div 
+      {/* Gradient overlay for depth */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#2a2a2a] via-transparent to-transparent pointer-events-none z-[5]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#2a2a2a]/50 via-transparent to-transparent pointer-events-none z-[5]" />
+
+      <div
         className={`absolute inset-0 flex flex-col items-center justify-center z-10 transition-all duration-1000 ${
           showLogin ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
         }`}
       >
         <div className="text-center mb-12">
-          <h1 
-            className="text-5xl md:text-7xl font-bold text-white mb-4 tracking-tight"
-            style={{ fontFamily: "Montserrat, sans-serif" }}
+          <h1
+            className="text-6xl md:text-8xl font-display font-bold text-white mb-6 tracking-tighter animate-fade-in-up"
             data-testid="text-headline"
           >
             Lead Intel
           </h1>
-          <p 
-            className="text-xl md:text-2xl text-white/60 max-w-xl mx-auto px-4"
-            style={{ fontFamily: "Hind, sans-serif" }}
+          <p
+            className="text-xl md:text-2xl text-white/60 max-w-xl mx-auto px-4 font-sans animate-fade-in-up animate-stagger-1"
             data-testid="text-subheadline"
           >
             AI-Powered Pre-Call Intelligence
@@ -327,14 +329,15 @@ export default function LandingPage() {
 
         <button
           onClick={handleLogin}
-          className="group relative px-10 py-4 bg-transparent border-2 border-[#E5C100] rounded-full text-white font-medium text-lg transition-all duration-500 hover:bg-[#E5C100]/20 hover:border-[#ffd54f] hover:shadow-[0_0_40px_rgba(229,193,0,0.4)]"
+          className="group relative px-12 py-5 bg-gradient-to-r from-[#E5C100] to-[#ffd54f] rounded-full text-[#14202E] font-display font-semibold text-lg transition-all duration-500 hover:shadow-[0_0_60px_rgba(229,193,0,0.5)] hover:scale-105 active:scale-[0.98] animate-scale-in animate-stagger-2"
           data-testid="button-enter"
-          style={{ fontFamily: "Montserrat, sans-serif" }}
         >
           <span className="relative z-10 flex items-center gap-3">
             Enter
-            <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            <ChevronRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-2" />
           </span>
+          {/* Shimmer effect overlay */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-shimmer" />
         </button>
       </div>
     </div>

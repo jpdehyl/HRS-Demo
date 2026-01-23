@@ -86,45 +86,47 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 relative">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <AnimatedBackground />
+        {/* Texture overlays */}
+        <div className="absolute inset-0 bg-gradient-mesh z-[1]" />
+        <div className="absolute inset-0 bg-dots opacity-20 z-[2]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#2a2a2a] via-transparent to-[#2a2a2a]/30 z-[3]" />
+
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-8">
-          <div className="bg-black/40 backdrop-blur-sm border border-[#E5C100]/30 rounded-2xl px-12 py-10">
-            <h1 
-              className="text-4xl xl:text-5xl font-bold text-white mb-4 tracking-tight text-center"
-              style={{ fontFamily: "Montserrat, sans-serif" }}
-            >
+          <div className="bg-black/50 backdrop-blur-md border border-white/10 rounded-3xl px-14 py-12 shadow-2xl animate-scale-in">
+            <h1 className="text-5xl xl:text-6xl font-display font-bold text-white mb-4 tracking-tighter text-center">
               Lead Intel
             </h1>
-            <p 
-              className="text-lg xl:text-xl text-white/70 max-w-md text-center"
-              style={{ fontFamily: "Hind, sans-serif" }}
-            >
+            <p className="text-lg xl:text-xl text-white/70 max-w-md text-center font-sans">
               AI-Powered Pre-Call Intelligence for Sales Teams
             </p>
           </div>
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-background">
-        <div className="w-full max-w-md">
-          <div className="mb-12 text-center lg:text-left">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-background relative">
+        {/* Subtle background texture */}
+        <div className="absolute inset-0 bg-dots opacity-[0.02]" />
+
+        <div className="w-full max-w-md relative z-10">
+          <div className="mb-12 text-center lg:text-left animate-fade-in-down">
             <img src={logoPath} alt="BSA Solutions" className="h-12 mx-auto lg:mx-0 mb-8" />
-            <h2 className="text-4xl font-bold text-foreground mb-3 tracking-tight">Welcome back</h2>
+            <h2 className="text-4xl font-display font-bold text-foreground mb-3 tracking-tight">Welcome back</h2>
             <p className="text-lg text-muted-foreground">Sign in to access your dashboard</p>
           </div>
 
-          <Card className="border-0 shadow-none lg:border-0 lg:shadow-none">
-            <CardContent className="pt-0 px-0">
+          <Card className="border-0 lg:border lg:border-border/50 lg:shadow-xl lg:bg-card/95 lg:backdrop-blur-sm rounded-2xl animate-fade-in-up">
+            <CardContent className="pt-6 lg:pt-8 px-0 lg:px-8">
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="space-y-2">
+                <div className="space-y-2 animate-fade-in-up animate-stagger-1">
                   <Label htmlFor="email" className="text-base font-medium">Email</Label>
                   <Input
                     id="email"
                     type="email"
                     placeholder="you@company.com"
                     autoComplete="email"
-                    className="h-12 text-base transition-all duration-200 focus:ring-2 focus:ring-[#E5C100]/20"
+                    className="h-12 text-base"
                     {...form.register("email")}
                     data-testid="input-email"
                   />
@@ -133,7 +135,7 @@ export default function LoginPage() {
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 animate-fade-in-up animate-stagger-2">
                   <Label htmlFor="password" className="text-base font-medium">Password</Label>
                   <div className="relative">
                     <Input
@@ -141,7 +143,7 @@ export default function LoginPage() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       autoComplete="current-password"
-                      className="h-12 pr-12 text-base transition-all duration-200 focus:ring-2 focus:ring-[#E5C100]/20"
+                      className="h-12 pr-12 text-base"
                       {...form.register("password")}
                       data-testid="input-password"
                     />
@@ -161,7 +163,8 @@ export default function LoginPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 text-base font-semibold bg-[#E5C100] hover:bg-[#d4b100] text-[#14202E] transition-all duration-200 hover:shadow-lg"
+                  variant="cta"
+                  className="w-full h-12 text-base animate-fade-in-up animate-stagger-3"
                   disabled={isLoading}
                   data-testid="button-submit"
                 >
@@ -176,10 +179,10 @@ export default function LoginPage() {
                 </Button>
               </form>
             </CardContent>
-            <CardFooter className="flex flex-col gap-4 pt-6 px-0">
+            <CardFooter className="flex flex-col gap-4 pt-6 px-0 lg:px-8 lg:pb-8 animate-fade-in animate-stagger-4">
               <div className="text-center text-sm text-muted-foreground">
                 Don't have an account?{" "}
-                <Link href="/signup" className="text-[#E5C100] hover:text-[#d4b100] hover:underline font-semibold transition-colors" data-testid="link-signup">
+                <Link href="/signup" className="text-primary hover:text-primary/80 hover:underline font-semibold transition-colors" data-testid="link-signup">
                   Sign up
                 </Link>
               </div>

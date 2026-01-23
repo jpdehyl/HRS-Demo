@@ -248,9 +248,9 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2 animate-fade-in-down">
         <div className="flex flex-col gap-2">
-          <h1 className="text-4xl font-bold tracking-tight" data-testid="text-greeting">
+          <h1 className="text-4xl font-display font-bold tracking-tight" data-testid="text-greeting">
             {getGreeting()}, {user?.name?.split(" ")[0]}
           </h1>
           <p className="text-muted-foreground text-lg">
@@ -293,12 +293,12 @@ export default function DashboardPage() {
 
       {/* Performance Summary - Key metrics */}
       {metrics && (
-        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent">
+        <Card variant="prominent" hover="glow" className="animate-fade-in-up animate-stagger-1">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">This Week's Performance</CardTitle>
+                <CardTitle className="text-lg font-display">This Week's Performance</CardTitle>
               </div>
               <Badge variant="secondary" className={`gap-1 ${wsConnected ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : ''}`}>
                 <span className={`h-2 w-2 rounded-full ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
@@ -368,51 +368,59 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <HeroMetric
-          label="Qualified Leads"
-          value={metrics?.hero.qualifiedLeads || 0}
-          icon={<Target className="h-5 w-5 text-green-600" />}
-          loading={isLoading}
-          accentColor="green"
-          sparklineData={metrics?.hero.sparklines?.qualified}
-          anomaly={metrics?.hero.anomalies?.qualified}
-        />
-        <HeroMetric
-          label="Conversion Rate"
-          value={metrics?.hero.conversionRate || 0}
-          suffix="%"
-          trend={metrics?.hero.conversionTrend}
-          icon={<TrendingUp className="h-5 w-5 text-blue-600" />}
-          loading={isLoading}
-          accentColor="blue"
-          sparklineData={metrics?.hero.sparklines?.conversion}
-          anomaly={metrics?.hero.anomalies?.conversion}
-        />
-        <HeroMetric
-          label={`Calls (${getTimeRangeLabel(timeRange)})`}
-          value={metrics?.hero.callsInRange || 0}
-          trend={metrics?.hero.callsTrend}
-          icon={<Phone className="h-5 w-5 text-purple-600" />}
-          loading={isLoading}
-          accentColor="purple"
-          sparklineData={metrics?.hero.sparklines?.calls}
-          anomaly={metrics?.hero.anomalies?.calls}
-        />
-        <HeroMetric
-          label="Meetings Booked"
-          value={metrics?.hero.meetingsBooked || 0}
-          icon={<Calendar className="h-5 w-5 text-primary" />}
-          loading={isLoading}
-          accentColor="primary"
-          sparklineData={metrics?.hero.sparklines?.meetings}
-          anomaly={metrics?.hero.anomalies?.meetings}
-        />
+        <div className="animate-fade-in-up animate-stagger-1">
+          <HeroMetric
+            label="Qualified Leads"
+            value={metrics?.hero.qualifiedLeads || 0}
+            icon={<Target className="h-5 w-5 text-green-600" />}
+            loading={isLoading}
+            accentColor="green"
+            sparklineData={metrics?.hero.sparklines?.qualified}
+            anomaly={metrics?.hero.anomalies?.qualified}
+          />
+        </div>
+        <div className="animate-fade-in-up animate-stagger-2">
+          <HeroMetric
+            label="Conversion Rate"
+            value={metrics?.hero.conversionRate || 0}
+            suffix="%"
+            trend={metrics?.hero.conversionTrend}
+            icon={<TrendingUp className="h-5 w-5 text-blue-600" />}
+            loading={isLoading}
+            accentColor="blue"
+            sparklineData={metrics?.hero.sparklines?.conversion}
+            anomaly={metrics?.hero.anomalies?.conversion}
+          />
+        </div>
+        <div className="animate-fade-in-up animate-stagger-3">
+          <HeroMetric
+            label={`Calls (${getTimeRangeLabel(timeRange)})`}
+            value={metrics?.hero.callsInRange || 0}
+            trend={metrics?.hero.callsTrend}
+            icon={<Phone className="h-5 w-5 text-purple-600" />}
+            loading={isLoading}
+            accentColor="purple"
+            sparklineData={metrics?.hero.sparklines?.calls}
+            anomaly={metrics?.hero.anomalies?.calls}
+          />
+        </div>
+        <div className="animate-fade-in-up animate-stagger-4">
+          <HeroMetric
+            label="Meetings Booked"
+            value={metrics?.hero.meetingsBooked || 0}
+            icon={<Calendar className="h-5 w-5 text-primary" />}
+            loading={isLoading}
+            accentColor="primary"
+            sparklineData={metrics?.hero.sparklines?.meetings}
+            anomaly={metrics?.hero.anomalies?.meetings}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
+        <Card variant="elevated" hover="subtle" className="lg:col-span-2 animate-fade-in-up animate-stagger-5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">{getTimeRangeLabel(timeRange)} Activity</CardTitle>
+            <CardTitle className="text-lg font-display">{getTimeRangeLabel(timeRange)} Activity</CardTitle>
             <CardDescription>Calls and qualified leads over the selected period</CardDescription>
           </CardHeader>
           <CardContent>
