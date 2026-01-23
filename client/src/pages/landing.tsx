@@ -300,7 +300,9 @@ export default function LandingPage() {
       </div>
 
       <div className="absolute top-0 left-0 right-0 p-6 flex items-center z-10">
-        <img src={logoPath} alt="BSA Solutions" className="h-10" data-testid="img-logo" />
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg p-2 border border-gray-200 shadow-md">
+          <img src={logoPath} alt="BSA Solutions" className="h-10" data-testid="img-logo" />
+        </div>
       </div>
 
       {/* Gradient overlay for depth */}
