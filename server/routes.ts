@@ -5,9 +5,11 @@ import session from "express-session";
 import MemoryStore from "memorystore";
 import connectPgSimple from "connect-pg-simple";
 import rateLimit from "express-rate-limit";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { pool } from "./db";
 import { insertUserSchema } from "@shared/schema";
+import { sendFeedbackEmail } from "./google/gmailClient";
 import { z } from "zod";
 import { registerTwilioVoiceRoutes } from "./twilio-voice";
 import { registerTranscriptionRoutes, setupTranscriptionWebSocket } from "./transcription";
@@ -232,6 +234,91 @@ export async function registerRoutes(
       res.clearCookie("connect.sid");
       res.json({ message: "Logged out successfully" });
     });
+  });
+
+  app.post("/api/auth/forgot-password", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const { email } = z.object({ email: z.string().email() }).parse(req.body);
+      
+      const user = await storage.getUserByEmail(email);
+      
+      if (user) {
+        const token = crypto.randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+        
+        await storage.createPasswordResetToken(user.id, token, expiresAt);
+        
+        const resetUrl = `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:5000'}/reset-password?token=${token}`;
+        
+        const emailBody = `
+          <html>
+            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: #1f2937; color: white; padding: 24px; border-radius: 12px 12px 0 0;">
+                <h1 style="margin: 0; font-size: 24px;">Password Reset Request</h1>
+              </div>
+              <div style="padding: 24px; background: #f9fafb; border-radius: 0 0 12px 12px;">
+                <p>Hi ${user.name},</p>
+                <p>We received a request to reset your password. Click the button below to create a new password:</p>
+                <div style="text-align: center; margin: 32px 0;">
+                  <a href="${resetUrl}" style="background: #E5C100; color: #1f2937; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">Reset Password</a>
+                </div>
+                <p style="color: #6b7280; font-size: 14px;">This link will expire in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+                <p style="color: #9ca3af; font-size: 12px;">Lead Intel by BSA Solutions</p>
+              </div>
+            </body>
+          </html>
+        `;
+        
+        await sendFeedbackEmail({
+          to: user.email,
+          subject: "Reset Your Lead Intel Password",
+          body: emailBody,
+        });
+        
+        console.log("Password reset email sent to:", email);
+      }
+      
+      res.json({ message: "If an account exists with that email, a password reset link has been sent." });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Please enter a valid email address" });
+      }
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Failed to process request" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const { token, password } = z.object({
+        token: z.string().min(1),
+        password: z.string().min(6, "Password must be at least 6 characters"),
+      }).parse(req.body);
+      
+      const resetToken = await storage.getPasswordResetToken(token);
+      
+      if (!resetToken) {
+        return res.status(400).json({ message: "Invalid or expired reset link" });
+      }
+      
+      if (new Date() > resetToken.expiresAt) {
+        return res.status(400).json({ message: "This reset link has expired. Please request a new one." });
+      }
+      
+      const hashedPassword = await hashPassword(password);
+      await storage.updateUserPassword(resetToken.userId, hashedPassword);
+      await storage.markPasswordResetTokenUsed(resetToken.id);
+      
+      console.log("Password reset successful for user:", resetToken.userId);
+      res.json({ message: "Password reset successful. You can now log in with your new password." });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
   });
 
   app.get("/api/auth/me", async (req: Request, res: Response) => {
