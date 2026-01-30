@@ -99,7 +99,7 @@ export default function SignupPage() {
       <div className="hidden lg:flex lg:w-1/2 relative">
         <AnimatedBackground />
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-8">
-          <div className="bg-black/40 backdrop-blur-sm border border-[#E5C100]/30 rounded-2xl px-12 py-10">
+          <div className="bg-black/40 backdrop-blur-sm border border-[#2C88C9]/30 rounded-2xl px-12 py-10">
             <h1 
               className="text-4xl xl:text-5xl font-bold text-white mb-4 tracking-tight text-center"
               style={{ fontFamily: "Montserrat, sans-serif" }}
@@ -119,7 +119,7 @@ export default function SignupPage() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-background">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center lg:text-left">
-            <img src={logoPath} alt="BSA Solutions" className="h-10 mx-auto lg:mx-0 mb-6" />
+            <img src={logoPath} alt="Hawk Ridge Systems" className="h-10 mx-auto lg:mx-0 mb-6" />
             <h2 className="text-2xl font-semibold text-foreground mb-2">Create your account</h2>
             <p className="text-muted-foreground">Join Lead Intel and boost your sales performance</p>
           </div>
@@ -229,7 +229,7 @@ export default function SignupPage() {
 
                 <Button 
                   type="submit" 
-                  className="w-full h-11 bg-[#E5C100] hover:bg-[#d4b100] text-[#14202E]" 
+                  className="w-full h-11 bg-[#2C88C9] hover:bg-[#2577B3] text-white" 
                   disabled={isLoading}
                   data-testid="button-submit"
                 >
@@ -247,7 +247,7 @@ export default function SignupPage() {
             <CardFooter className="flex flex-col gap-4 pt-0">
               <div className="text-center text-sm text-muted-foreground">
                 Already have an account?{" "}
-                <Link href="/login" className="text-[#E5C100] hover:underline font-medium" data-testid="link-login">
+                <Link href="/login" className="text-[#2C88C9] hover:underline font-medium" data-testid="link-login">
                   Sign in
                 </Link>
               </div>

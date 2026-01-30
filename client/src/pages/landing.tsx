@@ -305,12 +305,12 @@ export default function LandingPage() {
 
       <div className="absolute top-0 left-0 right-0 p-4 sm:p-6 flex items-center z-10">
         <div className="bg-white/95 backdrop-blur-sm rounded-lg p-1.5 sm:p-2 border border-gray-200 shadow-md">
-          <img src={logoPath} alt="BSA Solutions" className="h-8 sm:h-10" data-testid="img-logo" />
+          <img src={logoPath} alt="Hawk Ridge Systems" className="h-8 sm:h-10" data-testid="img-logo" />
         </div>
       </div>
 
-      <div className="absolute inset-0 bg-gradient-to-t from-[#2a2a2a] via-transparent to-transparent pointer-events-none z-[5]" />
-      <div className="absolute inset-0 bg-gradient-to-b from-[#2a2a2a]/50 via-transparent to-transparent pointer-events-none z-[5]" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#1a2744] via-transparent to-transparent pointer-events-none z-[5]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#1a2744]/50 via-transparent to-transparent pointer-events-none z-[5]" />
 
       <div
         className={`absolute inset-0 flex flex-col items-center justify-center z-10 transition-all duration-1000 px-4 ${
@@ -336,7 +336,7 @@ export default function LandingPage() {
 
         <button
           onClick={handleLogin}
-          className="group relative px-8 sm:px-12 py-4 sm:py-5 bg-gradient-to-r from-[#E5C100] to-[#ffd54f] rounded-full text-[#14202E] font-display font-semibold text-base sm:text-lg transition-all duration-500 hover:shadow-[0_0_60px_rgba(229,193,0,0.5)] hover:scale-105 active:scale-[0.98] animate-scale-in animate-stagger-2 min-h-[48px]"
+          className="group relative px-8 sm:px-12 py-4 sm:py-5 bg-gradient-to-r from-[#2C88C9] to-[#4AA3E0] rounded-full text-white font-display font-semibold text-base sm:text-lg transition-all duration-500 hover:shadow-[0_0_60px_rgba(44,136,201,0.5)] hover:scale-105 active:scale-[0.98] animate-scale-in animate-stagger-2 min-h-[48px]"
           data-testid="button-enter"
         >
           <span className="relative z-10 flex items-center gap-2 sm:gap-3">
