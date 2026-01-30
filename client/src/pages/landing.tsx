@@ -80,6 +80,7 @@ function AnimatedBackground() {
 
 interface ParticleSystemProps {
   particleCount?: number;
+  isExploding?: boolean;
 }
 
 function generateSupernova(count: number): { positions: Float32Array; colors: Float32Array } {
@@ -138,11 +139,13 @@ function generateSupernova(count: number): { positions: Float32Array; colors: Fl
   return { positions, colors };
 }
 
-function GalaxyParticles({ particleCount = 20000 }: ParticleSystemProps) {
+function GalaxyParticles({ particleCount = 20000, isExploding = false }: ParticleSystemProps) {
   const meshRef = useRef<THREE.Points>(null);
   const smoothScaleRef = useRef(1);
   const smoothRotationRef = useRef(0);
   const autoAnimatePhase = useRef(0);
+  const explosionStartTime = useRef<number | null>(null);
+  const explosionVelocities = useRef<Float32Array | null>(null);
   
   const circleTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
@@ -180,11 +183,46 @@ function GalaxyParticles({ particleCount = 20000 }: ParticleSystemProps) {
     return new Float32Array(particleCount * 3).fill(0);
   }, [particleCount]);
 
+  useEffect(() => {
+    if (isExploding && !explosionStartTime.current) {
+      explosionStartTime.current = Date.now();
+      const expVel = new Float32Array(particleCount * 3);
+      for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        const x = targetPositions[i3];
+        const y = targetPositions[i3 + 1];
+        const z = targetPositions[i3 + 2];
+        const dist = Math.sqrt(x * x + y * y + z * z) || 0.001;
+        const speed = 0.3 + Math.random() * 0.4;
+        expVel[i3] = (x / dist) * speed;
+        expVel[i3 + 1] = (y / dist) * speed;
+        expVel[i3 + 2] = (z / dist) * speed;
+      }
+      explosionVelocities.current = expVel;
+    }
+  }, [isExploding, particleCount, targetPositions]);
+
   useFrame((state) => {
     if (!meshRef.current) return;
     
     const positions = meshRef.current.geometry.attributes.position.array as Float32Array;
     const time = state.clock.elapsedTime;
+    
+    if (isExploding && explosionVelocities.current) {
+      const expVel = explosionVelocities.current;
+      for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        positions[i3] += expVel[i3];
+        positions[i3 + 1] += expVel[i3 + 1];
+        positions[i3 + 2] += expVel[i3 + 2];
+        expVel[i3] *= 1.02;
+        expVel[i3 + 1] *= 1.02;
+        expVel[i3 + 2] *= 1.02;
+      }
+      meshRef.current.geometry.attributes.position.needsUpdate = true;
+      meshRef.current.rotation.y += 0.02;
+      return;
+    }
     
     autoAnimatePhase.current += 0.003;
     const targetScale = 1 + Math.sin(autoAnimatePhase.current) * 0.15 + 0.15;
@@ -267,6 +305,7 @@ export default function LandingPage() {
   const [, setLocation] = useLocation();
   const [showLogin, setShowLogin] = useState(false);
   const [webglSupported, setWebglSupported] = useState(true);
+  const [isExploding, setIsExploding] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -276,14 +315,17 @@ export default function LandingPage() {
   }, []);
 
   const handleLogin = () => {
-    setLocation("/login");
+    setIsExploding(true);
+    setTimeout(() => {
+      setLocation("/login");
+    }, 1200);
   };
 
   const particleCount = isMobile ? 5000 : 15000;
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      <div className="absolute inset-0 bg-[#2a2a2a]">
+      <div className="absolute inset-0 bg-[#1a2744]">
         {webglSupported ? (
           <WebGLErrorBoundary fallback={<AnimatedBackground />}>
             <Canvas
@@ -291,10 +333,10 @@ export default function LandingPage() {
               dpr={isMobile ? [1, 1.5] : [1, 2]}
               gl={{ antialias: !isMobile, alpha: true }}
             >
-              <color attach="background" args={['#2a2a2a']} />
-              <fog attach="fog" args={['#2a2a2a', 5, 15]} />
+              <color attach="background" args={['#1a2744']} />
+              <fog attach="fog" args={['#1a2744', 5, 15]} />
               <ambientLight intensity={0.5} />
-              <GalaxyParticles particleCount={particleCount} />
+              <GalaxyParticles particleCount={particleCount} isExploding={isExploding} />
               <CameraController />
             </Canvas>
           </WebGLErrorBoundary>
@@ -313,8 +355,8 @@ export default function LandingPage() {
       <div className="absolute inset-0 bg-gradient-to-b from-[#1a2744]/50 via-transparent to-transparent pointer-events-none z-[5]" />
 
       <div
-        className={`absolute inset-0 flex flex-col items-center justify-center z-10 transition-all duration-1000 px-4 ${
-          showLogin ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+        className={`absolute inset-0 flex flex-col items-center justify-center z-10 transition-all duration-500 px-4 ${
+          isExploding ? "opacity-0 scale-110" : showLogin ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
         }`}
       >
         <div className="text-center mb-8 sm:mb-12">
