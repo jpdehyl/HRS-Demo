@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Lock, Eye, EyeOff, CheckCircle, XCircle } from "lucide-react";
-import logoPath from "@assets/bsa-logo.png";
+import logoPath from "/logo.svg";
 
 const resetPasswordSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -27,7 +27,7 @@ function AnimatedBackground() {
       id: i,
       width: Math.random() * 3 + 1,
       height: Math.random() * 3 + 1,
-      isGold: Math.random() > 0.7,
+      isOrange: Math.random() > 0.7,
       left: Math.random() * 50,
       top: Math.random() * 100,
       opacity: Math.random() * 0.5 + 0.2,
@@ -38,7 +38,7 @@ function AnimatedBackground() {
 
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[#2a2a2a]" />
+      <div className="absolute inset-0 bg-[#1a2744]" />
       {particles.map((p) => (
         <div
           key={p.id}
@@ -46,7 +46,7 @@ function AnimatedBackground() {
           style={{
             width: `${p.width}px`,
             height: `${p.height}px`,
-            backgroundColor: p.isGold ? "#E5C100" : "#ffd54f",
+            backgroundColor: p.isOrange ? "#F26419" : "#2C88C9",
             left: `${p.left}%`,
             top: `${p.top}%`,
             opacity: p.opacity,

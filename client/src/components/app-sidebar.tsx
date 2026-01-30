@@ -36,7 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import logoPath from "@assets/bsa-logo.png";
+import logoPath from "/logo.svg";
 import type { NavigationSetting } from "@shared/schema";
 
 const mainNavItems = [

@@ -4,7 +4,7 @@ import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { useLocation } from "wouter";
 import { ChevronRight } from "lucide-react";
-import logoPath from "@assets/bsa-logo.png";
+import logoPath from "/logo.svg";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ErrorBoundaryProps {
@@ -51,7 +51,7 @@ function isWebGLAvailable(): boolean {
 function AnimatedBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[#2a2a2a]" />
+      <div className="absolute inset-0 bg-[#1a2744]" />
       {Array.from({ length: 100 }).map((_, i) => (
         <div
           key={i}
@@ -59,7 +59,7 @@ function AnimatedBackground() {
           style={{
             width: `${Math.random() * 3 + 1}px`,
             height: `${Math.random() * 3 + 1}px`,
-            backgroundColor: Math.random() > 0.7 ? "#E5C100" : "#ffd54f",
+            backgroundColor: Math.random() > 0.7 ? "#F26419" : "#2C88C9",
             left: `${Math.random() * 100}%`,
             top: `${Math.random() * 100}%`,
             opacity: Math.random() * 0.5 + 0.2,
@@ -87,10 +87,10 @@ function generateSupernova(count: number): { positions: Float32Array; colors: Fl
   const colors = new Float32Array(count * 3);
   
   const colorCore = new THREE.Color("#ffffff");
-  const colorBlue = new THREE.Color("#14202E");
-  const colorCyan = new THREE.Color("#ffd54f");
-  const colorOrange = new THREE.Color("#E5C100");
-  const colorYellow = new THREE.Color("#E5C100");
+  const colorBlue = new THREE.Color("#1a2744");
+  const colorCyan = new THREE.Color("#2C88C9");
+  const colorOrange = new THREE.Color("#F26419");
+  const colorYellow = new THREE.Color("#F26419");
   
   for (let i = 0; i < count; i++) {
     const i3 = i * 3;

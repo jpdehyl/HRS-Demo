@@ -2,7 +2,16 @@
 
 ## Overview
 
-Lead Intel is an AI-powered sales coaching and lead intelligence platform built for BSA Solutions. The application provides browser-based softphone capabilities via Twilio Voice, real-time AI coaching during live calls, lead research with Gemini AI, Google Sheets integration for lead imports, and comprehensive role-based access control for sales teams (Admin, Manager, SDR, Account Specialist).
+Lead Intel is an AI-powered sales coaching and lead intelligence platform built for Hawk Ridge Systems. The application provides browser-based softphone capabilities via Twilio Voice, real-time AI coaching during live calls, lead research with Gemini AI, Google Sheets integration for lead imports, and comprehensive role-based access control for sales teams (Admin, Manager, SDR, Account Specialist).
+
+## Branding (Hawk Ridge Systems)
+- **Primary Color**: #F26419 (Orange) - HSL: 24 89% 52%
+- **Accent Color**: #2C88C9 (Blue) - HSL: 204 64% 48%
+- **Background**: #FFFFFF
+- **Dark Background**: #1a2744
+- **Body Font**: Hind (sans-serif)
+- **Heading Font**: Montserrat (sans-serif)
+- **Logo**: /logo.svg
 
 The platform features a React frontend with Three.js 3D particle effects on the landing page, an Express backend with PostgreSQL database, and integrates with multiple external services including Twilio for voice calls, Google APIs for Drive/Sheets/Gmail, and Gemini AI for transcription and coaching.
 

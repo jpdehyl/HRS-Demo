@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
-import logoPath from "@assets/bsa-logo.png";
+import logoPath from "/logo.svg";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -29,7 +29,7 @@ type SignupForm = z.infer<typeof signupSchema>;
 function AnimatedBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[#2a2a2a]" />
+      <div className="absolute inset-0 bg-[#1a2744]" />
       {Array.from({ length: 60 }).map((_, i) => (
         <div
           key={i}
@@ -37,7 +37,7 @@ function AnimatedBackground() {
           style={{
             width: `${Math.random() * 3 + 1}px`,
             height: `${Math.random() * 3 + 1}px`,
-            backgroundColor: Math.random() > 0.7 ? "#E5C100" : "#ffd54f",
+            backgroundColor: Math.random() > 0.7 ? "#F26419" : "#2C88C9",
             left: `${Math.random() * 50}%`,
             top: `${Math.random() * 100}%`,
             opacity: Math.random() * 0.5 + 0.2,
