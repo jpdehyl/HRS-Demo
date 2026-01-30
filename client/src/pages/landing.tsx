@@ -193,7 +193,7 @@ function GalaxyParticles({ particleCount = 20000, isExploding = false }: Particl
         const y = targetPositions[i3 + 1];
         const z = targetPositions[i3 + 2];
         const dist = Math.sqrt(x * x + y * y + z * z) || 0.001;
-        const speed = 0.3 + Math.random() * 0.4;
+        const speed = 0.02 + Math.random() * 0.03;
         expVel[i3] = (x / dist) * speed;
         expVel[i3 + 1] = (y / dist) * speed;
         expVel[i3 + 2] = (z / dist) * speed;
@@ -215,12 +215,12 @@ function GalaxyParticles({ particleCount = 20000, isExploding = false }: Particl
         positions[i3] += expVel[i3];
         positions[i3 + 1] += expVel[i3 + 1];
         positions[i3 + 2] += expVel[i3 + 2];
-        expVel[i3] *= 1.02;
-        expVel[i3 + 1] *= 1.02;
-        expVel[i3 + 2] *= 1.02;
+        expVel[i3] *= 1.008;
+        expVel[i3 + 1] *= 1.008;
+        expVel[i3 + 2] *= 1.008;
       }
       meshRef.current.geometry.attributes.position.needsUpdate = true;
-      meshRef.current.rotation.y += 0.02;
+      meshRef.current.rotation.y += 0.003;
       return;
     }
     
@@ -318,7 +318,7 @@ export default function LandingPage() {
     setIsExploding(true);
     setTimeout(() => {
       setLocation("/login");
-    }, 1200);
+    }, 3000);
   };
 
   const particleCount = isMobile ? 5000 : 15000;
