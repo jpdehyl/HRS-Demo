@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SDR Discovery Questionnaire for Hawk Ridge Systems - Understanding workflow integration requirements for Lead Intel">
+    <meta name="author" content="Lead Intel Discovery Team">
+    <meta name="date" content="2026-01-30">
+    <meta name="meeting-type" content="SDR Workflow Discovery">
+    <meta name="company" content="Hawk Ridge Systems">
+    <meta name="tools-mentioned" content="Salesforce, Zoom Phone, ZRA (Zoom Revenue Accelerator)">
+    <meta name="objective" content="Validate product-market fit and understand integration requirements">
+    <title>SDR Discovery Questionnaire - Hawk Ridge Systems | Lead Intel</title>
+    <style>
+        :root {
+            --primary: #2C88C9;
+            --secondary: #F26419;
+            --dark: #1a2744;
+            --light: #f8f9fa;
+            --text: #333;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: var(--light);
+            padding: 2rem;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        header {
+            background: linear-gradient(135deg, var(--dark), var(--primary));
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+        header h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+        header p { opacity: 0.9; }
+        .meta-box {
+            background: white;
+            border-left: 4px solid var(--secondary);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .meta-box h2 { color: var(--dark); font-size: 1.2rem; margin-bottom: 1rem; }
+        .meta-box ul { list-style: none; }
+        .meta-box li { padding: 0.3rem 0; }
+        .meta-box strong { color: var(--primary); }
+        section {
+            background: white;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        section h2 {
+            color: var(--dark);
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        section h2 .number {
+            background: var(--primary);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+        .question {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: var(--light);
+            border-radius: 8px;
+            border-left: 3px solid var(--secondary);
+        }
+        .question h3 {
+            color: var(--dark);
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .question p.context {
+            font-size: 0.85rem;
+            color: #666;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+        .question .answer-space {
+            background: white;
+            border: 1px dashed #ccc;
+            border-radius: 4px;
+            padding: 1rem;
+            min-height: 60px;
+            margin-top: 0.5rem;
+            color: #999;
+            font-size: 0.85rem;
+        }
+        .tag {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            margin-right: 0.3rem;
+        }
+        .tag.salesforce { background: #00A1E0; }
+        .tag.zoom { background: #2D8CFF; }
+        .tag.zra { background: #F26419; }
+        .tag.workflow { background: #6B7280; }
+        .tag.pain-point { background: #DC2626; }
+        .tag.integration { background: #059669; }
+        .priority-high { border-left-color: #DC2626; }
+        .priority-medium { border-left-color: #F59E0B; }
+        .notes-section {
+            background: #FEF3C7;
+            border: 1px solid #F59E0B;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 2rem;
+        }
+        .notes-section h3 { color: #92400E; margin-bottom: 1rem; }
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SDR Discovery Questionnaire</h1>
+            <p>Understanding the Hawk Ridge Systems Sales Development Workflow</p>
+        </header>
+
+        <div class="meta-box">
+            <h2>Meeting Context</h2>
+            <ul>
+                <li><strong>Company:</strong> Hawk Ridge Systems</li>
+                <li><strong>Role:</strong> Sales Development Representative (SDR)</li>
+                <li><strong>Current Tech Stack:</strong> Salesforce CRM, Zoom Phone, ZRA (Zoom Revenue Accelerator)</li>
+                <li><strong>Objective:</strong> Validate if Lead Intel can integrate into their existing workflow and provide genuine value</li>
+                <li><strong>Success Criteria:</strong> Identify 3-5 concrete pain points Lead Intel can address without disrupting current processes</li>
+            </ul>
+        </div>
+
+        <!-- Section 1: Current Workflow Overview -->
+        <section>
+            <h2><span class="number">1</span> Current Workflow Overview</h2>
+            
+            <div class="question">
+                <h3>1.1 Walk me through a typical day as an SDR at Hawk Ridge. What does your workflow look like from start to finish?</h3>
+                <p class="context">Understanding the full picture helps us identify where Lead Intel can add value without creating friction.</p>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>1.2 How many calls do you typically make per day? How many of those convert to meaningful conversations?</h3>
+                <p class="context">Baseline metrics help us measure potential impact of pre-call intelligence.</p>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>1.3 What percentage of your time is spent on pre-call research vs. actually making calls?</h3>
+                <p class="context">If research takes too long, Lead Intel's AI-powered research can save significant time.</p>
+                <span class="tag workflow">Workflow</span>
+                <span class="tag pain-point">Pain Point</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+        </section>
+
+        <!-- Section 2: Salesforce Integration -->
+        <section>
+            <h2><span class="number">2</span> Salesforce Usage & Pain Points</h2>
+
+            <div class="question priority-high">
+                <h3>2.1 How do you currently use Salesforce in your daily workflow? What data do you rely on most?</h3>
+                <p class="context">Understanding their Salesforce usage patterns is critical for seamless integration.</p>
+                <span class="tag salesforce">Salesforce</span>
+                <span class="tag integration">Integration</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>2.2 What lead/contact fields in Salesforce are most important for your pre-call preparation?</h3>
+                <p class="context">Lead Intel can pull and display this data automatically before calls.</p>
+                <span class="tag salesforce">Salesforce</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question priority-high">
+                <h3>2.3 What frustrates you most about Salesforce? What's missing or broken in your current setup?</h3>
+                <p class="context">Pain points reveal opportunities for Lead Intel to provide genuine value.</p>
+                <span class="tag salesforce">Salesforce</span>
+                <span class="tag pain-point">Pain Point</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>2.4 How do you log call outcomes and notes? Is this process efficient or tedious?</h3>
+                <p class="context">Post-call summary automation could save significant time.</p>
+                <span class="tag salesforce">Salesforce</span>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>2.5 Do you use any Salesforce integrations or apps? (e.g., Outreach, SalesLoft, Gong, etc.)</h3>
+                <p class="context">Understanding the existing ecosystem prevents conflicts and identifies integration opportunities.</p>
+                <span class="tag salesforce">Salesforce</span>
+                <span class="tag integration">Integration</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+        </section>
+
+        <!-- Section 3: Zoom Phone & ZRA -->
+        <section>
+            <h2><span class="number">3</span> Zoom Phone & ZRA (Zoom Revenue Accelerator)</h2>
+
+            <div class="question priority-high">
+                <h3>3.1 How do you use Zoom Phone for calls? Do you dial from Salesforce, from Zoom directly, or another way?</h3>
+                <p class="context">Critical for understanding click-to-dial integration needs.</p>
+                <span class="tag zoom">Zoom Phone</span>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question priority-high">
+                <h3>3.2 Tell me about your experience with ZRA (Zoom Revenue Accelerator). What features do you use most?</h3>
+                <p class="context">ZRA provides conversation intelligence - understanding overlap/gaps with Lead Intel is crucial.</p>
+                <span class="tag zra">ZRA</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question priority-high">
+                <h3>3.3 Does ZRA provide call transcriptions and AI summaries? How useful are they for your workflow?</h3>
+                <p class="context">If ZRA already handles transcription/summaries, Lead Intel should focus on pre-call intelligence instead.</p>
+                <span class="tag zra">ZRA</span>
+                <span class="tag integration">Integration</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>3.4 What call analytics or coaching insights does ZRA provide? Do managers use this data?</h3>
+                <p class="context">Understanding existing analytics prevents duplication and identifies enhancement opportunities.</p>
+                <span class="tag zra">ZRA</span>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>3.5 What's missing from Zoom Phone/ZRA that would make your job easier?</h3>
+                <p class="context">Direct feedback on gaps = direct opportunity for Lead Intel.</p>
+                <span class="tag zra">ZRA</span>
+                <span class="tag zoom">Zoom Phone</span>
+                <span class="tag pain-point">Pain Point</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+        </section>
+
+        <!-- Section 4: Pre-Call Research -->
+        <section>
+            <h2><span class="number">4</span> Pre-Call Research & Preparation</h2>
+
+            <div class="question priority-high">
+                <h3>4.1 What research do you do before making a call? Where do you get this information?</h3>
+                <p class="context">This is Lead Intel's core value proposition - understanding current research habits is essential.</p>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>4.2 What information, if you had it instantly before a call, would make you significantly more effective?</h3>
+                <p class="context">Dream scenario question - helps prioritize AI research features.</p>
+                <span class="tag workflow">Workflow</span>
+                <span class="tag pain-point">Pain Point</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>4.3 How much time do you spend researching a prospect before calling? Is it worth it?</h3>
+                <p class="context">ROI question - if research doesn't pay off, they may skip it (which hurts conversions).</p>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>4.4 Do you use any tools for company research? (LinkedIn Sales Navigator, ZoomInfo, Apollo, etc.)</h3>
+                <p class="context">Understanding existing research tools helps position Lead Intel appropriately.</p>
+                <span class="tag integration">Integration</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+        </section>
+
+        <!-- Section 5: Coaching & Performance -->
+        <section>
+            <h2><span class="number">5</span> Coaching, Training & Performance</h2>
+
+            <div class="question">
+                <h3>5.1 How does your manager currently coach you? Do they review call recordings?</h3>
+                <p class="context">Understanding coaching workflows helps position Lead Intel's manager dashboard features.</p>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>5.2 Would real-time coaching tips during a call be helpful or distracting?</h3>
+                <p class="context">Critical UX question - some SDRs may find live coaching intrusive.</p>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>5.3 What metrics are you measured on? (Calls made, conversations, meetings booked, etc.)</h3>
+                <p class="context">Lead Intel can help track and improve the metrics that matter most.</p>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>5.4 What would help you book more meetings? What's your biggest blocker?</h3>
+                <p class="context">Direct question about value - their answer should guide our feature priorities.</p>
+                <span class="tag pain-point">Pain Point</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+        </section>
+
+        <!-- Section 6: Tool Adoption -->
+        <section>
+            <h2><span class="number">6</span> Tool Adoption & Preferences</h2>
+
+            <div class="question priority-high">
+                <h3>6.1 What makes you actually use a new tool vs. abandoning it after a week?</h3>
+                <p class="context">Critical insight for ensuring Lead Intel gets adopted, not ignored.</p>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>6.2 How many browser tabs/apps do you have open during a typical calling session?</h3>
+                <p class="context">If they're already overwhelmed, another app might not help. Integration is key.</p>
+                <span class="tag workflow">Workflow</span>
+                <span class="tag pain-point">Pain Point</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question priority-high">
+                <h3>6.3 If Lead Intel could do ONE thing exceptionally well, what should it be?</h3>
+                <p class="context">Forces prioritization - better to excel at one thing than be mediocre at many.</p>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>6.4 Would you prefer Lead Intel as a standalone app, a Salesforce widget, a browser extension, or something else?</h3>
+                <p class="context">Delivery mechanism affects adoption significantly.</p>
+                <span class="tag integration">Integration</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+        </section>
+
+        <!-- Section 7: Demo & Validation -->
+        <section>
+            <h2><span class="number">7</span> Lead Intel Demo Feedback</h2>
+
+            <div class="question priority-high">
+                <h3>7.1 [After demo] What features stood out as genuinely useful for your workflow?</h3>
+                <p class="context">Positive validation - what resonated?</p>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question priority-high">
+                <h3>7.2 [After demo] What's missing that you'd need to actually use this tool daily?</h3>
+                <p class="context">Gap analysis - critical for product roadmap.</p>
+                <span class="tag pain-point">Pain Point</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>7.3 [After demo] Does anything in Lead Intel duplicate what you already have in Salesforce or ZRA?</h3>
+                <p class="context">Avoiding duplication is essential for adoption.</p>
+                <span class="tag integration">Integration</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>7.4 [After demo] On a scale of 1-10, how likely would you be to use Lead Intel daily? Why?</h3>
+                <p class="context">NPS-style question with qualitative follow-up.</p>
+                <span class="tag workflow">Workflow</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+        </section>
+
+        <!-- Section 8: Integration Requirements -->
+        <section>
+            <h2><span class="number">8</span> Integration Requirements</h2>
+
+            <div class="question priority-high">
+                <h3>8.1 If Lead Intel integrated with Salesforce, what data should it pull automatically?</h3>
+                <p class="context">Specific integration requirements for Salesforce.</p>
+                <span class="tag salesforce">Salesforce</span>
+                <span class="tag integration">Integration</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question priority-high">
+                <h3>8.2 If Lead Intel integrated with Zoom Phone, what would be most valuable? (Click-to-dial, call logging, etc.)</h3>
+                <p class="context">Specific integration requirements for Zoom Phone.</p>
+                <span class="tag zoom">Zoom Phone</span>
+                <span class="tag integration">Integration</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+
+            <div class="question">
+                <h3>8.3 Would you want Lead Intel to sync data back to Salesforce? (e.g., call notes, AI insights)</h3>
+                <p class="context">Bi-directional sync requirements.</p>
+                <span class="tag salesforce">Salesforce</span>
+                <span class="tag integration">Integration</span>
+                <div class="answer-space">[Record response here]</div>
+            </div>
+        </section>
+
+        <div class="notes-section">
+            <h3>Additional Notes & Observations</h3>
+            <p>Use this space for any observations about the SDR's workflow, body language when discussing pain points, or ideas that come up during conversation.</p>
+            <div class="answer-space" style="min-height: 150px;">[Free-form notes]</div>
+        </div>
+
+        <div class="notes-section" style="background: #DBEAFE; border-color: var(--primary);">
+            <h3>Key Takeaways & Action Items</h3>
+            <p>Summarize the 3-5 most important insights from this conversation and next steps.</p>
+            <div class="answer-space" style="min-height: 150px;">[Summarize after meeting]</div>
+        </div>
+
+        <footer>
+            <p>Lead Intel SDR Discovery Questionnaire | Hawk Ridge Systems | Generated January 30, 2026</p>
+            <p>Remember: The goal is to understand their workflow, not to sell. Listen more than you talk.</p>
+        </footer>
+    </div>
+</body>
+</html>
