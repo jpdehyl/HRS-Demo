@@ -14,8 +14,9 @@ app.set("trust proxy", 1);
 // Security headers with Helmet
 app.use(
   helmet({
-    contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
+    contentSecurityPolicy: false, // We set our own CSP below
     crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   })
 );
 
