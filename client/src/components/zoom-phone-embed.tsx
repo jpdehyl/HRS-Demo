@@ -86,10 +86,13 @@ export function ZoomPhoneEmbed({
   const ZOOM_ORIGIN = "https://applications.zoom.us";
 
   // Fetch Zoom embed config (client_id) from the backend
-  const { data: zoomConfig, isLoading: configLoading } = useQuery<{ configured: boolean; clientId?: string; message?: string }>({
+  const { data: zoomConfig, isLoading: configLoading, isError: configError } = useQuery<{ configured: boolean; clientId?: string; message?: string }>({
     queryKey: ["/api/zoom/embed-config"],
     retry: 1,
   });
+
+  // Treat query error the same as "not configured"
+  const isZoomConfigured = !configLoading && !configError && zoomConfig?.configured === true;
 
   // Build embed URL with client_id if available
   const EMBED_URL = zoomConfig?.clientId
@@ -98,7 +101,7 @@ export function ZoomPhoneEmbed({
 
   // Set a timeout to detect connection failures
   useEffect(() => {
-    if (!zoomConfig?.configured || configLoading) return;
+    if (!isZoomConfigured) return;
 
     readyTimeoutRef.current = setTimeout(() => {
       if (!isReady) {
@@ -353,13 +356,23 @@ export function ZoomPhoneEmbed({
             <Loader2 className="h-8 w-8 animate-spin mb-3" />
             <p className="text-sm">Loading Zoom Phone configuration...</p>
           </div>
-        ) : zoomConfig && !zoomConfig.configured ? (
-          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground px-4">
+        ) : !isZoomConfigured ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground px-6">
             <AlertTriangle className="h-10 w-10 mb-3 text-yellow-500" />
-            <p className="text-sm font-medium text-foreground mb-1">Zoom Phone Not Configured</p>
-            <p className="text-xs text-center">
-              {zoomConfig.message || "ZOOM_CLIENT_ID environment variable is not set. Please configure Zoom integration in your environment settings."}
+            <p className="text-sm font-medium text-foreground mb-2">Zoom Phone Not Configured</p>
+            <p className="text-xs text-center mb-4">
+              {zoomConfig?.message || "A Zoom Marketplace app is required for the phone embed to work."}
             </p>
+            <div className="text-xs text-muted-foreground space-y-2 w-full max-w-sm">
+              <p className="font-medium text-foreground">Setup steps:</p>
+              <ol className="list-decimal list-inside space-y-1.5">
+                <li>Go to <span className="font-mono text-[11px]">marketplace.zoom.us</span> &rarr; Develop &rarr; Build App</li>
+                <li>Choose <span className="font-medium">"Zoom Phone Smart Embed"</span> app type</li>
+                <li>Configure the app and note the <span className="font-medium">Client ID</span>, <span className="font-medium">Client Secret</span>, and <span className="font-medium">Account ID</span></li>
+                <li>Under Embed settings, add your domain (<span className="font-mono text-[11px]">hrs-demo.replit.app</span>) to allowed domains</li>
+                <li>Set <span className="font-mono text-[11px]">ZOOM_CLIENT_ID</span>, <span className="font-mono text-[11px]">ZOOM_CLIENT_SECRET</span>, and <span className="font-mono text-[11px]">ZOOM_ACCOUNT_ID</span> in your environment secrets</li>
+              </ol>
+            </div>
           </div>
         ) : (
           <div className="relative w-full" style={{ minHeight: "580px" }}>
