@@ -35,6 +35,21 @@ export function registerZoomRoutes(app: Express) {
     };
   };
 
+  // Expose non-sensitive Zoom config for the embed widget
+  app.get("/api/zoom/embed-config", requireAuth, async (req: Request, res: Response) => {
+    const clientId = process.env.ZOOM_CLIENT_ID;
+    if (!clientId) {
+      return res.status(503).json({
+        configured: false,
+        message: "Zoom integration is not configured. ZOOM_CLIENT_ID is missing.",
+      });
+    }
+    res.json({
+      configured: true,
+      clientId,
+    });
+  });
+
   app.get("/api/zoom/test-connection", requireAuth, async (req: Request, res: Response) => {
     try {
       const result = await zoomService.testConnection();
