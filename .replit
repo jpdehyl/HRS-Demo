@@ -48,7 +48,6 @@ expertMode = true
 [userenv]
 
 [userenv.shared]
-TWILIO_PHONE_NUMBER = "+18157433066"
 LOCAL_TIMEZONE = "America/Los_Angeles"
 LEADS_SPREADSHEET_ID = "1dEbs4B7oucHJmA8U0-VehfzQN3Yt54RRs6VQlWNxX2I"
 GOOGLE_INBOX_FOLDER_ID = "1NsEMlqn_TUeVenFSWgLU3jEsUCa6LWus"
