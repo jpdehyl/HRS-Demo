@@ -30,8 +30,9 @@ app.use((req, res, next) => {
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
       "connect-src 'self' https: wss:",
-      "frame-src https://applications.zoom.us https://*.zoom.us",
+      "frame-src https://applications.zoom.us https://marketplace.zoom.us https://*.zoom.us https://zoom.us",
       "media-src 'self' blob: https:",
+      "form-action 'self' https://applications.zoom.us https://marketplace.zoom.us https://*.zoom.us https://zoom.us",
     ].join('; ')
   );
   next();

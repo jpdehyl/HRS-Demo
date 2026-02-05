@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Phone, PhoneOff, Maximize2, Minimize2, Volume2 } from "lucide-react";
+import { Phone, PhoneOff, Maximize2, Minimize2, Volume2, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 export interface ZoomCallEvent {
   id: string;
@@ -78,10 +79,59 @@ export function ZoomPhoneEmbed({
   const [callState, setCallState] = useState<CallState>("idle");
   const [currentCall, setCurrentCall] = useState<ZoomCallEvent | null>(null);
   const [isMinimized, setIsMinimized] = useState(initialMinimized);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const processedEventsRef = useRef<Set<string>>(new Set());
+  const readyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const ZOOM_ORIGIN = "https://applications.zoom.us";
-  const EMBED_URL = "https://applications.zoom.us/integration/phone/embeddablephone/home";
+
+  // Fetch Zoom embed config (client_id) from the backend
+  const { data: zoomConfig, isLoading: configLoading } = useQuery<{ configured: boolean; clientId?: string; message?: string }>({
+    queryKey: ["/api/zoom/embed-config"],
+    retry: 1,
+  });
+
+  // Build embed URL with client_id if available
+  const EMBED_URL = zoomConfig?.clientId
+    ? `https://applications.zoom.us/integration/phone/embeddablephone/home?client_id=${zoomConfig.clientId}`
+    : "https://applications.zoom.us/integration/phone/embeddablephone/home";
+
+  // Set a timeout to detect connection failures
+  useEffect(() => {
+    if (!zoomConfig?.configured || configLoading) return;
+
+    readyTimeoutRef.current = setTimeout(() => {
+      if (!isReady) {
+        setConnectionError(
+          "Zoom Phone widget did not connect. Please ensure you are logged into your Zoom account and have Zoom Phone enabled."
+        );
+      }
+    }, 15000); // 15 second timeout
+
+    return () => {
+      if (readyTimeoutRef.current) {
+        clearTimeout(readyTimeoutRef.current);
+      }
+    };
+  }, [zoomConfig, configLoading, isReady]);
+
+  const reloadWidget = useCallback(() => {
+    setConnectionError(null);
+    setIsReady(false);
+    if (readyTimeoutRef.current) {
+      clearTimeout(readyTimeoutRef.current);
+    }
+    if (iframeRef.current) {
+      iframeRef.current.src = EMBED_URL;
+    }
+    readyTimeoutRef.current = setTimeout(() => {
+      if (!isReady) {
+        setConnectionError(
+          "Zoom Phone widget did not connect. Please ensure you are logged into your Zoom account and have Zoom Phone enabled."
+        );
+      }
+    }, 15000);
+  }, [EMBED_URL, isReady]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -103,6 +153,10 @@ export function ZoomPhoneEmbed({
         case "onZoomPhoneIframeApiReady":
           console.log("[ZoomPhone] iframe API ready");
           setIsReady(true);
+          setConnectionError(null);
+          if (readyTimeoutRef.current) {
+            clearTimeout(readyTimeoutRef.current);
+          }
           initializeWidget();
           break;
 
@@ -294,20 +348,55 @@ export function ZoomPhoneEmbed({
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="relative w-full" style={{ minHeight: "580px" }}>
-          <iframe
-            ref={iframeRef}
-            src={EMBED_URL}
-            width="100%"
-            height="580"
-            allow="microphone; camera; clipboard-read; clipboard-write https://applications.zoom.us"
-            style={{
-              border: "none",
-              borderRadius: "0 0 0.5rem 0.5rem",
-            }}
-            title="Zoom Phone"
-          />
-        </div>
+        {configLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin mb-3" />
+            <p className="text-sm">Loading Zoom Phone configuration...</p>
+          </div>
+        ) : zoomConfig && !zoomConfig.configured ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground px-4">
+            <AlertTriangle className="h-10 w-10 mb-3 text-yellow-500" />
+            <p className="text-sm font-medium text-foreground mb-1">Zoom Phone Not Configured</p>
+            <p className="text-xs text-center">
+              {zoomConfig.message || "ZOOM_CLIENT_ID environment variable is not set. Please configure Zoom integration in your environment settings."}
+            </p>
+          </div>
+        ) : (
+          <div className="relative w-full" style={{ minHeight: "580px" }}>
+            {connectionError && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/90 px-6">
+                <AlertTriangle className="h-10 w-10 mb-3 text-yellow-500" />
+                <p className="text-sm font-medium text-foreground mb-2 text-center">Connection Issue</p>
+                <p className="text-xs text-muted-foreground text-center mb-4">{connectionError}</p>
+                <div className="space-y-2 text-xs text-muted-foreground mb-4">
+                  <p>Checklist:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Log into your Zoom account in this browser</li>
+                    <li>Ensure Zoom Phone is enabled on your account</li>
+                    <li>Authorize the Zoom Phone Smart Embed app when prompted</li>
+                    <li>Check that your domain is in the Zoom app's allowed domains</li>
+                  </ul>
+                </div>
+                <Button size="sm" variant="outline" onClick={reloadWidget}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry Connection
+                </Button>
+              </div>
+            )}
+            <iframe
+              ref={iframeRef}
+              src={EMBED_URL}
+              width="100%"
+              height="580"
+              allow="microphone; camera; clipboard-read; clipboard-write https://applications.zoom.us"
+              style={{
+                border: "none",
+                borderRadius: "0 0 0.5rem 0.5rem",
+              }}
+              title="Zoom Phone"
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
