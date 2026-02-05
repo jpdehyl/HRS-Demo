@@ -36,12 +36,13 @@ export function registerZoomRoutes(app: Express) {
   };
 
   // Expose non-sensitive Zoom config for the embed widget
+  // Returns 200 even when not configured so the frontend query doesn't throw
   app.get("/api/zoom/embed-config", requireAuth, async (req: Request, res: Response) => {
     const clientId = process.env.ZOOM_CLIENT_ID;
     if (!clientId) {
-      return res.status(503).json({
+      return res.json({
         configured: false,
-        message: "Zoom integration is not configured. ZOOM_CLIENT_ID is missing.",
+        message: "Zoom integration is not configured. Set ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET, and ZOOM_ACCOUNT_ID in your environment secrets.",
       });
     }
     res.json({
